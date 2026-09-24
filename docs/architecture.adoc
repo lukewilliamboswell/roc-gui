@@ -191,7 +191,10 @@ again later.
 
 Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
 and columns become flex containers, panels become styled surfaces, dialogs
-become centred modal layers with input-blocking scrims, text becomes a text
+become centred modal layers with input-blocking scrims, popovers become an
+anchor wrapper with a floating surface, splits become two pane holders either
+side of a focusable divider, drop targets become flex columns that take GPUI's
+external file drops, text becomes a text
 child, and enabled action buttons add focus, keyboard, and pointer
 listeners. A boundary marker materialises as a transparent single-child view,
 not a synthetic row, column, or styled surface. Retained marker subtrees retain
@@ -203,8 +206,34 @@ preedit remains transient in the editor and dispatches one change when the
 composition commits. A virtual list is the deliberate exception: its complete
 keyed item subtrees remain in the canonical graph, but GPUI's
 viewport callback creates entities only for intersecting fixed-height rows and
-recycles entities that leave the range. The host connects the new native
+recycles entities that leave the range. GPUI asks for one row to measure and
+then for the rows it shows, so a list's frame is settled once, after GPUI has
+drawn it: rows that left the view are recycled, the measured row is kept, and
+the frame's materialisation is recorded. The host connects the new native
 subtree to retained entities around its boundary and releases replaced views.
+
+A list of rows produced on demand goes further: the canonical graph holds only
+a window of its rows. The list lowers inside its own transparent render
+boundary, and lowering asks the host which rows to build, because the host owns
+the viewport. The host keeps that viewport per boundary instance, since the list
+node is replaced whenever its window moves. It places the rows the viewport
+shows and one viewport either side, applies a scroll request once per serial,
+and, before GPUI has drawn the list, takes the viewport to be as tall as the
+window. GPUI's callback draws the list's full length and holds the place of a
+row that is not mounted. When a settled frame shows rows within half a viewport
+of the mounted edge, or shows a new range the application asked to hear of, the
+host dispatches the list's own route. That turn renders the list boundary again
+against unchanged state, which invalidates no ancestor's memo snapshot, and the
+new window replaces the old one in one ordinary patch. An action a row raises
+passes through the transparent boundary to the list's owner.
+
+A canvas that asks for its size is settled the same way, after the frame. Its
+prepaint records the bounds GPUI laid it out at and defers the report until the
+frame is drawn. The mounted graph holds the size last reported to each canvas
+and carries it by identity across a rebuild, as it carries hover and focus, so
+a size is dispatched through the canvas's route only when it is new to that
+canvas. Both runners ask the graph, which is what makes a size reported once
+whichever runner lays the canvas out.
 
 The host enables GPUI's native view cache for non-root button leaves, rows,
 columns, and panels whose pixel width and height equal their minimum and
@@ -250,7 +279,9 @@ structural path remounts it. Removing and recreating the same key also remounts
 it. Native focus, caret, IME preedit, scroll offsets, and pending presses belong
 to these scoped lifetimes, not to a globally reusable application key. A virtual
 row leaving the materialised viewport does not remove its canonical component
-instance or revoke its tasks.
+instance or revoke its tasks. A row produced on demand that leaves the mounted
+window leaves the graph, and its components retire with it like any removed
+subtree; state that must outlive the row belongs to the list's owner.
 
 An ordinary patch keeps focus on the control that had it, by its stable role
 and semantic name, even where the node carrying that control is a new one. A
@@ -263,6 +294,52 @@ While a dialog is mounted, controls outside its graph subtree do not install
 pointer listeners or tab stops. The runtime focuses the first enabled dialog
 control, routes Escape to the dialog node, and restores the opener by its stable
 role and semantic name after the dialog leaves the graph.
+
+A popover mounts its anchor and its content together, and the graph decides
+when the content presents. The pointer resting on the anchor arms the
+popover's delay, the host waits it out on the window's clock and asks the graph
+again, and focus entering the anchor presents it at once. The surface is drawn
+as a deferred, window-anchored layer beside the anchor, so no scroll region
+clips it. Escape that no dialog takes reaches the window root and closes every
+presenting popover. The graph carries hover and presentation state across a
+rebuild by identity, so an application that rerenders the anchor under the
+pointer neither closes the surface nor sees a second enter. A newly mounted
+dialog retires background popover state as it does background hover state.
+Opening and closing a surface runs no Roc: it is presentation, owned by the
+host, and counted by the graph that decides it.
+
+A split mounts both of its panes, and the graph decides which it presents: a
+collapsed split's sized pane stays mounted, with its component lifetime and its
+tasks, but it is neither drawn nor presented to locators. The host measures a
+drag of the divider from the press, against the bounds the split carries, in
+one rule both runners call, and asks Roc only for a size the divider does not
+already show. The divider's keys are shortcuts of the split, live only while
+the divider itself holds focus, so they reach Roc through the same shortcut
+route every region uses.
+
+A drop target carries the file types it accepts, so the host admits a drop
+without asking Roc: GPUI delivers the operating system's file drop to the
+target it hit-tests, the host checks each dropped item as it checks a chosen
+file, and the target's route asks for the grants as it runs. A window
+specification drops through those same GPUI events; the semantic runner admits
+the same paths and takes the same route. The files a drop grants are made only
+when that route asks, so a drop that reaches no live route grants nothing.
+
+Shortcuts are declared by elements, so the graph knows every live one and the
+component that owns it. GPUI offers a keystroke to its keymap's actions along
+the focus path first: the host's Tab, Escape, and App access chords at the
+root, a focused control's activation keys, and a focused text input's editing
+keys. A keystroke no action took, and that a focused field is not typing,
+reaches one listener at the window root, which asks the graph for the shortcut
+it reaches. The graph walks up from the focused control to find the regions
+enclosing it, innermost first, then asks the regions holding window shortcuts;
+it never visits the rest of the tree, and it counts every comparison. The
+matched region's single route runs the shortcut's handler as a `key` cycle. A
+focus request is a serial on a region: the graph carries each region's serial
+across a rebuild by identity, so only a new serial asks, and after applying a
+patch the host focuses the first enabled control inside the region that asked.
+The semantic runner resolves a `key` step and honours a request through the same
+graph calls.
 
 The host notifies GPUI of the changed entity. GPUI owns subsequent rendering,
 layout, prepaint, paint, and presentation. roc-gui does not calculate geometry
@@ -326,16 +403,16 @@ state. Adapters operate on state rather than decoding keys. The `lift` method on
 adapts a prebuilt element's handlers: it adds no lifetime or boundary and does
 not consume delegation.
 
-`Gui.update` commits through the adapters and renders only the originating
+`Gui.Action.update` commits through the adapters and renders only the originating
 boundary. It neither renders nor compares unrelated siblings. Parent summaries
 respond through explicit delegation or composition within one render boundary.
 The platform does not infer dependencies by tracking state reads.
 
-`Gui.delegate(next_child)` constructs a candidate parent and passes it to the
+`Gui.Action.delegate(next_child)` constructs a candidate parent and passes it to the
 nearest translation's `on_delegate` callback. Its parent action accepts,
-revises, vetoes, starts parent-owned work, or delegates further. `Gui.none`
+revises, vetoes, starts parent-owned work, or delegates further. `Gui.Action.none`
 vetoes the entire candidate. Delegation reaching the root becomes a root
-update; the default callback accepts with `Gui.update`.
+update; the default callback accepts with `Gui.Action.update`.
 
 A key promises a stable logical component and state projection for its mounted
 lifetime. Rebinding either requires a different key. Removal, a changed key or
@@ -377,7 +454,7 @@ unique ownership of lists, strings, resources, or indexed registry nodes.
 
 == Asynchronous action turns
 
-A `Gui.task` proposes its pending state and a boxed worker. After graph
+A `Gui.Action.task` proposes its pending state and a boxed worker. After graph
 acceptance, the host queues the worker on the native pool. The worker runs its
 continuations and hands a boxed reducer to the host completion slot. The UI
 thread delivers that reducer through
@@ -392,21 +469,54 @@ still exist. A removed owner's completion is discarded; it never recreates
 child state and never falls back to the root. To outlive a child, work must be
 started by a surviving ancestor, including through `on_delegate`.
 
-Discarding a completion releases its result and captured resources through
-normal reference counting. It revokes delivery, not arbitrary running effects:
-a blocked worker can still own a resource until its operation finishes or an
-explicit capability cancellation wakes it. Request identities in application
-state handle superseded work within one live instance; component lifetime does
-not imply a latest-request-wins policy. Roc values cross threads only as owned
-erased callables; generic state and actions remain boxed across the ABI.
+=== Task lifetime, supersession, and cancellation
+
+The host issues each task when the transaction that proposed it commits, and
+records it against its owner and an optional key. Every issued task ends in
+exactly one way:
+
+delivered:: its worker published a completion and the UI thread applied it;
+superseded:: the same owner committed a newer `Gui.Action.keyed_task` with the same
+key;
+cancelled:: the owner committed a `Gui.Action.cancel` for its key, the owner was
+removed from the mounted graph, or the session ended.
+
+Supersession and cancellation are staged with the turn that asks for them and
+take effect only when its transaction commits, like the task launches of the
+same turn: a removed owner's tasks end first, then the turn's cancellations,
+then its new tasks are issued. A task that ends undelivered never reaches the
+application. If a worker has not started it, it never runs. If it is running,
+a capability wait it is blocked in is interrupted: a timer's `next!` and a
+watch's `next!` return `Canceled`, leaving the timer or watch itself running
+for a later task, and a SQLite statement stops through its connection's
+`sqlite3_interrupt`, backed by a progress handler for a statement that had not
+yet begun to step. If its completion is already queued, the UI thread drops it
+where it takes it. No undelivered completion enters Roc, so none records a
+cycle.
+
+The task owner keeps six deterministic counters: tasks issued, completions
+published, completions delivered, tasks superseded, tasks cancelled, and
+capability waits interrupted. Issued tasks minus delivered, superseded, and
+cancelled ones are the work still outstanding; that difference is what a
+window run's settling waits on. A gauge of the running tasks blocked in an
+interruptible wait, or ended and still unwinding, lets a specification cancel a
+task that is certainly blocked rather than one still queued, and then wait
+until it has released what it held.
+
+Keys are scoped to the owning boundary instance, so two instances of one
+component never supersede each other. An unkeyed `Gui.Action.task` supersedes nothing
+and is cancelled only with its owner. Discarding a completion releases its
+result and captured resources through normal reference counting. Roc values
+cross threads only as owned erased callables; generic state and actions remain
+boxed across the ABI.
 
 Periodic subscriptions use the same route. A timer has at most one waiting
-`Gui.TimerHandle` `next!` task. Its wait parks on a worker and returns a normal boxed
+`Gui.Timer.Handle` `next!` task. Its wait parks on a worker and returns a normal boxed
 reducer; the UI thread applies that reducer through the installed session.
 Cancellation wakes the waiter, and cadence advances from the completion of the
 preceding pull, so a slow consumer cannot create an unbounded event backlog.
 
-HTTP requests also use `Gui.task` and the canonical worker/completion route.
+HTTP requests also use `Gui.Action.task` and the canonical worker/completion route.
 An opaque `Box(U64)` client names a host registry entry for one explicitly
 granted origin. The initial URL and every redirect retain its scheme, host, and
 effective port.
@@ -471,7 +581,7 @@ That write-up proposes a user interface API for Roc in which a renderer is a
 pure function from state to an `Elem` value, event handlers return an `Action`
 rather than a message, and a translation function relates a component's state to
 its parent's state while marking the unit of re-rendering. roc-gui is an
-development of that design. `Gui.update`, `Gui.none`, the shared `state`
+development of that design. `Gui.Action.update`, `Gui.Action.none`, the shared `state`
 type variable on `Elem` and `Action`, and adapting child renderers through
 getters and setters follow its central idea: state ownership can identify the
 subtree an action needs to update. Pure translations express that boundary;
@@ -485,7 +595,7 @@ calling it twice with the same state yields the same description and calling it
 is never a way to make something happen. Everything that can make something
 happen is an `Action` returned from a handler, and an `Action` is a value: it
 describes a transition rather than performing one. Constructing
-`Gui.update(next)` changes nothing. The platform changes state only when it
+`Gui.Action.update(next)` changes nothing. The platform changes state only when it
 receives that value back from a handler and accepts its graph transaction.
 
 That division is what makes the concurrency tractable. Application state lives
@@ -498,7 +608,7 @@ always receives the state that precedes it rather than a snapshot captured when
 the tree was rendered. A handler's first argument is therefore the state to
 build the next state from.
 
-`Gui.task` extends the same discipline to work that must not block the
+`Gui.Action.task` extends the same discipline to work that must not block the
 interface. It commits its `pending` state before handing the effect body
 to a worker thread, which returns a reducer rather than a state value. The UI
 thread applies that reducer to whatever the latest state is by then, so events
@@ -513,10 +623,10 @@ surface syntax. Pure descriptions leave execution to the platform. Delegation
 lets the parent decide whether to accept a child's proposal. Fallible state
 projections make removal explicit. Deferred rendering enables memoized
 subtrees. roc-gui gives those ideas one coherent ownership model through
-pure translations, `Gui.delegate`, host-owned keyed lifetimes, and explicit
+pure translations, `Gui.Action.delegate`, host-owned keyed lifetimes, and explicit
 memo equivalence.
 
-Periodic work uses `Gui.task` around a timer handle in application state,
+Periodic work uses `Gui.Action.task` around a timer handle in application state,
 with explicit cadence and cancellation. There is no string-keyed global effect
 tracker. Instance liveness answers whether an owner still exists; application
 request identity answers whether a result remains relevant to that live owner.

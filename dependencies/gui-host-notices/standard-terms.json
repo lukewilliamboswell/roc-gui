@@ -56,6 +56,11 @@
       "path": "standard-terms/CDLA-Permissive-2.0.txt",
       "sha256": "4531a67d443284d93ffed0803df5b10634aff21c3d77e381f2d48af01d875868",
       "source_url": "https://raw.githubusercontent.com/spdx/license-list-data/d46e94e2c78ceede1cfc63cfa0396472d2798d4c/text/CDLA-Permissive-2.0.txt"
+    },
+    "bzip2-1.0.6": {
+      "path": "standard-terms/bzip2-1.0.6.txt",
+      "sha256": "0a56dbabe7d2ff65dea26e8b795fe42c6204a192b974d8e9304fe356ccda9fd1",
+      "source_url": "https://raw.githubusercontent.com/spdx/license-list-data/d46e94e2c78ceede1cfc63cfa0396472d2798d4c/text/bzip2-1.0.6.txt"
     }
   },
   "expressions": {
@@ -167,6 +172,9 @@
     ],
     "Zlib OR Apache-2.0 OR MIT": [
       "MIT"
+    ],
+    "bzip2-1.0.6": [
+      "bzip2-1.0.6"
     ]
   },
   "excluded_targets": {}

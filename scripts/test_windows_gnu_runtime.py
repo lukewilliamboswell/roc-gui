@@ -11,13 +11,37 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_windows_gnu_runtime import corresponding_source, RECIPE
+from build_windows_gnu_runtime import corresponding_source, link_arguments, runtime_input, RECIPE
 from release_windows_gnu_runtime import prepare
 from test_windows_gnu_runtime_artifact import ROC_PROBE_OPT
 from windows_runtime_validation import ucrt_inventory
 
 
 class RuntimeValidationTests(unittest.TestCase):
+    def test_cache_containment_resolves_the_work_directory_and_rejects_escapes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            work = root / 'actual'
+            cache = work / 'global/o/hash'
+            cache.mkdir(parents=True)
+            candidate = cache / 'crt2.obj'
+            candidate.write_bytes(b'object')
+            alias = root / 'alias'
+            alias.symlink_to(work, target_is_directory=True)
+            self.assertEqual(runtime_input(alias, 'global/o/hash/crt2.obj'), candidate.resolve())
+            with self.assertRaisesRegex(ValueError, 'escapes private cache'):
+                runtime_input(alias, '../outside.obj')
+            with self.assertRaisesRegex(ValueError, 'missing bootstrap'):
+                runtime_input(alias, 'global/o/hash/missing.obj')
+            (cache / 'escape.obj').symlink_to(root / 'outside.obj')
+            with self.assertRaisesRegex(ValueError, 'escapes private cache'):
+                runtime_input(alias, 'global/o/hash/escape.obj')
+
+    def test_windows_verbose_link_keeps_backslashes(self):
+        with patch('build_windows_gnu_runtime.os.name', 'nt'):
+            self.assertEqual(link_arguments(r'lld-link -OUT:C:\work\seed.exe C:\work\global\o\hash\crt2.obj'),
+                             ['lld-link', r'-OUT:C:\work\seed.exe', r'C:\work\global\o\hash\crt2.obj'])
+
     def test_roc_final_link_probe_uses_the_dev_backend(self):
         self.assertEqual(ROC_PROBE_OPT, '--opt=dev')
 
@@ -64,7 +88,8 @@ class RuntimeValidationTests(unittest.TestCase):
                                'lib/libc/include/generic-glibc/foreign.h': 'unrelated\n'}.items():
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(text)
+                # Upstream sources are byte-exact; no checkout translates them.
+                path.write_bytes(text.encode())
             recipe = {'source_files': ['LICENSE'], 'source_directories': ['lib/libc/mingw'],
                       'headers': ['lib/include', 'lib/libc/include/any-windows-any']}
             first = corresponding_source(root, recipe)

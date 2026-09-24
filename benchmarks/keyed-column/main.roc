@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc" }
 
 import pf.Gui
 
@@ -11,11 +11,11 @@ render_item = |item| Gui.row(
 	{ label: "Keyed item", gap: 8 },
 	[
 		Gui.text("item ${item.id.to_str()} value ${item.value.to_str()}"),
-		Gui.button({ caption: "Increment ${item.id.to_str()}", label: "Increment ${item.id.to_str()}", on_press: |prev, _| Gui.update({ ..prev, value: prev.value + 1 }) }),
-		Gui.button({ caption: "Move ${item.id.to_str()} first", label: "Move ${item.id.to_str()} first", on_press: |prev, _| Gui.delegate({ ..prev, command: MoveFirst }) }),
-		Gui.button({ caption: "Task ${item.id.to_str()}", label: "Task ${item.id.to_str()}", on_press: |prev, _| Gui.task({ pending: prev, run: || 10, resolve: |latest, amount| Gui.update({ ..latest, value: latest.value + amount }) }) }),
-		Gui.button({ caption: "Skip revision ${item.id.to_str()}", label: "Skip revision ${item.id.to_str()}", on_press: |prev, _| Gui.delegate({ ..prev, command: StaleSet }) }),
-		Gui.button({ caption: "Remove ${item.id.to_str()}", label: "Remove ${item.id.to_str()}", on_press: |prev, _| Gui.delegate({ ..prev, command: RemoveSelf }) }),
+		Gui.button({ caption: "Increment ${item.id.to_str()}", label: "Increment ${item.id.to_str()}", on_press: |prev, _| Gui.Action.update({ ..prev, value: prev.value + 1 }) }),
+		Gui.button({ caption: "Move ${item.id.to_str()} first", label: "Move ${item.id.to_str()} first", on_press: |prev, _| Gui.Action.delegate({ ..prev, command: MoveFirst }) }),
+		Gui.button({ caption: "Task ${item.id.to_str()}", label: "Task ${item.id.to_str()}", on_press: |prev, _| Gui.Action.task({ pending: prev, run: || 10, resolve: |latest, amount| Gui.Action.update({ ..latest, value: latest.value + amount }) }) }),
+		Gui.button({ caption: "Skip revision ${item.id.to_str()}", label: "Skip revision ${item.id.to_str()}", on_press: |prev, _| Gui.Action.delegate({ ..prev, command: StaleSet }) }),
+		Gui.button({ caption: "Remove ${item.id.to_str()}", label: "Remove ${item.id.to_str()}", on_press: |prev, _| Gui.Action.delegate({ ..prev, command: RemoveSelf }) }),
 	],
 )
 
@@ -41,7 +41,7 @@ accept_command = |proposed| {
 			}
 		}
 	}
-	Gui.update({ items: $next })
+	Gui.Action.update({ items: $next })
 }
 
 render : State -> Gui.Elem(State)

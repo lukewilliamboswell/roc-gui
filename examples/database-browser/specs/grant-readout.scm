@@ -21,4 +21,4 @@
     (expect-visible (role panel :name "Database error"))
     (expect-visible (text "read-only, this folder only"))
     (expect-visible (text "fixture"))
-    (expect-sqlite-counters 1 2 2)))
+    (expect-sqlite-counters 1 2 1)))

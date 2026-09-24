@@ -6,6 +6,7 @@
   (click (role button :name "Remove first quadrant"))
   (click (role button :name "Create 100 cells"))
   (hover-enter (role button :name "Cell 1"))
-  (await-task)
-  (expect-background (role button :name "Cell 1") 0x66E0FF)
-  (expect-component-work :rendered 0 :compared 0)))
+  ; The removed leaf's reset was cancelled with its quadrant and never completes.
+  (await-task-waits 0)
+  (expect-task-counters 1 _ 0 0 1 _)
+  (expect-background (role button :name "Cell 1") 0x66E0FF)))

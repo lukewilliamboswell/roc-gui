@@ -1,10 +1,7 @@
 [workspace]
-members = ["crates/host", "vendor/gpui"]
+members = ["crates/host"]
 default-members = ["crates/host"]
 resolver = "3"
-
-[patch.crates-io]
-gpui = { path = "vendor/gpui" }
 
 [profile.dev]
 debug = 0

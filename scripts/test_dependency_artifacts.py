@@ -34,6 +34,50 @@ class DependencyTests(unittest.TestCase):
                         deps.unpack_verified(archive, self.entry, destination)
                     self.assertFalse(destination.exists())
 
+    def test_nix_manifest_requires_provenance_and_retains_inventory_checks(self):
+        build = {"builder_derivation": "/nix/store/" + "a" * 32 + "-builder.drv",
+                 "nixpkgs_revision": "b" * 40, "nixpkgs_nar_hash": "sha256-" + "A" * 43 + "=",
+                 "blueprint_lock_sha256": hashlib.sha256(b"lock").hexdigest(),
+                 "nix_recipe_sha256": hashlib.sha256(b"recipe").hexdigest()}
+        entry = {"name": "alsa", "target": "x64glibc"}
+        for index, change in enumerate(({}, {"builder_image": "legacy"},
+                                        {"builder_derivation": "unlocked"}, {"nixpkgs_revision": "latest"})):
+            archive = write_archive(self.root / f"nix-{index}.tar", {
+                "schema_version": 2, **entry, "build": dict(build, **change),
+            }, {"targets/x64glibc/libasound.so": b"interface",
+                "sources/alsa/Blueprint.lock": b"lock",
+                "sources/alsa/dependencies/linux/default.nix": b"recipe"})
+            destination = self.root / f"nix-{index}"
+            if index == 0:
+                deps.unpack_verified(archive, entry, destination)
+            else:
+                with self.assertRaisesRegex(ValueError, "Nix dependency provenance"):
+                    deps.unpack_verified(archive, entry, destination)
+                self.assertFalse(destination.exists())
+
+    def test_native_windows_provenance_is_bound_to_toolchain_and_sources(self):
+        entry = {"name": "windows-gnu-runtime", "target": "x64mingw"}
+        recipe_path = "dependencies/windows-gnu-runtime.json"
+        recipe_hash = hashlib.sha256(b"recipe").hexdigest()
+        build = {"builder_kind": "native-windows-zig", "toolchain_sha256": "c" * 64,
+                 "recipe_sha256": recipe_hash, "reproduction_sha256": {recipe_path: recipe_hash}}
+        for index, change in enumerate(({}, {"toolchain_sha256": "d" * 64},
+                                        {"builder_derivation": "/nix/store/fake"},
+                                        {"recipe_sha256": "e" * 64},
+                                        {"reproduction_sha256": {recipe_path: "f" * 64}})):
+            archive = write_archive(self.root / f"native-{index}.tar", {
+                "schema_version": 3, **entry, "build": dict(build, **change),
+                "source": {"native_toolchain": {"sha256": "c" * 64}},
+            }, {f"sources/windows-gnu-runtime/{recipe_path}": b"recipe",
+                "targets/x64mingw/crt2.obj": b"object"})
+            destination = self.root / f"native-{index}"
+            if index == 0:
+                deps.unpack_verified(archive, entry, destination)
+            else:
+                with self.assertRaises(ValueError):
+                    deps.unpack_verified(archive, entry, destination)
+                self.assertFalse(destination.exists())
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

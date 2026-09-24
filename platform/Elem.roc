@@ -1,5 +1,6 @@
 import Action
 import Event
+import Files
 import Host
 import Key
 import KeyedSeq
@@ -20,11 +21,14 @@ Elem(a) :: [
 	Column({ children : List(Elem(a)), props : Frame }),
 	KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : Frame, revision : U64 }),
 	Dialog({ children : List(Elem(a)), props : DialogNode(a) }),
+	Popover({ children : List(Elem(a)), props : PopoverNode(a) }),
 	Panel({ children : List(Elem(a)), props : PanelNode }),
 	Row({ children : List(Elem(a)), props : Frame }),
 	Scroll(ScrollNode(a)),
 	VirtualList(VirtualListNode(a)),
 	TextInput(TextInputNode(a)),
+	Split({ children : List(Elem(a)), props : SplitNode(a) }),
+	DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 	StyledText(TextNode),
 	Text(Str),
 ].{
@@ -47,6 +51,10 @@ Elem(a) :: [
 		render : (a, (Elem(a) -> Work) -> Work),
 		exists : (a, (Bool -> Work) -> Work),
 		remember : [None, Some((a, (Box((a, (Bool -> Work) -> Work)) -> Work) -> Work))],
+		## A transparent boundary renders on its own but holds no state of its
+		## own: an action raised inside it belongs to the nearest boundary
+		## above it that is not transparent.
+		transparent : Bool,
 	}
 
 	## Connect a child renderer to parent state and give it a stable lifetime.
@@ -161,7 +169,7 @@ Elem(a) :: [
 				},
 			),
 		)
-		Component(BoundComponent.{ key, render: render_boundary, exists: exists, remember })
+		Component(BoundComponent.{ key, render: render_boundary, exists: exists, remember, transparent: False })
 	}
 
 	## The semantic locator and presentation shared by `row`, `col`, and
@@ -171,6 +179,35 @@ Elem(a) :: [
 	## Platform representation of a modal dialog.
 	DialogNode(a) := { label : Str, style : Style, on_dismiss : (a, Event.Dismiss => Action(a)) }
 
+	## Where a popover's surface sits against its anchor: over it, under it,
+	## before it, or after it. The surface moves to the opposite side when the
+	## window has no room for it on the one asked for.
+	Placement : [Above, Below, Start, End]
+
+	## Platform representation of a popover. Its first child is the anchor and
+	## any others are the surface's content. A popover with no content is a
+	## region of its anchor: it reports the pointer entering and leaving it,
+	## answers its keyboard shortcuts, and asks for focus, and presents nothing.
+	PopoverNode(a) := {
+		label : Str,
+		placement : Placement,
+		delay_ms : U32,
+		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))],
+		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))],
+		shortcuts : List(Binding(a)),
+		focus_serial : U64,
+		style : Style,
+	}
+
+	## A key chord and what pressing it does. `keys` names modifiers and a key
+	## joined by `-`, such as `ctrl-k`, `shift-down`, or `secondary-s`, where
+	## `secondary` is Ctrl on Linux and Windows and Cmd on macOS.
+	Shortcut(a) : { keys : Str, on_press : (a, Event.Key => Action(a)) }
+
+	## Platform representation of one shortcut and when it is live: while its
+	## region is mounted, or only while keyboard focus is inside the region.
+	Binding(a) : { keys : Str, scope : [Window, Focus], on_press : (a, Event.Key => Action(a)) }
+
 	## Platform representation of a headed surface.
 	PanelNode := { label : Str, style : Style, heading : Str, heading_size : U32, heading_weight : U32, heading_color : Style.Color }
 
@@ -179,10 +216,62 @@ Elem(a) :: [
 	ButtonNode(a) := {
 		caption : Str,
 		label : Str,
+		role : ButtonRole,
 		enabled : Bool,
 		on_press : (a, Event.Press => Action(a)),
 		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))],
 		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))],
+		style : Style,
+	}
+
+	## What a pressable control is to a person and to a locator: a button, or
+	## one tab of a tab strip, selected or not.
+	ButtonRole : [Button, Tab, SelectedTab]
+
+	## The direction a split lays its two panes out in. `Horizontal` puts them
+	## side by side with an upright divider between; `Vertical` stacks them.
+	SplitAxis : [Horizontal, Vertical]
+
+	## Which of a split's two panes its size belongs to: the first, or the
+	## second. The other pane takes the space that is left.
+	SplitSide : [Start, End]
+
+	## Platform representation of a split: its two panes are its children, and
+	## it draws the divider between them. It carries the sized pane's extent,
+	## its bounds, and whether it may and does collapse, so the host can turn a
+	## drag into the size it asks for, and the keys its divider answers while
+	## the divider holds keyboard focus. `style` dresses the divider: `bg` and
+	## its hover, pressed, and focus colours; its size fields size the split.
+	SplitNode(a) := {
+		label : Str,
+		axis : SplitAxis,
+		side : SplitSide,
+		size : U32,
+		min : U32,
+		max : U32,
+		collapsible : Bool,
+		collapsed : Bool,
+		thickness : U32,
+		on_resize : (a, Event.Resize => Action(a)),
+		keys : List(Shortcut(a)),
+		style : Style,
+	}
+
+	## One tab of a tab strip: the key its events carry, the caption it shows,
+	## which also names it, and whether it offers a close button.
+	TabItem : { key : Str, title : Str, closable : Bool }
+
+	## Platform representation of a drop target: a column whose children are
+	## laid out as `col` lays them out, which accepts files dropped on it. It
+	## carries the file types it accepts, the colours it shows while files it
+	## would accept are dragged over it, and the handler a drop is delivered
+	## to.
+	DropTargetNode(a) := {
+		label : Str,
+		types : List(Files.FileType),
+		on_drop : (a, Event.Drop => Action(a)),
+		drop_bg : Style.Color,
+		drop_border : Style.Color,
 		style : Style,
 	}
 
@@ -207,8 +296,30 @@ Elem(a) :: [
 	## of its current index, while `content` is an ordinary element tree.
 	VirtualListItem(a) := { content : Elem(a), key : U64 }
 
-	## Platform representation of a viewport-driven, fixed-height list.
-	VirtualListNode(a) := { items : List(VirtualListItem(a)), label : Str, row_height : U32, row_gap : U32, style : Style }
+	## Platform representation of a viewport-driven, fixed-height list. A list
+	## built by `virtual_list` carries its rows in `items`; one built by
+	## `virtual_rows` carries a `provider` instead and no items.
+	VirtualListNode(a) := { items : List(VirtualListItem(a)), label : Str, row_height : U32, row_gap : U32, style : Style, provider : [None, Some(RowProvider(a))] }
+
+	## Where a list places a row it is asked to bring into view: at the leading
+	## edge, in the middle, at the trailing edge, or wherever moves it least —
+	## not at all when the row is already in view.
+	RowAlign : [Start, Center, End, Nearest]
+
+	## A request to bring `row` into view at `align`. The list moves once for
+	## each distinct `serial`: holding the same request across later renders
+	## leaves a person's own scrolling alone, and a new serial moves the list
+	## again, even to the same row.
+	ScrollRequest : { row : U64, align : RowAlign, serial : U64 }
+
+	## Platform representation of rows produced on demand.
+	RowProvider(a) := {
+		count : U64,
+		render_row : U64 -> Elem(a),
+		row_key : U64 -> U64,
+		scroll_to : [None, Some(ScrollRequest)],
+		on_range : [None, Some((a, Event.VisibleRows => Action(a)))],
+	}
 
 	## Platform representation of a checkbox.
 	CheckboxNode(a) := {
@@ -248,10 +359,18 @@ Elem(a) :: [
 	CanvasEllipse := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Style.Color, stroke : Style.Color ?? Default, stroke_width : U32 ?? 0 }
 	CanvasLine := { key : U64, label : Str, x1 : I32, y1 : I32, x2 : I32, y2 : I32, stroke : Style.Color, stroke_width : U32 ?? 1 }
 	CanvasRectangle := { key : U64, label : Str, x : I32, y : I32, width : U32, height : U32, fill : Style.Color, stroke : Style.Color ?? Default, stroke_width : U32 ?? 0, radius : U32 ?? 0 }
+	## A single line of text set in the box from `x` to `x + width`, with its
+	## top at `y` and a line `size * 5 / 4` pixels tall. `align` places the
+	## text within the box; text wider than the box is not clipped. Text is
+	## painted but never hit-tested, so a label drawn over a shape leaves the
+	## shape as the pointer's target.
+	CanvasText := { key : U64, label : Str, x : I32, y : I32, width : U32, value : Str, color : Style.Color, size : U32 ?? 12, align : CanvasTextAlign ?? Start }
+	CanvasTextAlign : [Start, Center, End]
 	CanvasPrimitive : [
 		Ellipse(CanvasEllipse),
 		Line(CanvasLine),
 		Rectangle(CanvasRectangle),
+		Text(CanvasText),
 	]
 
 	## A filled, optionally stroked and rounded rectangle on a canvas.
@@ -266,14 +385,52 @@ Elem(a) :: [
 	line : CanvasLine -> CanvasPrimitive
 	line = |shape| Line(shape)
 
+	## A single line of text on a canvas, aligned within a box.
+	canvas_text : CanvasText -> CanvasPrimitive
+	canvas_text = |shape| Text(shape)
+
 	## Platform representation of a native retained canvas. Coordinates are
 	## integer logical pixels, which makes semantic gestures and deterministic
 	## rendering agree.
-	CanvasNode(a) := { label : Str, primitives : List(CanvasPrimitive), on_pointer : (a, Event.CanvasPointer => Action(a)), style : Style }
+	CanvasNode(a) := {
+		label : Str,
+		primitives : List(CanvasPrimitive),
+		on_pointer : (a, Event.CanvasPointer => Action(a)),
+		on_hover : [None, Some((a, Event.CanvasHover => Action(a)))],
+		on_wheel : [None, Some((a, Event.CanvasWheel => Action(a)))],
+		on_size : [None, Some((a, Event.CanvasSize => Action(a)))],
+		style : Style,
+	}
 
 	## Platform representation of text set in its own colour, size, weight, and
-	## face. Only the typographic fields of `style` apply to a string.
-	TextNode := { value : Str, style : Style }
+	## face. Only the typographic fields of `style` apply to a string. `spans`
+	## is empty for text of one style; otherwise `value` is the spans' texts in
+	## order, and each span restyles its own part of it.
+	TextNode := { value : Str, style : Style, spans : List(TextSpan) }
+
+	## One styled run of rich text: its text, and what it sets over the
+	## element's own type. `Default` colours and weight 0 keep the element's.
+	TextSpan : { text : Str, fg : Style.Color, bg : Style.Color, font_weight : U32, underline : Bool, monospace : Bool }
+
+	## Properties for `span`. Only `text` is required.
+	SpanProps := {
+		text : Str,
+		fg : Style.Color ?? Default,
+		bg : Style.Color ?? Default,
+		font_weight : U32 ?? 0,
+		underline : Bool ?? False,
+		monospace : Bool ?? False,
+	}
+
+	## Properties for `rich_text`: its spans, and the type every span starts
+	## from.
+	RichTextProps := {
+		spans : List(TextSpan),
+		fg : Style.Color ?? Default,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		font_face : Style.FontFace ?? Default,
+	}
 
 	## Properties for `col`. `label` is an optional stable semantic locator.
 	## The remaining fields control the column's native layout and presentation.
@@ -411,6 +568,61 @@ Elem(a) :: [
 		justify : Style.Justify ?? Default,
 	}
 
+	## Properties for `popover`. `label` is the surface's stable semantic name,
+	## its locator as a tooltip. The surface opens `delay_ms` after the pointer
+	## comes to rest on the anchor, and at once when keyboard focus enters the
+	## anchor; it closes when both have left, or on Escape. The style fields
+	## dress the surface, never the anchor.
+	PopoverProps(a) := {
+		label : Str,
+		placement : Placement ?? Below,
+		delay_ms : U32 ?? 500,
+
+		## Optional pointer transitions on the anchor; absent handlers allocate
+		## no event routes.
+		on_hover_enter : [None, Some((a, Event.Hover => Action(a)))] ?? None,
+		on_hover_exit : [None, Some((a, Event.Hover => Action(a)))] ?? None,
+		gap : U32 ?? 4,
+		padding : U32 ?? 8,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Px(360),
+		max_height : Style.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Style.Color ?? Rgb(0x0f1b21),
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Rgb(0xeeeeea),
+		border_color : Style.Color ?? Rgb(0x48666b),
+		border_width : U32 ?? 1,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
+		radius : U32 ?? 6,
+		font_size : U32 ?? 14,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 12,
+		shadow_y : U32 ?? 4,
+		shadow_color : Style.Color ?? Rgb(0x000000),
+		shadow_alpha : U32 ?? 60,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
+	}
+
 	## Properties for `panel`. Panels are padded, bordered, rounded vertical
 	## surfaces by default, and carry a stable semantic `label`.
 	PanelProps := {
@@ -451,6 +663,116 @@ Elem(a) :: [
 		border_bottom : Style.Inset ?? Same,
 		border_left : Style.Inset ?? Same,
 		radius : U32 ?? 8,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Style.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
+	}
+
+	## Properties for `split`. `label` names the divider, its locator as a
+	## separator. `size` is the extent in logical pixels of the pane on `side`,
+	## held by the application and kept within `min` and `max`; the other pane
+	## takes the rest. Dragging the divider, or the arrow keys while it has
+	## keyboard focus, ask for a new size through `on_resize`, `step` pixels a
+	## key. Home and End ask for the bounds. A `collapsible` pane is hidden
+	## while `collapsed`, and stays mounted with its state: Enter on the
+	## divider toggles it, and a drag that leaves less than half of `min` asks
+	## for it.
+	SplitProps(a) := {
+		label : Str,
+		axis : SplitAxis ?? Horizontal,
+		side : SplitSide ?? Start,
+		size : U32,
+		min : U32 ?? 0,
+		max : U32 ?? 16384,
+		step : U32 ?? 16,
+		collapsible : Bool ?? False,
+		collapsed : Bool ?? False,
+		on_resize : (a, Event.Resize => Action(a)),
+		thickness : U32 ?? 6,
+		color : Style.Color ?? Rgb(0x2a3a40),
+		hover_color : Style.Color ?? Rgb(0x48666b),
+		active_color : Style.Color ?? Rgb(0x5fb3a1),
+		focus_color : Style.Color ?? Default,
+		width : Style.Length ?? Fill,
+		height : Style.Length ?? Fill,
+		grow : Bool ?? True,
+	}
+
+	## Properties for `tabs`. `label` names the strip. Each tab is a control
+	## named by its title; `selected` is the key of the tab shown as chosen.
+	## Pressing a tab, or Left, Right, Home, and End while keyboard focus is in
+	## the strip, choose one through `on_select`; a closable tab's close
+	## button, or Delete, ask to close it through `on_close`.
+	TabsProps(a) := {
+		label : Str,
+		tabs : List(TabItem),
+		selected : Str,
+		on_select : (a, Event.Tab => Action(a)),
+		on_close : (a, Event.Tab => Action(a)),
+		width : Style.Length ?? Fill,
+		gap : U32 ?? 2,
+		font_size : U32 ?? 13,
+		font_face : Style.FontFace ?? Default,
+		max_tab_width : U32 ?? 220,
+		fg : Style.Color ?? Rgb(0x9fb0ad),
+		selected_fg : Style.Color ?? Rgb(0xeeeeea),
+		bg : Style.Color ?? Default,
+		selected_bg : Style.Color ?? Rgb(0x1b2a30),
+		hover_bg : Style.Color ?? Rgb(0x16242a),
+		accent : Style.Color ?? Rgb(0x5fb3a1),
+		border_color : Style.Color ?? Rgb(0x2a3a40),
+		focus_color : Style.Color ?? Default,
+	}
+
+	## Properties for `drop_target`. `label` names the target, its locator as a
+	## drop target. `types` are the kinds of file it accepts, as `pick_file!`
+	## offers them; an empty list accepts every file. `on_drop` receives the
+	## files a person drops on it, each granted to the application as a
+	## read-only file, and names everything else that was dropped. While files
+	## it would accept are dragged over it, its ground becomes `drop_bg` and
+	## its border `drop_border`. The remaining fields lay it out as `col` does.
+	DropTargetProps(a) := {
+		label : Str,
+		types : List(Files.FileType),
+		on_drop : (a, Event.Drop => Action(a)),
+		drop_bg : Style.Color ?? Rgb(0x1b2a30),
+		drop_border : Style.Color ?? Rgb(0x5fb3a1),
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
+		border_width : U32 ?? 0,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
+		radius : U32 ?? 0,
 		font_size : U32 ?? 0,
 		font_weight : U32 ?? 0,
 		shadow : U32 ?? 0,
@@ -667,6 +989,71 @@ Elem(a) :: [
 		justify : Style.Justify ?? Default,
 	}
 
+	## Properties for a fixed-height list of `count` rows produced on demand.
+	## `render_row` is called only for the rows near the viewport, so the cost
+	## of a render follows the rows on screen rather than `count`.
+	VirtualRowsProps(a) := {
+		label : Str,
+		row_height : U32,
+
+		## How many rows the list holds. The list scrolls through all of them.
+		count : U64,
+
+		## Build the row at a zero-based index below `count`.
+		render_row : U64 -> Elem(a),
+
+		## The row's stable identity, unique among the rows shown together.
+		## The index is the default; a key drawn from the data keeps a row's
+		## native state with its data when rows are inserted above it.
+		row_key : U64 -> U64 ?? |index| index,
+
+		## Bring a row into view. See `ScrollRequest`.
+		scroll_to : [None, Some(ScrollRequest)] ?? None,
+
+		## Receive the rows intersecting the viewport whenever they change.
+		on_range : [None, Some((a, Event.VisibleRows => Action(a)))] ?? None,
+		row_gap : U32 ?? 0,
+		gap : U32 ?? 8,
+		padding : U32 ?? 0,
+		padding_top : Style.Inset ?? Same,
+		padding_right : Style.Inset ?? Same,
+		padding_bottom : Style.Inset ?? Same,
+		padding_left : Style.Inset ?? Same,
+		width : Style.Length ?? Auto,
+		height : Style.Length ?? Auto,
+		min_width : Style.Length ?? Auto,
+		min_height : Style.Length ?? Auto,
+		max_width : Style.Length ?? Auto,
+		max_height : Style.Length ?? Auto,
+		grow : Bool ?? False,
+		bg : Style.Color ?? Default,
+		hover_bg : Style.Color ?? Default,
+		active_bg : Style.Color ?? Default,
+		disabled_bg : Style.Color ?? Default,
+		disabled_fg : Style.Color ?? Default,
+		focus_color : Style.Color ?? Default,
+		fg : Style.Color ?? Default,
+		border_color : Style.Color ?? Default,
+		border_width : U32 ?? 0,
+		border_top : Style.Inset ?? Same,
+		border_right : Style.Inset ?? Same,
+		border_bottom : Style.Inset ?? Same,
+		border_left : Style.Inset ?? Same,
+		radius : U32 ?? 0,
+		font_size : U32 ?? 0,
+		font_weight : U32 ?? 0,
+		shadow : U32 ?? 0,
+		shadow_y : U32 ?? 0,
+		shadow_color : Style.Color ?? Default,
+		shadow_alpha : U32 ?? 100,
+		font_face : Style.FontFace ?? Default,
+		text_overflow : Style.TextOverflow ?? Wrap,
+		overflow_x : Style.Overflow ?? Visible,
+		overflow_y : Style.Overflow ?? Visible,
+		align : Style.Align ?? Default,
+		justify : Style.Justify ?? Default,
+	}
+
 	## Properties for `checkbox`. `label` is both visible text and the stable
 	## semantic name used by specifications. `on_change` receives the requested
 	## checked state. The common visual fields mirror `Style.Style`; defaults let a
@@ -833,6 +1220,18 @@ Elem(a) :: [
 		label : Str,
 		primitives : List(CanvasPrimitive),
 		on_pointer : (a, Event.CanvasPointer => Action(a)),
+		## Pointer movement with no button pressed. Without a handler the host
+		## does not listen, so hovering costs no cycle.
+		on_hover : [None, Some((a, Event.CanvasHover => Action(a)))] ?? None,
+		## Wheel and trackpad scrolling over the canvas. A canvas with a
+		## handler consumes the scroll, so an enclosing scroll region does
+		## not also move.
+		on_wheel : [None, Some((a, Event.CanvasWheel => Action(a)))] ?? None,
+		## The size the canvas was laid out at, delivered after a drawn frame
+		## gives it a size it has not reported, so the owner can draw for the
+		## space the window gives it. Without a handler the host reports
+		## nothing.
+		on_size : [None, Some((a, Event.CanvasSize => Action(a)))] ?? None,
 		width : Style.Length ?? Fill,
 		height : Style.Length ?? Fill,
 		min_width : Style.Length ?? Auto,
@@ -911,12 +1310,26 @@ Elem(a) :: [
 	## Display text in its own colour, size, weight, and face, without a
 	## container element that exists only to carry them.
 	styled_text : TextProps -> Elem(a)
-	styled_text = |props| StyledText({ value: props.value, style: Style.{ fg: props.fg, font_size: props.font_size, font_weight: props.font_weight, font_face: props.font_face } })
+	styled_text = |props| StyledText({ value: props.value, style: Style.{ fg: props.fg, font_size: props.font_size, font_weight: props.font_weight, font_face: props.font_face }, spans: [] })
+
+	## One run of rich text in its own colour, ground, weight, underline, or
+	## monospace face.
+	span : SpanProps -> TextSpan
+	span = |props| { text: props.text, fg: props.fg, bg: props.bg, font_weight: props.font_weight, underline: props.underline, monospace: props.monospace }
+
+	## Display several styled runs as one text element. It lays out, wraps,
+	## and clips as one string, and a locator matches the whole of it.
+	rich_text : RichTextProps -> Elem(a)
+	rich_text = |props| StyledText({
+		value: Str.join_with(props.spans.map(|part| part.text), ""),
+		style: Style.{ fg: props.fg, font_size: props.font_size, font_weight: props.font_weight, font_face: props.font_face },
+		spans: props.spans,
+	})
 
 	## Display a controlled button. `caption` is its visible text and `label`
 	## is its stable semantic locator.
 	button : ButtonProps(a) -> Elem(a)
-	button = |props| ActionButton({ caption: props.caption, label: props.label, enabled: props.enabled, on_press: props.on_press, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, style: style_of(props) })
+	button = |props| ActionButton({ caption: props.caption, label: props.label, role: Button, enabled: props.enabled, on_press: props.on_press, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, style: style_of(props) })
 
 	## Display a controlled checkbox. A handler must return the state containing
 	## the next `checked` value for the visual state to change.
@@ -949,6 +1362,9 @@ Elem(a) :: [
 		label: props.label,
 		primitives: props.primitives,
 		on_pointer: props.on_pointer,
+		on_hover: props.on_hover,
+		on_wheel: props.on_wheel,
+		on_size: props.on_size,
 		style: Style.{
 			width: props.width,
 			height: props.height,
@@ -984,12 +1400,13 @@ Elem(a) :: [
 	## text, and a component boundary passes the change to the root it renders.
 	with_style : Elem(a), (Style -> Style) -> Elem(a)
 	with_style = |elem, change| match elem {
-		Text(value) => StyledText({ value, style: change(Style.{}) })
+		Text(value) => StyledText({ value, style: change(Style.{}), spans: [] })
 		StyledText(value) => StyledText({ ..value, style: change(value.style) })
 		Row(value) => Row({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Column(value) => Column({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Dialog(value) => Dialog({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		Popover(value) => Popover({ ..value, children: map_anchor(value.children, |anchor| with_style(anchor, change)) })
 		Panel(value) => Panel({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		ActionButton(value) => ActionButton({ ..value, style: change(value.style) })
 		Checkbox(value) => Checkbox({ ..value, style: change(value.style) })
@@ -999,7 +1416,17 @@ Elem(a) :: [
 		Scroll(value) => Scroll({ ..value, style: change(value.style) })
 		VirtualList(value) => VirtualList({ ..value, style: change(value.style) })
 		TextInput(value) => TextInput({ ..value, style: change(value.style) })
+		Split(value) => Split({ ..value, props: { ..value.props, style: change(value.props.style) } })
+		DropTarget(value) => DropTarget({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Component(bound) => through_boundary(bound, |rendered| with_style(rendered, change))
+	}
+
+	# A modifier on a popover applies to its anchor, the element it annotates;
+	# the popover itself is configured by its props.
+	map_anchor : List(Elem(a)), (Elem(a) -> Elem(a)) -> List(Elem(a))
+	map_anchor = |children, change| match children.first() {
+		Ok(anchor) => [change(anchor)].concat(children.drop_first(1))
+		Err(_) => children
 	}
 
 	# A modifier on a boundary applies to whatever that boundary renders.
@@ -1017,6 +1444,7 @@ Elem(a) :: [
 		Column(value) => Column({ ..value, props: { ..value.props, label: name } })
 		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, label: name } })
 		Dialog(value) => Dialog({ ..value, props: { ..value.props, label: name } })
+		Popover(value) => Popover({ ..value, children: map_anchor(value.children, |anchor| label(anchor, name)) })
 		Panel(value) => Panel({ ..value, props: { ..value.props, label: name } })
 		ActionButton(value) => ActionButton({ ..value, label: name })
 		Checkbox(value) => Checkbox({ ..value, label: name })
@@ -1026,6 +1454,8 @@ Elem(a) :: [
 		Scroll(value) => Scroll({ ..value, label: name })
 		VirtualList(value) => VirtualList({ ..value, label: name })
 		TextInput(value) => TextInput({ ..value, label: name })
+		Split(value) => Split({ ..value, props: { ..value.props, label: name } })
+		DropTarget(value) => DropTarget({ ..value, props: { ..value.props, label: name } })
 		Component(bound) => through_boundary(bound, |rendered| label(rendered, name))
 		_ => elem
 	}
@@ -1293,19 +1723,58 @@ Elem(a) :: [
 		_ => elem
 	}
 
-	## Handle the pointer entering a button.
+	## Handle the pointer entering an element. A button and a popover report
+	## it themselves; any other element is wrapped in a hover region that
+	## reports it and presents nothing.
 	on_hover_enter : Elem(a), (a, Event.Hover => Action(a)) -> Elem(a)
 	on_hover_enter = |elem, handler!| match elem {
 		ActionButton(value) => ActionButton({ ..value, on_hover_enter: Some(handler!) })
-		_ => elem
+		Popover(value) => Popover({ ..value, props: { ..value.props, on_hover_enter: Some(handler!) } })
+		_ => hover_region(elem, Some(handler!), None)
 	}
 
-	## Handle the pointer leaving a button.
+	## Handle the pointer leaving an element, wrapping it in a hover region
+	## exactly as `on_hover_enter` does.
 	on_hover_exit : Elem(a), (a, Event.Hover => Action(a)) -> Elem(a)
 	on_hover_exit = |elem, handler!| match elem {
 		ActionButton(value) => ActionButton({ ..value, on_hover_exit: Some(handler!) })
-		_ => elem
+		Popover(value) => Popover({ ..value, props: { ..value.props, on_hover_exit: Some(handler!) } })
+		_ => hover_region(elem, None, Some(handler!))
 	}
+
+	hover_region : Elem(a), [None, Some((a, Event.Hover => Action(a)))], [None, Some((a, Event.Hover => Action(a)))] -> Elem(a)
+	hover_region = |anchor, enter, exit| Popover({ children: [anchor], props: { label: "", placement: Below, delay_ms: 0, on_hover_enter: enter, on_hover_exit: exit, shortcuts: [], focus_serial: 0, style: Style.{} } })
+
+	## A region of `anchor` that presents nothing, for the annotations that
+	## need no surface. A popover already is one, so it takes them itself.
+	region : Elem(a), (PopoverNode(a) -> PopoverNode(a)) -> Elem(a)
+	region = |anchor, change| match anchor {
+		Popover(value) => Popover({ ..value, props: change(value.props) })
+		_ => Popover({ children: [anchor], props: change({ label: "", placement: Below, delay_ms: 0, on_hover_enter: None, on_hover_exit: None, shortcuts: [], focus_serial: 0, style: Style.{} }) })
+	}
+
+	## Answer key chords anywhere in the window while `elem` is mounted. A
+	## shortcut declared nearer the focused control wins over one further
+	## out; a modal dialog leaves live only the shortcuts declared inside it.
+	## A chord that types a character into a focused text field is text, and
+	## Tab, Shift-Tab, and Escape belong to the host.
+	shortcuts : Elem(a), List(Shortcut(a)) -> Elem(a)
+	shortcuts = |elem, list| bind(elem, list, Window)
+
+	## Answer key chords only while keyboard focus is inside `elem`, before
+	## any shortcut declared further out.
+	focus_shortcuts : Elem(a), List(Shortcut(a)) -> Elem(a)
+	focus_shortcuts = |elem, list| bind(elem, list, Focus)
+
+	bind : Elem(a), List(Shortcut(a)), [Window, Focus] -> Elem(a)
+	bind = |elem, list, scope| region(elem, |props| { ..props, shortcuts: props.shortcuts.concat(list.map(|shortcut| { keys: shortcut.keys, scope, on_press: shortcut.on_press })) })
+
+	## Move keyboard focus to the first enabled control inside `elem`, once for
+	## each distinct `serial`: holding the same serial across later renders
+	## leaves focus wherever a person has since moved it, and a new serial
+	## moves it again. A serial of 0 asks for nothing.
+	request_focus : Elem(a), U64 -> Elem(a)
+	request_focus = |elem, serial| region(elem, |props| { ..props, focus_serial: serial })
 
 	## Handle a checkbox being toggled.
 	on_check : Elem(a), (a, Event.Check => Action(a)) -> Elem(a)
@@ -1401,6 +1870,7 @@ Elem(a) :: [
 			},
 			exists: |_parent, done!| Work.next(|| done!(True)),
 			remember: None,
+			transparent: False,
 		},
 	)
 
@@ -1409,12 +1879,174 @@ Elem(a) :: [
 	dialog : DialogProps(a), List(Elem(a)) -> Elem(a)
 	dialog = |props, children| Dialog({ children, props: { label: props.label, on_dismiss: props.on_dismiss, style: style_of(props) } })
 
+	## Annotate `anchor` with a surface presenting `content` beside it. The
+	## surface does not block the rest of the window: it opens while the pointer
+	## rests on the anchor or keyboard focus is inside it, and Escape closes it.
+	popover : PopoverProps(a), Elem(a), List(Elem(a)) -> Elem(a)
+	popover = |props, anchor, content| Popover({
+		children: [anchor].concat(content),
+		props: { label: props.label, placement: props.placement, delay_ms: props.delay_ms, on_hover_enter: props.on_hover_enter, on_hover_exit: props.on_hover_exit, shortcuts: [], focus_serial: 0, style: style_of(props) },
+	})
+
+	## Annotate an element with a short text tooltip, named by that text.
+	tooltip : Elem(a), Str -> Elem(a)
+	tooltip = |anchor, value| popover({ label: value }, anchor, [Text(value)])
+
+	## Lay two panes out side by side, or one above the other, with a divider
+	## between them that a person drags, or moves with the arrow keys while it
+	## has keyboard focus. The size is the application's: `on_resize` asks for
+	## one, and the split shows whatever `size` it is given next.
+	split : SplitProps(a), Elem(a), Elem(a) -> Elem(a)
+	split = |props, start, end| {
+		if props.min > props.max {
+			crash "Gui split min is at most its max"
+		}
+		if props.max > max_split_size or props.step > max_split_size or props.thickness > max_split_size {
+			crash "Gui split sizes, steps, and thickness are at most 16384 logical pixels"
+		}
+		size = split_clamp(props.size, props.min, props.max)
+		horizontal = match props.axis {
+			Horizontal => True
+			Vertical => False
+		}
+		sized_first = match props.side {
+			Start => True
+			End => False
+		}
+		collapsed = props.collapsible and props.collapsed
+		bigger = split_clamp(size + props.step, props.min, props.max)
+		smaller = split_clamp(if size > props.step size - props.step else 0, props.min, props.max)
+		resize = |next| |state, _| (props.on_resize)(state, { size: next, collapsed: False })
+		toggle! = |state, _| (props.on_resize)(state, { size, collapsed: !collapsed })
+		moves = [
+			{ keys: if horizontal "left" else "up", on_press: resize(if sized_first smaller else bigger) },
+			{ keys: if horizontal "right" else "down", on_press: resize(if sized_first bigger else smaller) },
+			{ keys: "home", on_press: resize(if sized_first props.min else props.max) },
+			{ keys: "end", on_press: resize(if sized_first props.max else props.min) },
+		]
+		Split({
+			children: [start, end],
+			props: {
+				label: props.label,
+				axis: props.axis,
+				side: props.side,
+				size,
+				min: props.min,
+				max: props.max,
+				collapsible: props.collapsible,
+				collapsed,
+				thickness: props.thickness,
+				on_resize: props.on_resize,
+				keys: if props.collapsible moves.append({ keys: "enter", on_press: toggle! }) else moves,
+				style: Style.{ gap: 0, width: props.width, height: props.height, grow: props.grow, bg: props.color, hover_bg: props.hover_color, active_bg: props.active_color, focus_color: props.focus_color },
+			},
+		})
+	}
+
+	max_split_size : U32
+	max_split_size = 16384
+
+	split_clamp : U32, U32, U32 -> U32
+	split_clamp = |value, low, high| if value < low low else if value > high high else value
+
+	## A strip of tabs, one of them selected, each with an optional close!
+	## button. Selecting or closing one asks the application, which owns the
+	## list and the selection.
+	tabs : TabsProps(a) -> Elem(a)
+	tabs = |props| {
+		count = props.tabs.len()
+		current = match props.tabs.find_first_index(|tab| tab.key == props.selected) {
+			Ok(index) => Some(index)
+			Err(_) => None
+		}
+		select_at! = |state, index| match props.tabs.get(index) {
+			Ok(tab) => (props.on_select)(state, { key: tab.key })
+			Err(_) => Action.none
+		}
+		previous! = |state, _| match current {
+			Some(index) => if index > 0 select_at!(state, index - 1) else Action.none
+			None => select_at!(state, 0)
+		}
+		next! = |state, _| match current {
+			Some(index) => select_at!(state, index + 1)
+			None => select_at!(state, 0)
+		}
+		first! = |state, _| select_at!(state, 0)
+		last! = |state, _| if count == 0 Action.none else select_at!(state, count - 1)
+		close! = |state, _| match current {
+			Some(index) => match props.tabs.get(index) {
+				Ok(tab) => if tab.closable (props.on_close)(state, { key: tab.key }) else Action.none
+				Err(_) => Action.none
+			}
+			None => Action.none
+		}
+		strip = Row({
+			children: props.tabs.map(|tab| tab_unit(props, tab)),
+			props: { label: props.label, style: Style.{ gap: props.gap, padding: 0, width: props.width, min_width: Px(0), overflow_x: Clip, border_color: props.border_color, border_bottom: Px(1) } },
+		})
+		focus_shortcuts(
+			strip,
+			[
+				{ keys: "left", on_press: previous! },
+				{ keys: "right", on_press: next! },
+				{ keys: "home", on_press: first! },
+				{ keys: "end", on_press: last! },
+				{ keys: "delete", on_press: close! },
+			],
+		)
+	}
+
+	tab_unit : TabsProps(a), TabItem -> Elem(a)
+	tab_unit = |props, tab| {
+		chosen = tab.key == props.selected
+		tab_key = tab.key
+		caption = ActionButton({
+			caption: tab.title,
+			label: tab.title,
+			role: if chosen SelectedTab else Tab,
+			enabled: True,
+			on_press: |state, _| (props.on_select)(state, { key: tab_key }),
+			on_hover_enter: None,
+			on_hover_exit: None,
+			style: Style.{ gap: 0, padding: 6, padding_left: Px(10), padding_right: Px(if tab.closable 4 else 10), fg: if chosen props.selected_fg else props.fg, hover_bg: props.hover_bg, focus_color: props.focus_color, font_size: props.font_size, font_face: props.font_face, max_width: Px(props.max_tab_width), text_overflow: Ellipsis },
+		})
+		dismiss = ActionButton({
+			caption: "×",
+			label: "Close ${tab.title}",
+			role: Button,
+			enabled: True,
+			on_press: |state, _| (props.on_close)(state, { key: tab_key }),
+			on_hover_enter: None,
+			on_hover_exit: None,
+			style: Style.{ gap: 0, padding: 4, padding_right: Px(8), fg: props.fg, hover_bg: props.hover_bg, focus_color: props.focus_color, font_size: props.font_size },
+		})
+		Row({
+			children: if tab.closable [caption, dismiss] else [caption],
+			props: { label: "", style: Style.{ gap: 0, padding: 0, bg: if chosen props.selected_bg else props.bg, border_color: props.accent, border_bottom: Px(if chosen 2 else 0), padding_bottom: Px(if chosen 0 else 2) } },
+		})
+	}
+
 	## Group children in a labelled padded, bordered, rounded vertical surface.
 	panel : PanelProps, List(Elem(a)) -> Elem(a)
 	panel = |props, children| Panel({
 		children,
 		props: { label: props.label, heading: props.heading, heading_size: props.heading_size, heading_weight: props.heading_weight, heading_color: props.heading_color, style: style_of(props) },
 	})
+
+	## Lay children out in a column that accepts files a person drops on it.
+	## Each dropped file of an accepted type is granted to the application as
+	## a read-only file and delivered to `on_drop`, with every other item
+	## dropped named and refused. The target shows `drop_bg` and
+	## `drop_border` while files it would accept are dragged over it.
+	drop_target : DropTargetProps(a), List(Elem(a)) -> Elem(a)
+	drop_target = |props, children| if props.label == "" {
+		crash "Gui drop_target label must not be empty"
+	} else {
+		DropTarget({
+			children,
+			props: { label: props.label, types: props.types, on_drop: props.on_drop, drop_bg: props.drop_bg, drop_border: props.drop_border, style: style_of(props) },
+		})
+	}
 
 	## Constrain `content` to the available space and allow scrolling.
 	scroll : ScrollProps(a) -> Elem(a)
@@ -1425,7 +2057,24 @@ Elem(a) :: [
 	virtual_list = |props| if props.row_height == 0 or props.row_height > 16384 {
 		crash "Gui virtual row height must be between 1 and 16384"
 	} else {
-		VirtualList({ items: props.items, label: props.label, row_height: props.row_height, row_gap: props.row_gap, style: style_of(props) })
+		VirtualList({ items: props.items, label: props.label, row_height: props.row_height, row_gap: props.row_gap, style: style_of(props), provider: None })
+	}
+
+	## Present `count` fixed-height rows, building each with `render_row` only
+	## while it is near the viewport. The list is its own render boundary: when
+	## scrolling brings unbuilt rows near, the platform renders the list alone,
+	## from the renderer's most recent `render_row`, without rendering its owner.
+	## The boundary is transparent, so an action raised by a row or by
+	## `on_range` belongs to the list's owner, exactly as if the rows had been
+	## built there.
+	virtual_rows : VirtualRowsProps(a) -> Elem(a)
+	virtual_rows = |props| if props.row_height == 0 or props.row_height > 16384 {
+		crash "Gui virtual row height must be between 1 and 16384"
+	} else {
+		provider = { count: props.count, render_row: props.render_row, row_key: props.row_key, scroll_to: props.scroll_to, on_range: props.on_range }
+		node : Elem(a)
+		node = VirtualList({ items: [], label: props.label, row_height: props.row_height, row_gap: props.row_gap, style: style_of(props), provider: Some(provider) })
+		Component(BoundComponent.{ key: Some(Key.from_str("Gui.virtual_rows ${props.label}")), render: |_state, done| done(node), exists: |_state, done| done(True), remember: None, transparent: True })
 	}
 
 	## Adapt an already-built child tree to parent state.
@@ -1445,10 +2094,10 @@ Elem(a) :: [
 			$pending = $pending.drop_last(1)
 			match work {
 				Visit(current) => {
-					split = lift_split(current)
-					shell = lift_shell(split.shell, project, set_child, adapt_action)
-					$pending = $pending.append(Finish(shell, split.children.len()))
-					for child in lift_reverse(split.children) {
+					parts = lift_split(current)
+					shell = lift_shell(parts.shell, project, set_child, adapt_action)
+					$pending = $pending.append(Finish(shell, parts.children.len()))
+					for child in lift_reverse(parts.children) {
 						$pending = $pending.append(Visit(child))
 					}
 				}
@@ -1484,6 +2133,9 @@ Elem(a) :: [
 		Row(value) => { shell: Row({ ..value, children: [] }), children: value.children }
 		Column(value) => { shell: Column({ ..value, children: [] }), children: value.children }
 		Dialog(value) => { shell: Dialog({ ..value, children: [] }), children: value.children }
+		Popover(value) => { shell: Popover({ ..value, children: [] }), children: value.children }
+		Split(value) => { shell: Split({ ..value, children: [] }), children: value.children }
+		DropTarget(value) => { shell: DropTarget({ ..value, children: [] }), children: value.children }
 		Panel(value) => { shell: Panel({ ..value, children: [] }), children: value.children }
 		Scroll(value) => { shell: Scroll({ ..value, content: Text("") }), children: [value.content] }
 		VirtualList(value) => {
@@ -1498,6 +2150,9 @@ Elem(a) :: [
 		Row(value) => Row({ ..value, children })
 		Column(value) => Column({ ..value, children })
 		Dialog(value) => Dialog({ ..value, children })
+		Popover(value) => Popover({ ..value, children })
+		Split(value) => Split({ ..value, children })
+		DropTarget(value) => DropTarget({ ..value, children })
 		Panel(value) => Panel({ ..value, children })
 		Scroll(value) => Scroll({ ..value, content: children.first() ?? crash "missing lifted scroll content" })
 		VirtualList(value) => {
@@ -1524,6 +2179,18 @@ Elem(a) :: [
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
 			Dialog({ children: [], props: { label: value.props.label, style: value.props.style, on_dismiss: parent_handler! } })
 		}
+		Popover(value) => {
+			hover_enter = match value.props.on_hover_enter {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			hover_exit = match value.props.on_hover_exit {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			bindings = value.props.shortcuts.map(|binding| { keys: binding.keys, scope: binding.scope, on_press: |parent, event| adapt_event(binding.on_press, parent, event, project, adapt_action) })
+			Popover({ children: [], props: { label: value.props.label, placement: value.props.placement, delay_ms: value.props.delay_ms, on_hover_enter: hover_enter, on_hover_exit: hover_exit, shortcuts: bindings, focus_serial: value.props.focus_serial, style: value.props.style } })
+		}
 		Panel(value) => Panel({ props: value.props, children: [] })
 		Scroll(scroll_value) => Scroll({ axis: scroll_value.axis, content: Text(""), label: scroll_value.label, style: scroll_value.style })
 		VirtualList(list_value) => VirtualList({
@@ -1532,6 +2199,10 @@ Elem(a) :: [
 			items: list_value.items.map(|item| { key: item.key, content: Text("") }),
 			row_gap: list_value.row_gap,
 			style: list_value.style,
+			provider: match list_value.provider {
+				None => None
+				Some(provider) => Some(lift_provider(provider, project, set_child, adapt_action))
+			},
 		})
 		TextInput(input_value) => {
 			child_change = input_value.on_change
@@ -1551,7 +2222,7 @@ Elem(a) :: [
 				None => None
 				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
 			}
-			ActionButton({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, on_press: parent_handler!, on_hover_enter: hover_enter, on_hover_exit: hover_exit, style: button_value.style })
+			ActionButton({ caption: button_value.caption, label: button_value.label, role: button_value.role, enabled: button_value.enabled, on_press: parent_handler!, on_hover_enter: hover_enter, on_hover_exit: hover_exit, style: button_value.style })
 		}
 		Checkbox(checkbox_value) => {
 			child_handler = checkbox_value.on_change
@@ -1574,10 +2245,33 @@ Elem(a) :: [
 			Textarea({ label: textarea_value.label, value: textarea_value.value, placeholder: textarea_value.placeholder, enabled: textarea_value.enabled, read_only: textarea_value.read_only, on_input: parent_handler!, style: textarea_value.style })
 		}
 		Image(image_value) => Image(image_value)
+		Split(value) => {
+			child_handler = value.props.on_resize
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
+			keys = value.props.keys.map(|binding| { keys: binding.keys, on_press: |parent, event| adapt_event(binding.on_press, parent, event, project, adapt_action) })
+			Split({ children: [], props: { label: value.props.label, axis: value.props.axis, side: value.props.side, size: value.props.size, min: value.props.min, max: value.props.max, collapsible: value.props.collapsible, collapsed: value.props.collapsed, thickness: value.props.thickness, on_resize: parent_handler!, keys, style: value.props.style } })
+		}
+		DropTarget(value) => {
+			child_handler = value.props.on_drop
+			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
+			DropTarget({ children: [], props: { label: value.props.label, types: value.props.types, on_drop: parent_handler!, drop_bg: value.props.drop_bg, drop_border: value.props.drop_border, style: value.props.style } })
+		}
 		Canvas(canvas_value) => {
 			child_handler = canvas_value.on_pointer
 			parent_handler! = |parent, event| adapt_event(child_handler, parent, event, project, adapt_action)
-			Canvas({ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, style: canvas_value.style })
+			on_hover = match canvas_value.on_hover {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			on_wheel = match canvas_value.on_wheel {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			on_size = match canvas_value.on_size {
+				None => None
+				Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+			}
+			Canvas({ label: canvas_value.label, primitives: canvas_value.primitives, on_pointer: parent_handler!, on_hover, on_wheel, on_size, style: canvas_value.style })
 		}
 		Component(bound) => {
 			child_render = bound.render
@@ -1621,8 +2315,22 @@ Elem(a) :: [
 					},
 				),
 			)
-			Component(BoundComponent.{ key: bound.key, render: render_parent, exists: exists_parent, remember })
+			Component(BoundComponent.{ key: bound.key, render: render_parent, exists: exists_parent, remember, transparent: bound.transparent })
 		}
+	}
+
+	# A provided row is lifted when the platform asks for it, so adapting a
+	# list costs nothing for the rows it never builds.
+	lift_provider : RowProvider(child), Project(parent, child), (parent, child -> Try(parent, [Removed])), (Action(child), parent, (Action(parent) -> Work) -> Work) -> RowProvider(parent)
+	lift_provider = |provider, project, set_child, adapt_action| {
+		child_render = provider.render_row
+		parent_render : U64 -> Elem(parent)
+		parent_render = |index| lift_with(child_render(index), project, set_child, adapt_action)
+		on_range = match provider.on_range {
+			None => None
+			Some(handler) => Some(|parent, event| adapt_event(handler, parent, event, project, adapt_action))
+		}
+		{ count: provider.count, render_row: parent_render, row_key: provider.row_key, scroll_to: provider.scroll_to, on_range }
 	}
 
 	snapshot_test : Project(parent, child), (child, child -> Bool), child, parent, (Bool -> Work) -> Work
@@ -1676,11 +2384,14 @@ Elem(a) :: [
 		Column({ children : List(Elem(a)), props : Frame }),
 		KeyedColumn({ base_revision : U64, children : List(Elem(a)), full : Box({} => { children : List(Elem(a)), keys : List(Key) }), keys : List(Key), operations : List(KeyedOperation), props : Frame, revision : U64 }),
 		Dialog({ children : List(Elem(a)), props : DialogNode(a) }),
+		Popover({ children : List(Elem(a)), props : PopoverNode(a) }),
 		Panel({ children : List(Elem(a)), props : PanelNode }),
 		Row({ children : List(Elem(a)), props : Frame }),
 		Scroll(ScrollNode(a)),
 		VirtualList(VirtualListNode(a)),
 		TextInput(TextInputNode(a)),
+		Split({ children : List(Elem(a)), props : SplitNode(a) }),
+		DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 		StyledText(TextNode),
 		Text(Str),
 	]
@@ -1694,11 +2405,14 @@ Elem(a) :: [
 		Column(children) => Column(children)
 		KeyedColumn(keyed_value) => KeyedColumn(keyed_value)
 		Dialog(dialog_value) => Dialog(dialog_value)
+		Popover(popover_value) => Popover(popover_value)
 		Panel(children) => Panel(children)
 		Row(children) => Row(children)
 		Scroll(scroll_value) => Scroll(scroll_value)
 		VirtualList(list_value) => VirtualList(list_value)
 		TextInput(input_value) => TextInput(input_value)
+		Split(split_value) => Split(split_value)
+		DropTarget(drop_value) => DropTarget(drop_value)
 		StyledText(styled_value) => StyledText(styled_value)
 		Text(text_value) => Text(text_value)
 	}
@@ -1738,4 +2452,109 @@ expect {
 	computed = Key.from_str("左 🦆 a long application key without a short-string limit")
 	keys = Dict.single(literal, 42.I64)
 	literal == computed and Dict.get(keys, computed) == Ok(42) and Dict.get(keys, Key.id(42)) == Err(KeyNotFound)
+}
+
+expect {
+	# A hover handler on an element that is not a button wraps it in one hover
+	# region, and a second handler joins that region rather than nesting.
+	entered : Elem(U64)
+	entered = Elem.text("cell").on_hover_enter(|state, _| Action.update(state + 1))
+	both = entered.on_hover_exit(|state, _| Action.update(state - 1))
+	match Elem.inspect(both) {
+		Popover(value) => match (value.props.on_hover_enter, value.props.on_hover_exit, value.children.len()) {
+			(Some(_), Some(_), 1) => value.props.label == ""
+			_ => False
+		}
+		_ => False
+	}
+}
+
+expect {
+	# Shortcuts, focus shortcuts, and a focus request join one region around
+	# the element, in the order declared, each with its own scope.
+	keyed : Elem(U64)
+	keyed = Elem.text("list")
+		.shortcuts([{ keys: "down", on_press: |state, _| Action.update(state + 1) }])
+		.focus_shortcuts([{ keys: "up", on_press: |state, _| Action.update(state - 1) }])
+		.request_focus(3)
+	match Elem.inspect(keyed) {
+		Popover(value) => {
+			scopes = value.props.shortcuts.map(|binding| binding.scope)
+			value.children.len() == 1 and value.props.focus_serial == 3 and scopes == [Window, Focus] and value.props.label == ""
+		}
+		_ => False
+	}
+}
+
+expect {
+	# A tooltip carries a shortcut itself rather than being wrapped again.
+	noted : Elem(U64)
+	noted = Elem.tooltip(Elem.text("cell"), "About the cell").shortcuts([{ keys: "f1", on_press: |state, _| Action.update(state) }])
+	match Elem.inspect(noted) {
+		Popover(value) => value.props.label == "About the cell" and value.children.len() == 2 and value.props.shortcuts.len() == 1
+		_ => False
+	}
+}
+
+expect {
+	# A modifier on a popover reaches its anchor; the surface keeps its props.
+	noted : Elem(U64)
+	noted = Elem.tooltip(Elem.text("cell"), "About the cell").label("Cell")
+	match Elem.inspect(noted) {
+		Popover(value) => value.props.label == "About the cell" and value.children.len() == 2
+		_ => False
+	}
+}
+
+expect {
+	# Rich text is one text element: its value is the spans' texts in order,
+	# and each span keeps its own presentation.
+	shown : Elem(U64)
+	shown = Elem.rich_text({ spans: [Elem.span({ text: "(click", font_weight: 600 }), Elem.span({ text: " \"左\"", underline: True })] })
+	match Elem.inspect(shown) {
+		StyledText(node) => node.value == "(click \"左\"" and node.spans.map(|part| part.font_weight) == [600, 0] and node.spans.map(|part| part.underline) == [False, True]
+		_ => False
+	}
+}
+
+expect {
+	# A split holds its two panes, clamps the size it is given to its bounds,
+	# and declares the keys its divider answers; Enter only when it can fold.
+	divided : Elem(U64)
+	divided = Elem.split({ label: "Divider", side: End, size: 900, min: 100, max: 400, collapsible: True, collapsed: True, on_resize: |state, _| Action.update(state) }, Elem.text("main"), Elem.text("aside"))
+	match Elem.inspect(divided) {
+		Split(value) => value.children.len() == 2 and value.props.size == 400 and value.props.collapsed and value.props.keys.map(|binding| binding.keys) == ["left", "right", "home", "end", "enter"]
+		_ => False
+	}
+}
+
+expect {
+	# A split that cannot fold ignores a request to be folded.
+	divided : Elem(U64)
+	divided = Elem.split({ label: "Divider", axis: Vertical, size: 50, min: 100, collapsed: True, on_resize: |state, _| Action.update(state) }, Elem.text("top"), Elem.text("bottom"))
+	match Elem.inspect(divided) {
+		Split(value) => value.props.size == 100 and !value.props.collapsed and value.props.keys.map(|binding| binding.keys) == ["up", "down", "home", "end"]
+		_ => False
+	}
+}
+
+expect {
+	# A tab strip is a labelled row inside a region answering its keys while
+	# focus is in it, with one unit per tab.
+	strip : Elem(U64)
+	strip = Elem.tabs({ label: "Tabs", tabs: [{ key: "a", title: "A", closable: True }, { key: "b", title: "B", closable: False }], selected: "b", on_select: |state, _| Action.update(state), on_close: |state, _| Action.update(state) })
+	match Elem.inspect(strip) {
+		Popover(region) => {
+			scopes = region.props.shortcuts.map(|binding| binding.scope)
+			row_ok = match region.children.first() {
+				Ok(first) => match Elem.inspect(first) {
+					Row(value) => value.props.label == "Tabs" and value.children.len() == 2
+					_ => False
+				}
+				Err(_) => False
+			}
+			row_ok and scopes == [Focus, Focus, Focus, Focus, Focus]
+		}
+		_ => False
+	}
 }

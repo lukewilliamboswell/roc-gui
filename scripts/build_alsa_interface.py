@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 
+import nix_link_inputs
 import dependency_archive
 from dependency_archive import digest, write_archive
 from dependency_artifacts import sha256, unpack_verified
@@ -56,9 +57,7 @@ def soname(path):
 
 
 def native_provider(compiler="cc"):
-    candidate = subprocess.check_output(
-        [compiler, "-print-file-name=libasound.so.2"], text=True
-    ).strip()
+    candidate = os.environ["NIX_ALSA_PROVIDER"]
     path = Path(candidate)
     if candidate == "libasound.so.2" or not path.is_file():
         raise ValueError("native ALSA provider is unavailable")
@@ -92,11 +91,11 @@ def check_candidate(archive, expected, output):
     environment = os.environ.copy()
     environment.pop("LD_LIBRARY_PATH", None)
     environment.pop("LD_PRELOAD", None)
-    subprocess.run([str(executable)], check=True, env=environment, timeout=15)
+    subprocess.run(nix_link_inputs.probe_command(executable), check=True, env=environment, timeout=15)
     return provider
 
 
-def build(output):
+def inside_builder(output):
     if platform.system() != "Linux" or platform.machine() != "x86_64":
         raise ValueError("ALSA interface production requires native Linux x86_64")
     destination = output / ARCHIVE_NAME
@@ -120,7 +119,7 @@ def build(output):
         subprocess.run(command, check=True, timeout=120)
         provider = native_provider()
         metadata = {
-            "schema_version": 1,
+            "schema_version": 2,
             "name": expected["name"],
             "version": expected["version"],
             "target": expected["target"],
@@ -134,6 +133,7 @@ def build(output):
                 "probe_sha256": sha256(PROBE),
             },
             "build": {
+                **nix_link_inputs.provenance(),
                 "recipe_sha256": sha256(RECIPE),
                 "producer_sha256": sha256(Path(__file__)),
                 "archive_writer_sha256": sha256(Path(dependency_archive.__file__)),
@@ -157,6 +157,7 @@ def build(output):
                 "system or package environment at runtime. No ALSA implementation bytes are redistributed.\n"
             ).encode(),
         }
+        files.update(nix_link_inputs.sources("alsa"))
         archive = write_archive(stage / ARCHIVE_NAME, metadata, files)
         check_candidate(archive, expected, stage)
         shutil.copyfile(archive, destination)
@@ -164,8 +165,17 @@ def build(output):
     return destination
 
 
+def build(output, *, rebuild=False):
+    return nix_link_inputs.build("alsa", output, rebuild=rebuild)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--inside", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--rebuild", action="store_true", help="force Nix to rebuild and check reproducibility")
     args = parser.parse_args()
-    build(args.output.resolve())
+    if args.inside:
+        inside_builder(args.output.resolve())
+    else:
+        build(args.output.resolve(), rebuild=args.rebuild)

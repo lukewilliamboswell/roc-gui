@@ -11,13 +11,20 @@ from cargo_build_evidence import derive, evidence_files, same_checkout_lock
 from host_build_identity import HOST_FILES, validate_outputs
 from dependency_archive import write_archive
 from rust_license_inventory import EMBEDDED_NOTICE, INVENTORY_SCHEMA
-from vendored_gpui import is_third_party, archive_digest
 from toolchain_license_inventory import selected_toolchains, component_version
 
 CATEGORIES = ("notice_files", "declaration_files", "upstream_notice_files", "reviewed_source_files",
               "reviewed_upstream_files", "embedded_notice_files")
 NOTICE_FILES = ("NOTICE.md", "NOTICE.json", "third-party-notices.tar.xz")
 SOURCE_KIND = "gui-host-sources"
+
+
+def is_third_party(package):
+    return package.get("source") is not None
+
+
+def archive_digest(package):
+    return package["git_source"]["archive_sha256"] if "git_source" in package else package["crate_sha256"]
 
 
 def digest(data):
@@ -28,10 +35,11 @@ def validate_normalization(receipt, target, original_host, host_bytes, outputs=N
     """Bind the recorded transformation to raw Cargo and distributed bytes.
 
     Every platform records what it did to the archive Cargo produced. Linux and
-    macOS strip debug identity; Windows separates the import members Roc's link
-    supplies from the verified import libraries, and reindexes what remains.
+    macOS strip debug identity; Windows separates the host's own import members,
+    reindexes what remains, and derives the one import library its link needs.
     """
     host_name = original_host["name"]
+    schema = 2 if target == "x64mingw" else 1
     if target == "x64mingw":
         operation = "separate-coff-imports-v1"
         tools = {"zig", "windows_gnu_coff.py"}
@@ -44,7 +52,7 @@ def validate_normalization(receipt, target, original_host, host_bytes, outputs=N
         tools = {"strip"}
         expected_args = ["-S", host_name] if target == "arm64mac" else ["--strip-debug", host_name]
         expected_steps = [{"tool": "strip", "args": expected_args}]
-    if (receipt.get("schema_version") != 1 or receipt.get("target") != target
+    if (receipt.get("schema_version") != schema or receipt.get("target") != target
             or set(receipt.get("archives", {})) != {host_name}
             or set(receipt.get("tools", {})) != tools):
         raise ValueError("normalization receipt has a different target or inventory")
@@ -59,6 +67,13 @@ def validate_normalization(receipt, target, original_host, host_bytes, outputs=N
             raise ValueError("normalization receipt has an invalid tool identity")
     if raw_outputs is not None and archive["input"] != raw_outputs[host_name]:
         raise ValueError("normalization input differs from captured build receipt")
+    derived = {}
+    if target == "x64mingw":
+        imports = receipt.get("imports") or {}
+        if (imports.get("schema_version") != 1 or imports.get("operation") != "derive-windows-imports-v1"
+                or imports.get("host") != archive["input"] or not imports.get("imports")):
+            raise ValueError("normalization receipt has no import derivation from this host")
+        derived["windows-imports.lib"] = imports["output"]
     if outputs is not None:
         if ({"sha256": digest(outputs[host_name]), "size": len(outputs[host_name])} != archive["output"]
                 or set(outputs) != set(HOST_FILES[target])):
@@ -67,7 +82,10 @@ def validate_normalization(receipt, target, original_host, host_bytes, outputs=N
         # as Windows releases its resource, must ship those files exactly as the
         # captured build produced them.
         for name, data in outputs.items():
-            if name != host_name and raw_outputs is not None and (
+            if name in derived:
+                if {"sha256": digest(data), "size": len(data)} != derived[name]:
+                    raise ValueError("packaged import library differs from its derivation receipt")
+            elif name != host_name and raw_outputs is not None and (
                     {"sha256": digest(data), "size": len(data)} != raw_outputs[name]):
                 raise ValueError("packaged host output differs from its captured build receipt")
 
@@ -83,7 +101,7 @@ def validate_packaged_outputs(build, target, fingerprint, cargo_host, outputs, n
 
 
 def compiler_host_evidence(root, target):
-    return {}
+    return {"git_sources": json.loads((root / "git-sources.json").read_text())}
 
 
 def checked_file(root, name, record):
@@ -339,9 +357,9 @@ def compose(target, evidence_root, crate_root, toolchain_root, policy_root, host
     for package in crates["packages"]:
         identity = (package["name"], package["version"])
         compiled = expected[identity]
-        if (package["crate_sha256"] != compiled["crate_sha256"]
-                or package["declared_license"] != compiled["declared_license"]
-                or package.get("vendored_source") != compiled.get("vendored_source")):
+        if (package.get("git_source") != compiled.get("git_source")
+                or package["crate_sha256"] != compiled["crate_sha256"]
+                or package["declared_license"] != compiled["declared_license"]):
             raise ValueError("crate declaration differs from compiled package metadata")
         expression = package["declared_license"]
         if expression not in policy["expressions"]:

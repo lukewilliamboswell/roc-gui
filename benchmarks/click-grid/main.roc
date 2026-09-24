@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc" }
 
 import pf.Gui
 
@@ -6,11 +6,9 @@ Cell : { id : U64, key : Gui.Key, pressed : Bool, presses : U64 }
 
 State : { cells : Gui.Index(Cell), count : U64, columns : U64, next_identity : U64 }
 
-idle : Gui.Color
-idle = 0x263247
+idle = 0x263247.Gui.Color
 
-pressed : Gui.Color
-pressed = 0xF59E0B
+pressed = 0xF59E0B.Gui.Color
 
 create_grid : U64, U64 -> State
 create_grid = |count, first_identity| {
@@ -24,7 +22,7 @@ create_grid = |count, first_identity| {
 }
 
 press : Cell -> Gui.Action(Cell)
-press = |cell| Gui.update({ ..cell, pressed: !cell.pressed, presses: cell.presses + 1 })
+press = |cell| Gui.Action.update({ ..cell, pressed: !cell.pressed, presses: cell.presses + 1 })
 
 render_cell : Cell -> Gui.Elem(Cell)
 render_cell = |cell| Gui.button({
@@ -83,9 +81,9 @@ render = |state| {
 			Gui.row(
 				{ gap: 8 },
 				[
-					Gui.button({ caption: "100 cells", label: "Create 100 cells", on_press: |latest, _| Gui.update(create_grid(100, latest.next_identity)) }),
-					Gui.button({ caption: "1,000 cells", label: "Create 1000 cells", on_press: |latest, _| Gui.update(create_grid(1000, latest.next_identity)) }),
-					Gui.button({ caption: "10,000 cells", label: "Create 10000 cells", on_press: |latest, _| Gui.update(create_grid(10000, latest.next_identity)) }),
+					Gui.button({ caption: "100 cells", label: "Create 100 cells", on_press: |latest, _| Gui.Action.update(create_grid(100, latest.next_identity)) }),
+					Gui.button({ caption: "1,000 cells", label: "Create 1000 cells", on_press: |latest, _| Gui.Action.update(create_grid(1000, latest.next_identity)) }),
+					Gui.button({ caption: "10,000 cells", label: "Create 10000 cells", on_press: |latest, _| Gui.Action.update(create_grid(10000, latest.next_identity)) }),
 				],
 			),
 			Gui.col({ label: "Cells", gap: 1, padding: 0, width: Px(grid_width), min_width: Px(grid_width), max_width: Px(grid_width), height: Px(grid_height), min_height: Px(grid_height), max_height: Px(grid_height), grow: False }, $rows),

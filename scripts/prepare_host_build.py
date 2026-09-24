@@ -33,27 +33,37 @@ def main() -> None:
     # Sealed against the archive Cargo produced, before anything transforms it.
     record_outputs(ROOT, target, destination, args.evidence.resolve(), fingerprint)
     if target == "x64mingw":
-        receipt = separate_windows_imports(destination / "libhost.a")
+        receipt = separate_windows_imports(destination / "libhost.a", host)
     else:
         receipt = normalize(destination / "libhost.a", target, ROOT)
     (destination / "normalization.json").write_text(json.dumps(receipt, indent=2) + "\n")
 
 
-def separate_windows_imports(host):
-    """Remove the archive's own import members, which Roc supplies from releases."""
+def separate_windows_imports(host, built):
+    """Separate the archive's own import members and derive the import library.
+
+    `built` is the archive the Windows build left in its payload; the build's
+    unsanitized Cargo messages lie beside that payload until this process
+    exits, and name the native libraries and search paths the derivation reads.
+    """
     from cargo_build_evidence import reject_private_paths
-    from prepare_dependencies import verified_windows_gnu, windows_gnu_inventory
+    from link_input_artifacts import install as install_link_inputs
     from windows_gnu_build import zig_toolchain
-    from windows_gnu_coff import normalize as separate
+    from windows_link_imports import OUTPUT, prepare
 
     with tempfile.TemporaryDirectory(prefix="roc-gui-windows-normalize-") as temporary:
         zig = zig_toolchain(Path(temporary) / "tools")
-        separated = Path(temporary) / host.name
-        with verified_windows_gnu() as verified:
-            receipt = separate(host, separated, windows_gnu_inventory(verified), zig)
-        data = separated.read_bytes()
-        reject_private_paths(data, ROOT)
-        host.write_bytes(data)
+        staged = Path(temporary) / "staged"
+        staged.mkdir()
+        # The runtime the import library is derived against is the one the
+        # final link uses: the locked, released linker inputs.
+        runtime = Path(temporary) / "runtime"
+        install_link_inputs("x64mingw", runtime)
+        receipt = prepare(host, built.parent.parent / "cargo.jsonl", runtime, zig, staged)
+        for name in (host.name, OUTPUT):
+            data = (staged / name).read_bytes()
+            reject_private_paths(data, ROOT)
+            (host.parent / name).write_bytes(data)
     return receipt
 
 

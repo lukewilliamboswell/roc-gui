@@ -10,8 +10,18 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST_FILES = {
     "x64glibc": ("libhost.a",),
     "arm64mac": ("libhost.a",),
-    "x64mingw": ("libhost.a",),
+    # The Windows host releases the import library derived from its own link.
+    "x64mingw": ("libhost.a", "windows-imports.lib"),
 }
+# Released outputs derived after the build, bound by the normalization receipt
+# rather than by the build receipt that seals what the build itself produced.
+DERIVED_FILES = {"x64mingw": ("windows-imports.lib",)}
+
+
+def built_files(target):
+    return tuple(name for name in HOST_FILES[target] if name not in DERIVED_FILES.get(target, ()))
+
+
 # The host target each supported runner builds and links natively. Keyed by
 # `(platform.system(), platform.machine())` so callers resolve their own host
 # without repeating the mapping. A consumer that supports fewer targets than
@@ -22,18 +32,19 @@ TARGETS = {
     ("Windows", "AMD64"): "x64mingw",
 }
 SOURCE_PATHS = (
-    "crates/host", "vendor/gpui", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
+    "crates/host", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
     "dependencies/gui-host-notices",
     ".github/actions/setup-toolchain/action.yml", ".github/workflows/gui-hosts.yml",
-    "scripts/cargo_build_evidence.py", "scripts/gui_host_artifacts.py",
+    "scripts/cargo_build_evidence.py", "scripts/git_cargo_sources.py", "scripts/gui_host_artifacts.py",
     "scripts/host_notice_payload.py", "scripts/prepare_gui_host_release.py",
     "scripts/prepare_host_build.py", "scripts/release_host_artifacts.py",
     "scripts/normalize_host_archive.py",
     # The Windows host's build recipe and archive normalizer decide its bytes
     # as surely as the Cargo sources do.
-    "scripts/windows_gnu_build.py", "scripts/windows_gnu_coff.py",
+    "scripts/windows_gnu_build.py", "scripts/windows_gnu_coff.py", "scripts/windows_link_imports.py",
+    # The runtime's references are part of what the import library supplies.
+    "dependencies/windows-gnu-runtime.json",
     "scripts/rust_license_inventory.py", "scripts/toolchain_license_inventory.py",
-    "scripts/vendored_gpui.py",
 )
 
 
@@ -81,7 +92,7 @@ def record_outputs(root, target, destination, evidence_root, fingerprint):
     if evidence["source_fingerprint"] != fingerprint:
         raise ValueError("Cargo evidence has different build source inputs")
     outputs = {}
-    for name in HOST_FILES[target]:
+    for name in built_files(target):
         path = destination / name
         if path.is_symlink() or not path.is_file():
             raise ValueError("missing or invalid host build output")
@@ -101,14 +112,14 @@ def validate_outputs(receipt, target, fingerprint, cargo_host, outputs=None):
     """Reject source relabeling and replacement of any captured host output."""
     if (receipt.get("schema_version") != 1 or receipt["target"] != target
             or receipt["source_fingerprint"] != fingerprint
-            or set(receipt["outputs"]) != set(HOST_FILES[target])):
+            or set(receipt["outputs"]) != set(built_files(target))):
         raise ValueError("host build receipt differs from source or target inventory")
     if receipt["outputs"][HOST_FILES[target][0]] != {k: cargo_host[k] for k in ("sha256", "size")}:
         raise ValueError("host build receipt differs from Cargo output")
     if target == "arm64mac":
         macos = receipt.get("macos", {})
-        if (macos.get("cargo_host_sha256") != cargo_host["sha256"] or macos.get("fresh_cargo_target") is not True
-                or set(macos.get("outputs", {})) != {"scene.h", "shaders.air", "shaders.metallib"}
+        if (macos.get("schema_version") != 2 or macos.get("cargo_host_sha256") != cargo_host["sha256"] or macos.get("fresh_cargo_target") is not True
+                or set(macos.get("outputs", {})) != {"scene.h", "shaders.metallib"}
                 or set(macos.get("toolchain", {}).get("tools", {})) != {"metal", "metallib"}):
             raise ValueError("Mac shader evidence differs from the captured host")
         for record in (*macos["outputs"].values(), macos.get("shader_source", {})):

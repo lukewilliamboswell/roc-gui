@@ -1,4 +1,5 @@
 import Action
+import Appearance
 import Assets
 import Audio
 import Clipboard
@@ -21,8 +22,8 @@ import Timer
 
 ## The whole application-facing platform under one import. Build a tree with
 ## the element constructors and their property records, adjust an element
-## with the modifiers on `Elem`, and answer events with `none`, `update`,
-## `delegate`, or `task`.
+## with the modifiers on `Elem`, and answer events with the constructors on
+## `Action`: `Action.none`, `Action.update`, `Action.delegate`, or `Action.task`.
 Gui := [].{
 
 	## A declarative UI tree whose event handlers transition application state.
@@ -51,6 +52,7 @@ Gui := [].{
 	TextOverflow : Style.TextOverflow
 	Overflow : Style.Overflow
 
+	Appearance : Appearance.Appearance
 	Assets : Assets.Assets
 	Audio : Audio.Audio
 	Clipboard : Clipboard.Clipboard
@@ -63,144 +65,40 @@ Gui := [].{
 	SystemMonitor : SystemMonitor.SystemMonitor
 	Tcp : Tcp.Tcp
 	Timer : Timer.Timer
-
-	# Types exchanged with `KeyedSeq`.
-	KeyedSeqEdit(value) : KeyedSeq.Edit(value)
-	KeyedSeqPlacement : KeyedSeq.Placement
-	KeyedSeqTransition(value) : KeyedSeq.Transition(value)
-	KeyedSeqError : KeyedSeq.Error
-
-	# Types exchanged with `Assets`.
-	AssetsStore : Assets.Store
-	AssetsRoot : Assets.Root
-	AssetsContent : Assets.Content
-	AssetsManifest : Assets.Manifest
-	AssetsManifestPolicy : Assets.ManifestPolicy
-	AssetsStoreConfig : Assets.StoreConfig
-	AssetsReason : Assets.Reason
-	AssetsAssetErr : Assets.AssetErr
-
-	# Types exchanged with `Audio`.
-	AudioOutput : Audio.Output
-	AudioTrack : Audio.Track
-	AudioPlayback : Audio.Playback
-	AudioStatus : Audio.Status
-	AudioLoadedTrack : Audio.LoadedTrack
-	AudioReason : Audio.Reason
-	AudioAudioErr : Audio.AudioErr
-
-	# Types exchanged with `Clipboard`.
-	ClipboardHandle : Clipboard.Handle
-	ClipboardSnapshot : Clipboard.Snapshot
-	ClipboardReason : Clipboard.Reason
-	ClipboardClipboardErr : Clipboard.ClipboardErr
-
-	# Types exchanged with `Device`.
-	DeviceGrant : Device.Grant
-	DeviceConnection : Device.Connection
-	DeviceInfo : Device.Info
-	DeviceReason : Device.Reason
-	DeviceDeviceErr : Device.DeviceErr
-
-	# Types exchanged with `Event`.
-	EventPress : Event.Press
-	EventHover : Event.Hover
-	EventCheck : Event.Check
-	EventInput : Event.Input
-	EventDismiss : Event.Dismiss
-	EventTextChange : Event.TextChange
-	EventTextSubmit : Event.TextSubmit
-	EventCanvasPointer : Event.CanvasPointer
-
-	# Types exchanged with `Files`.
-	FilesChoice(a) : Files.Choice(a)
-	FilesKind : Files.Kind
-	FilesEntry : Files.Entry
-	FilesReason : Files.Reason
-	FilesFileErr : Files.FileErr
-	FilesDirRead : Files.Dir.Read
-	FilesDirReadWrite : Files.Dir.ReadWrite
-	FilesDirReadUtf8 : Files.Dir.ReadUtf8
-	FilesSelection : Files.Selection
-
-	# Types exchanged with `Http`.
-	HttpClient : Http.Client
-	HttpReason : Http.Reason
-	HttpHttpErr : Http.HttpErr
-	HttpConfig : Http.Config
-
-	# Types exchanged with `ImageData`.
-	ImageDataMetadata : ImageData.Metadata
-	ImageDataReason : ImageData.Reason
-	ImageDataImageErr : ImageData.ImageErr
-
-	# Types exchanged with `Process`.
-	ProcessGrant : Process.Grant
-	ProcessPty : Process.Pty
-	ProcessReason : Process.Reason
-	ProcessProcessErr : Process.ProcessErr
-	ProcessRead : Process.Read
-	ProcessCancel : Process.Cancel
-
-	# Types exchanged with `Sqlite`.
-	SqliteDb : Sqlite.Db
-	SqliteValue : Sqlite.Value
-	SqliteResult : Sqlite.Result
-	SqliteReason : Sqlite.Reason
-	SqliteSqliteErr : Sqlite.SqliteErr
-
-	# Types exchanged with `SystemMonitor`.
-	SystemMonitorSampler : SystemMonitor.Sampler
-	SystemMonitorUnavailableReason : SystemMonitor.UnavailableReason
-	SystemMonitorValue(a) : SystemMonitor.Value(a)
-	SystemMonitorProcess : SystemMonitor.Process
-	SystemMonitorSnapshot : SystemMonitor.Snapshot
-	SystemMonitorReason : SystemMonitor.Reason
-	SystemMonitorSystemErr : SystemMonitor.SystemErr
-
-	# Types exchanged with `Tcp`.
-	TcpStream : Tcp.Stream
-	TcpReason : Tcp.Reason
-	TcpTcpErr : Tcp.TcpErr
-
-	# Types exchanged with `Timer`.
-	TimerHandle : Timer.Handle
-	TimerTick : Timer.Tick
-	TimerCancelResult : Timer.CancelResult
-	TimerTimerErr : Timer.TimerErr
+	Event : Event.Event
 
 	TranslateConfig(parent, child) : Elem.TranslateConfig(parent, child)
 	TryTranslateConfig(parent, child) : Elem.TryTranslateConfig(parent, child)
 	KeyedColConfig(parent, item) : Elem.KeyedColConfig(parent, item)
 	VirtualListItem(a) : Elem.VirtualListItem(a)
+	RowAlign : Elem.RowAlign
+	ScrollRequest : Elem.ScrollRequest
 	ScrollAxis : Elem.ScrollAxis
+	Placement : Elem.Placement
+	SplitAxis : Elem.SplitAxis
+	SplitSide : Elem.SplitSide
+	TabItem : Elem.TabItem
+	Shortcut(a) : Elem.Shortcut(a)
 	ImageFormat : Elem.ImageFormat
 	ImageFit : Elem.ImageFit
 	CanvasEllipse : Elem.CanvasEllipse
 	CanvasLine : Elem.CanvasLine
 	CanvasRectangle : Elem.CanvasRectangle
+	CanvasText : Elem.CanvasText
+	CanvasTextAlign : Elem.CanvasTextAlign
 	CanvasPrimitive : Elem.CanvasPrimitive
+	TextSpan : Elem.TextSpan
 
 	## Construct the program value required by the platform's `main` module.
 	run : Program.Config(state) -> Program.Program(state)
 	run = |config| Program.run(config)
 
-	## Leave state as it is.
-	none : Action.Action(a)
-	none = Action.none
-
-	## Install the next state.
-	update : a -> Action.Action(a)
-	update = |value| Action.update(value)
-
-	## Propose the next state to the enclosing boundary's `on_delegate`.
-	delegate : a -> Action.Action(a)
-	delegate = |value| Action.delegate(value)
-
-	## Install `pending`, run effects off the UI thread, then resolve against
-	## the latest state.
-	task : { pending : a, run : (() => result), resolve : (a, result -> Action.Action(a)) } -> Action.Action(a)
-	task = |config| Action.task(config)
+	## A colour for each appearance, `0xRRGGBB` both: `light` on a light
+	## window and `dark` on a dark one. The host chooses when it paints, so the
+	## window follows the system, or `Appearance.prefer!`, without rendering the
+	## application again.
+	adaptive : U32, U32 -> Style.Color
+	adaptive = |light, dark| Adaptive({ light, dark })
 
 	## Construct a fixed per-side inset.
 	inset : U32 -> Style.Inset
@@ -217,6 +115,16 @@ Gui := [].{
 	## Display text in its own colour, size, weight, and face.
 	styled_text : Elem.TextProps -> Elem.Elem(a)
 	styled_text = |props| Elem.styled_text(props)
+
+	## One styled run of rich text: its own colour, ground, weight, underline,
+	## or monospace face.
+	span : Elem.SpanProps -> Elem.TextSpan
+	span = |props| Elem.span(props)
+
+	## Display several styled runs as one text element, which lays out and
+	## wraps as one string and is located by the whole of it.
+	rich_text : Elem.RichTextProps -> Elem.Elem(a)
+	rich_text = |props| Elem.rich_text(props)
 
 	## Display a controlled button. `caption` is its visible text and `label` its semantic locator.
 	button : Elem.ButtonProps(a) -> Elem.Elem(a)
@@ -258,6 +166,40 @@ Gui := [].{
 	dialog : Elem.DialogProps(a), List(Elem.Elem(a)) -> Elem.Elem(a)
 	dialog = |props, children| Elem.dialog(props, children)
 
+	## Lay two panes out beside or above each other, with a divider a person
+	## drags or moves with the arrow keys to resize them.
+	split : Elem.SplitProps(a), Elem.Elem(a), Elem.Elem(a) -> Elem.Elem(a)
+	split = |props, start, end| Elem.split(props, start, end)
+
+	## A strip of selectable tabs, each with an optional close button.
+	tabs : Elem.TabsProps(a) -> Elem.Elem(a)
+	tabs = |props| Elem.tabs(props)
+
+	## Lay children out in a column that accepts files dropped on it, each
+	## granted to the application as a read-only file of an accepted type.
+	drop_target : Elem.DropTargetProps(a), List(Elem.Elem(a)) -> Elem.Elem(a)
+	drop_target = |props, children| Elem.drop_target(props, children)
+
+	## Annotate an anchor with a non-modal surface that opens on hover and focus.
+	popover : Elem.PopoverProps(a), Elem.Elem(a), List(Elem.Elem(a)) -> Elem.Elem(a)
+	popover = |props, anchor, content| Elem.popover(props, anchor, content)
+
+	## Annotate an element with a short text tooltip, named by that text.
+	tooltip : Elem.Elem(a), Str -> Elem.Elem(a)
+	tooltip = |anchor, value| Elem.tooltip(anchor, value)
+
+	## Answer key chords anywhere in the window while an element is mounted.
+	shortcuts : Elem.Elem(a), List(Elem.Shortcut(a)) -> Elem.Elem(a)
+	shortcuts = |elem, list| Elem.shortcuts(elem, list)
+
+	## Answer key chords only while keyboard focus is inside an element.
+	focus_shortcuts : Elem.Elem(a), List(Elem.Shortcut(a)) -> Elem.Elem(a)
+	focus_shortcuts = |elem, list| Elem.focus_shortcuts(elem, list)
+
+	## Focus the first enabled control inside an element once for each new serial.
+	request_focus : Elem.Elem(a), U64 -> Elem.Elem(a)
+	request_focus = |elem, serial| Elem.request_focus(elem, serial)
+
 	## Constrain content to the available space and allow scrolling.
 	scroll : Elem.ScrollProps(a) -> Elem.Elem(a)
 	scroll = |props| Elem.scroll(props)
@@ -265,6 +207,10 @@ Gui := [].{
 	## Present fixed-height rows, materializing only the visible range.
 	virtual_list : Elem.VirtualListProps(a) -> Elem.Elem(a)
 	virtual_list = |props| Elem.virtual_list(props)
+
+	## Present `count` fixed-height rows, producing each on demand for the viewport.
+	virtual_rows : Elem.VirtualRowsProps(a) -> Elem.Elem(a)
+	virtual_rows = |props| Elem.virtual_rows(props)
 
 	## Embed a renderer over a smaller part of parent state.
 	translate : (child -> Elem.Elem(child)), (parent -> child), (parent, child -> parent) -> Elem.Elem(parent)
@@ -293,4 +239,8 @@ Gui := [].{
 	## A stroked line on a canvas.
 	line : Elem.CanvasLine -> Elem.CanvasPrimitive
 	line = |shape| Elem.line(shape)
+
+	## A single line of text on a canvas, aligned within a box.
+	canvas_text : Elem.CanvasText -> Elem.CanvasPrimitive
+	canvas_text = |shape| Elem.canvas_text(shape)
 }

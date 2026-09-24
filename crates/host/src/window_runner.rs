@@ -11,6 +11,7 @@
 //! runner, and `spec::check_runner` refuses those steps here.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use gpui::{App, AppContext, AsyncApp, Keystroke, MouseMoveEvent, WindowHandle, point, px, size};
@@ -59,10 +60,18 @@ pub enum StepError {
     Untypable(char),
     /// The control does not accept pointer activation.
     NotClickable(String),
+    /// Resting the pointer on this node reaches no hover handler and no popover.
+    NotHoverable(String),
     /// A pointer press on this control reaches no click handler at all. A
     /// canvas takes coordinates through its pointer route, so a `click` step
     /// would otherwise report success having dispatched nothing.
     NoClickRoute(String),
+    /// A `drag` step named something a pointer cannot drag.
+    NotDraggable(String),
+    /// A `drop` step named something that is not a drop target.
+    NotDropTarget(String),
+    /// A `drop` step named a file outside the application, or none at all.
+    DropPath(String),
     /// A modal dialog is capturing interaction.
     BehindDialog(String),
     /// A `scroll` step named something that does not scroll.
@@ -114,9 +123,19 @@ impl StepError {
             Self::NotClickable(locator) => {
                 format!("{locator} does not accept pointer activation; it may be disabled")
             }
+            Self::NotHoverable(locator) => {
+                format!("{locator} has no hover handler and no popover anchors it")
+            }
             Self::NoClickRoute(locator) => format!(
-                "{locator} takes pointer coordinates, not a click; press it with a `drag` step under --host-run-spec"
+                "{locator} takes pointer coordinates, not a click; press it with a `drag` step"
             ),
+            Self::NotDraggable(locator) => {
+                format!("{locator} is neither a canvas nor a separator, so it cannot be dragged")
+            }
+            Self::NotDropTarget(locator) => {
+                format!("{locator} is not a drop target, so nothing can be dropped on it")
+            }
+            Self::DropPath(detail) => format!("cannot drop: {detail}"),
             Self::BehindDialog(locator) => {
                 format!("{locator} is behind an active dialog and cannot be clicked")
             }
@@ -322,7 +341,7 @@ pub(crate) fn check_bounds(
 ///
 /// Split out from the await loop so the quiescence rule is testable without a
 /// window.
-pub(crate) fn quiet_enough(history: &[(u64, u64)], frames: u32) -> bool {
+pub(crate) fn quiet_enough<T: PartialEq>(history: &[T], frames: u32) -> bool {
     let frames = frames as usize;
     if history.len() <= frames {
         return false;
@@ -339,11 +358,15 @@ async fn settle(
     cx: &mut AsyncApp,
 ) -> Result<(), StepError> {
     let started = std::time::Instant::now();
-    let mut history = vec![task_counts()];
+    // A viewport turn is host work as much as a task is: it replaces a list the
+    // frame just drew, so a frame after one is not yet the settled picture.
+    let activity = || (task_counts(), crate::rows::turns());
+    let mut history = vec![activity()];
     while started.elapsed() < timeout {
         next_frame(window, cx).await?;
-        history.push(task_counts());
+        history.push(activity());
         if quiet_enough(&history, frames) {
+            account_through_now();
             prune_bounds(window, cx)?;
             return Ok(());
         }
@@ -355,12 +378,27 @@ async fn settle(
     })
 }
 
-/// Await exactly one further worker completion, rather than quiescence.
+/// The worker completions the specification has waited for, or let land in a
+/// step that waits for the window rather than for one completion.
+static ACCOUNTED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Every completion so far has been waited for.
+fn account_through_now() {
+    ACCOUNTED.store(task_counts().1, Ordering::Relaxed);
+}
+
+/// Await exactly one worker completion no earlier step waited for, rather
+/// than quiescence.
 ///
 /// An application whose timer restarts the moment a sample lands is never
 /// task-quiet, so settling for it can only ever time out. What the step
 /// actually claims is that one more accepted task has completed and its
 /// patch has been applied, which is a fact the counters carry directly.
+/// Frames apply completions, so the one this step waits for has often landed
+/// during the step that started it; it is counted then, rather than waited for
+/// again. An application that keeps a subscription open — a watch, a timer —
+/// always has a task in flight, so waiting for the next completion instead
+/// would wait on the subscription.
 async fn await_completion(
     window: WindowHandle<Runtime>,
     timeout: Duration,
@@ -368,8 +406,14 @@ async fn await_completion(
 ) -> Result<(), StepError> {
     let started = std::time::Instant::now();
     let (accepted, completed) = task_counts();
-    // Nothing is in flight, so the task this step waits for has already landed
-    // and its patch is applied. Waiting for another would wait forever.
+    let accounted = ACCOUNTED.load(Ordering::Relaxed);
+    if completed > accounted {
+        ACCOUNTED.store(accounted + 1, Ordering::Relaxed);
+        prune_bounds(window, cx)?;
+        return Ok(());
+    }
+    // Nothing is in flight and nothing unaccounted has landed, so there is no
+    // task for this step to wait for. Waiting for another would wait forever.
     if accepted == completed {
         prune_bounds(window, cx)?;
         return Ok(());
@@ -377,7 +421,8 @@ async fn await_completion(
     while started.elapsed() < timeout {
         next_frame(window, cx).await?;
         let (_, now) = task_counts();
-        if now > completed {
+        if now > accounted {
+            ACCOUNTED.store(accounted + 1, Ordering::Relaxed);
             prune_bounds(window, cx)?;
             return Ok(());
         }
@@ -422,6 +467,7 @@ async fn advance_timer_fires(
                     // One more frame, so that state has been laid out and
                     // painted before the next step asserts against it.
                     next_frame(window, cx).await?;
+                    account_through_now();
                     prune_bounds(window, cx)?;
                     return Ok(());
                 }
@@ -621,9 +667,8 @@ fn write_report(path: &Path, outcome: &Outcome, options: &Options) -> std::io::R
     std::fs::write(path, json)
 }
 
-fn check_native_work_full(
-    work: Option<crate::observatory::NativeFrameWork>,
-    gpui_work: Option<crate::observatory::GpuiFrameWorkObservation>,
+#[derive(Default)]
+struct NativeWorkLimits {
     button_max: Option<u64>,
     boundary_max: Option<u64>,
     boundary_elements_max: Option<u64>,
@@ -633,7 +678,24 @@ fn check_native_work_full(
     fresh_hitboxes_max: Option<u64>,
     fresh_mouse_listeners_max: Option<u64>,
     element_states_moved_min: Option<u64>,
+}
+
+fn check_native_work_full(
+    work: Option<crate::observatory::NativeFrameWork>,
+    gpui_work: Option<crate::observatory::GpuiFrameWorkObservation>,
+    limits: NativeWorkLimits,
 ) -> Result<(), StepError> {
+    let NativeWorkLimits {
+        button_max,
+        boundary_max,
+        boundary_elements_max,
+        cached_prepaint_min,
+        cached_paint_min,
+        replayed_scene_min,
+        fresh_hitboxes_max,
+        fresh_mouse_listeners_max,
+        element_states_moved_min,
+    } = limits;
     let work = work.ok_or_else(|| StepError::Geometry(
         "native work unavailable: mark-native-work and at least one completed frame are required".into()
     ))?;
@@ -735,15 +797,12 @@ fn check_native_work(
     check_native_work_full(
         work,
         None,
-        button_max,
-        boundary_max,
-        boundary_elements_max,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
+        NativeWorkLimits {
+            button_max,
+            boundary_max,
+            boundary_elements_max,
+            ..NativeWorkLimits::default()
+        },
     )
 }
 
@@ -763,7 +822,7 @@ async fn run_step(
         Command::Screenshot(request) => {
             // A photograph is the most painted question there is.
             await_painted(window, options.timeout, cx).await?;
-            return take_screenshot(request, ordinal, window, options, cx);
+            return take_screenshot(request, ordinal, window, options, cx).await;
         }
         Command::MarkNativeWork => window
             .update(cx, |_, _, _| {
@@ -786,15 +845,17 @@ async fn run_step(
                 check_native_work_full(
                     crate::observatory::native_work_since_mark(),
                     crate::observatory::gpui_frame_work_since_mark(),
-                    *button_renders_max,
-                    *boundary_renders_max,
-                    *boundary_elements_max,
-                    *cached_prepaint_subtrees_min,
-                    *cached_paint_subtrees_min,
-                    *replayed_scene_operations_min,
-                    *fresh_hitboxes_max,
-                    *fresh_mouse_listeners_max,
-                    *element_states_moved_min,
+                    NativeWorkLimits {
+                        button_max: *button_renders_max,
+                        boundary_max: *boundary_renders_max,
+                        boundary_elements_max: *boundary_elements_max,
+                        cached_prepaint_min: *cached_prepaint_subtrees_min,
+                        cached_paint_min: *cached_paint_subtrees_min,
+                        replayed_scene_min: *replayed_scene_operations_min,
+                        fresh_hitboxes_max: *fresh_hitboxes_max,
+                        fresh_mouse_listeners_max: *fresh_mouse_listeners_max,
+                        element_states_moved_min: *element_states_moved_min,
+                    },
                 )
             })
             .map_err(|_| StepError::WindowClosed)?,
@@ -809,15 +870,15 @@ async fn run_step(
         }
         Command::HoverEnter(locator) | Command::HoverExit(locator) => {
             let entered = matches!(step.command, Command::HoverEnter(_));
+            // Where the pointer goes is a painted question: a completion the
+            // previous step accounted for may not have been drawn yet.
+            await_painted(window, options.timeout, cx).await?;
             let viewport = viewport_rect(window, cx)?;
             let position = window
                 .update(cx, |runtime, _, _| {
                     let id = resolve(runtime, locator)?;
-                    if !matches!(
-                        runtime.graph.node(id).map(|node| &node.kind),
-                        Some(crate::bridge::NodeKind::Button { .. })
-                    ) {
-                        return Err(StepError::NotClickable(describe(locator)));
+                    if runtime.graph.hover_targets(id).is_empty() {
+                        return Err(StepError::NotHoverable(describe(locator)));
                     }
                     let position = if entered {
                         let bounds = visible_rect(runtime, locator, viewport)?;
@@ -833,7 +894,8 @@ async fn run_step(
                 .map_err(|_| StepError::WindowClosed)??;
             // Release the Runtime borrow before GPUI delivers callbacks into it.
             cx.update_window(window.into(), |_, window, cx| {
-                window.dispatch_event(
+                dispatch_pointer(
+                    window,
                     gpui::PlatformInput::MouseMove(MouseMoveEvent {
                         position,
                         pressed_button: None,
@@ -845,7 +907,186 @@ async fn run_step(
             .map_err(|_| StepError::WindowClosed)?;
             await_painted(window, options.timeout, cx).await
         }
+        Command::PointerMove(locator, _, _)
+        | Command::PointerLeave(locator)
+        | Command::Wheel(locator, _, _, _, _) => {
+            // The window's own pointer, at a point of the canvas's painted
+            // surface: GPUI hit-tests it and the canvas's production
+            // listeners turn it into the event, exactly as a person's would.
+            let (x, y) = match &step.command {
+                Command::PointerMove(_, x, y) | Command::Wheel(_, x, y, _, _) => (*x, *y),
+                _ => (0, 0),
+            };
+            let origin = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    let surface = runtime
+                        .canvas_surfaces
+                        .get(&id)
+                        .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                        .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+                    Ok::<_, StepError>(surface.origin)
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            let position = point(origin.x + px(x as f32), origin.y + px(y as f32));
+            let input = match &step.command {
+                Command::PointerMove(..) => gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                    position,
+                    pressed_button: None,
+                    modifiers: Default::default(),
+                }),
+                Command::PointerLeave(_) => gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                    position: point(px(-1.0), px(-1.0)),
+                    pressed_button: None,
+                    modifiers: Default::default(),
+                }),
+                Command::Wheel(_, _, _, dx, dy) => {
+                    gpui::PlatformInput::ScrollWheel(gpui::ScrollWheelEvent {
+                        position,
+                        // A scroll towards the content's end is negative in GPUI.
+                        delta: gpui::ScrollDelta::Pixels(point(
+                            px(-(*dx as f32)),
+                            px(-(*dy as f32)),
+                        )),
+                        modifiers: Default::default(),
+                        touch_phase: gpui::TouchPhase::Moved,
+                    })
+                }
+                _ => unreachable!("matched a canvas pointer step above"),
+            };
+            // Release the Runtime borrow before GPUI delivers callbacks into it.
+            cx.update_window(window.into(), |_, window, cx| {
+                dispatch_pointer(window, input, cx);
+            })
+            .map_err(|_| StepError::WindowClosed)?;
+            await_painted(window, options.timeout, cx).await
+        }
+        Command::Drag(locator, from_x, from_y, to_x, to_y) => {
+            // The window's own pointer presses at one point of the element,
+            // moves with the button held, and releases: GPUI hit-tests the
+            // press and the production listeners follow the rest.
+            await_painted(window, options.timeout, cx).await?;
+            let viewport = viewport_rect(window, cx)?;
+            let origin = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    if runtime
+                        .graph
+                        .active_dialog()
+                        .is_some_and(|dialog| !runtime.graph.is_descendant_of(id, dialog))
+                    {
+                        return Err(StepError::BehindDialog(describe(locator)));
+                    }
+                    match runtime.graph.node(id).map(|node| &node.kind) {
+                        Some(crate::bridge::NodeKind::Canvas { .. }) => runtime
+                            .canvas_surfaces
+                            .get(&id)
+                            .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                            .map(|surface| surface.origin)
+                            .ok_or_else(|| StepError::NotPainted(describe(locator))),
+                        Some(crate::bridge::NodeKind::Split { .. }) => {
+                            let bounds = visible_rect(runtime, locator, viewport)?;
+                            Ok(point(px(bounds.left), px(bounds.top)))
+                        }
+                        _ => Err(StepError::NotDraggable(describe(locator))),
+                    }
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            let from = point(origin.x + px(*from_x as f32), origin.y + px(*from_y as f32));
+            let to = point(origin.x + px(*to_x as f32), origin.y + px(*to_y as f32));
+            let gesture = [
+                gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
+                    button: gpui::MouseButton::Left,
+                    position: from,
+                    modifiers: Default::default(),
+                    click_count: 1,
+                    first_mouse: false,
+                }),
+                gpui::PlatformInput::MouseMove(MouseMoveEvent {
+                    position: to,
+                    pressed_button: Some(gpui::MouseButton::Left),
+                    modifiers: Default::default(),
+                }),
+                gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
+                    button: gpui::MouseButton::Left,
+                    position: to,
+                    modifiers: Default::default(),
+                    click_count: 1,
+                }),
+            ];
+            for input in gesture {
+                // Release the Runtime borrow before GPUI delivers callbacks
+                // into it, and let each event land before the next.
+                cx.update_window(window.into(), |_, window, cx| {
+                    dispatch_pointer(window, input, cx);
+                })
+                .map_err(|_| StepError::WindowClosed)?;
+            }
+            await_painted(window, options.timeout, cx).await
+        }
+        Command::Drop(locator, paths) | Command::DragFiles(locator, paths) => {
+            let dropping = matches!(step.command, Command::Drop(..));
+            // The files arrive the way the operating system's drag-and-drop
+            // delivers them: GPUI's own file-drop events, entering the window
+            // over the target, moving there, and dropping, so GPUI hit-tests
+            // the drop and the target's production drop listener takes it.
+            let paths = crate::spec_drop_paths(paths).map_err(StepError::DropPath)?;
+            await_painted(window, options.timeout, cx).await?;
+            let viewport = viewport_rect(window, cx)?;
+            let position = window
+                .update(cx, |runtime, _, _| {
+                    let id = resolve(runtime, locator)?;
+                    if runtime
+                        .graph
+                        .active_dialog()
+                        .is_some_and(|dialog| !runtime.graph.is_descendant_of(id, dialog))
+                    {
+                        return Err(StepError::BehindDialog(describe(locator)));
+                    }
+                    if !matches!(
+                        runtime.graph.node(id).map(|node| &node.kind),
+                        Some(crate::bridge::NodeKind::DropTarget { .. })
+                    ) {
+                        return Err(StepError::NotDropTarget(describe(locator)));
+                    }
+                    let bounds = visible_rect(runtime, locator, viewport)?;
+                    Ok(point(
+                        px((bounds.left + bounds.right) / 2.0),
+                        px((bounds.top + bounds.bottom) / 2.0),
+                    ))
+                })
+                .map_err(|_| StepError::WindowClosed)??;
+            let dragged = gpui::ExternalPaths(paths.into_iter().collect());
+            // Files already held over the window by `drag-files` stay the
+            // drag GPUI holds; entering again moves them, as a pointer does.
+            let mut gesture = vec![
+                gpui::FileDropEvent::Entered {
+                    position,
+                    paths: dragged,
+                },
+                gpui::FileDropEvent::Pending { position },
+            ];
+            if dropping {
+                gesture.extend([
+                    gpui::FileDropEvent::Submit { position },
+                    gpui::FileDropEvent::Exited,
+                    gpui::FileDropEvent::Ended,
+                ]);
+            }
+            for event in gesture {
+                // Release the Runtime borrow before GPUI delivers callbacks
+                // into it, and let each event land before the next.
+                cx.update_window(window.into(), |_, window, cx| {
+                    window.dispatch_event(gpui::PlatformInput::FileDrop(event), cx);
+                })
+                .map_err(|_| StepError::WindowClosed)?;
+            }
+            await_painted(window, options.timeout, cx).await
+        }
         Command::Click(locator) => {
+            // Only a drawn control can be pressed, and a completion the
+            // previous step accounted for may not have been drawn yet.
+            await_painted(window, options.timeout, cx).await?;
             let viewport = viewport_rect(window, cx)?;
             window
                 .update(cx, |runtime, window, cx| {
@@ -860,7 +1101,7 @@ async fn run_step(
                         // `type` would go to whatever held focus before.
                         let handle = runtime.focus_handles.get(&id).cloned();
                         match handle {
-                            Some(handle) => handle.focus(window),
+                            Some(handle) => handle.focus(window, cx),
                             None => {
                                 return Err(StepError::Geometry(format!(
                                     "{} accepts pointer focus but has no focus handle",
@@ -885,9 +1126,13 @@ async fn run_step(
                 .update(cx, |runtime, _, _| resolve(runtime, locator))
                 .map_err(|_| StepError::WindowClosed)??;
             let focused = window
-                .update(cx, |runtime, window, _| {
+                .update(cx, |runtime, window, cx| {
                     runtime.focus_handles.get(&id).map(|handle| {
-                        handle.focus(window);
+                        // A person moving keyboard focus is at this window, and
+                        // GPUI reports focus entering and leaving a region only
+                        // in the active window. Concurrent cases each open one.
+                        window.activate_window();
+                        handle.focus(window, cx);
                     })
                 })
                 .map_err(|_| StepError::WindowClosed)?;
@@ -933,9 +1178,15 @@ async fn run_step(
                 window.resize(size(px(*width as f32), px(*height as f32)));
             })
             .map_err(|_| StepError::WindowClosed)?;
-            settle(window, 2, options.timeout, cx).await
+            settle(window, 2, options.timeout, cx).await?;
+            // A resized window reads its pointer from the system again.
+            cx.update_window(window.into(), |_, window, cx| restore_pointer(window, cx))
+                .map_err(|_| StepError::WindowClosed)?;
+            settle(window, 1, options.timeout, cx).await
         }
         Command::Scroll { region, motion } => {
+            // A scroll target is located in the drawn frame.
+            await_painted(window, options.timeout, cx).await?;
             window
                 .update(cx, |runtime, _, _| scroll_region(runtime, region, motion))
                 .map_err(|_| StepError::WindowClosed)??;
@@ -997,8 +1248,25 @@ async fn run_step(
                 if focused {
                     Ok(())
                 } else {
+                    // Name what does hold it, as a specification would locate it.
+                    let holder = runtime
+                        .focus_handles
+                        .iter()
+                        .find(|(_, handle)| handle.is_focused(window))
+                        .and_then(|(id, _)| runtime.graph.node(*id))
+                        .map(|node| match node.kind.sibling_name() {
+                            Some(name) => format!("the {} {name:?}", node.kind.target_kind()),
+                            None => format!("an unnamed {}", node.kind.target_kind()),
+                        })
+                        .unwrap_or_else(|| {
+                            if runtime.root_focus.is_focused(window) {
+                                "the window itself".to_owned()
+                            } else {
+                                "no mounted control".to_owned()
+                            }
+                        });
                     Err(StepError::Geometry(format!(
-                        "{} does not hold keyboard focus",
+                        "{} does not hold keyboard focus; {holder} does",
                         describe(locator)
                     )))
                 }
@@ -1055,11 +1323,16 @@ async fn run_step(
         // The claims answered from the mounted graph alone, made by the
         // same code the semantic runner calls, so the word means one thing.
         Command::ExpectCanvasPrimitives(_, _)
+        | Command::ExpectCanvasSize(_, _, _)
         | Command::ExpectValue(_, _)
+        | Command::ExpectSelected(_, _)
         | Command::ExpectValueBytes(_, _)
         | Command::ExpectImageBytes(_, _)
+        | Command::ExpectRows(_, _)
         | Command::ExpectBefore(_, _)
-        | Command::ExpectBackground(_, _) => window
+        | Command::ExpectBackground(_, _)
+        | Command::ExpectPopoverCounters(_)
+        | Command::ExpectKeyboardCounters(_) => window
             .update(cx, |runtime, _, _| {
                 runner::graph_claim(&runtime.graph, &step.command)
                     .expect("graph claim is missing an arm")
@@ -1091,7 +1364,12 @@ async fn run_step(
         | Command::ExpectFileSelectionCounters(_)
         | Command::ExpectFileLifecycleCounters(_)
         | Command::ExpectFileAccess(_)
+        | Command::ExpectDocumentCounters(_)
+        | Command::ExpectWatchCounters(_)
         | Command::ExpectAssetCounters(_)
+        | Command::ExpectHashCounters(_)
+        | Command::ExpectDropCounters(_)
+        | Command::ExpectRecentCounters(_)
         | Command::ExpectGrants(_)
         | Command::ExpectGrantCounters(_)
         | Command::ExpectImageOwnerCounters(_) => window
@@ -1111,6 +1389,14 @@ async fn run_step(
                 Ok(())
             })
             .map_err(|_| StepError::WindowClosed)?,
+        // A file moved into place outside the application, which it sees
+        // only through a watch, on its own schedule; the next step waits for it.
+        Command::ReplaceFile { name, source } => {
+            crate::files::replace_in_private_copy(name, source).map_err(StepError::Geometry)
+        }
+        Command::RemoveFile(name) => {
+            crate::files::remove_in_private_copy(name).map_err(StepError::Geometry)
+        }
         Command::AwaitTask => await_completion(window, options.timeout, cx).await,
         // An application that polls — a clipboard watcher rearms its read on
         // every tick — never reaches the quiescence `settle` waits for, because
@@ -1128,6 +1414,14 @@ async fn run_step(
             Err(detail) => Err(StepError::Geometry(detail)),
             Ok(()) => next_frame(window, cx).await,
         },
+        // The desktop's report reaches the window as it would from the portal:
+        // the effective scheme changes and the window repaints, which one
+        // presented frame shows.
+        Command::SystemTheme(settings) => {
+            crate::appearance::set_system(*settings);
+            next_frame(window, cx).await
+        }
+        Command::ExpectTheme(dark) => crate::runner::theme_is(*dark).map_err(StepError::Geometry),
         Command::AwaitCount(locator, expected) => {
             // A terminal answers on its own schedule, not the window's, so this
             // presents frames until the graph holds what the step names rather
@@ -1149,6 +1443,7 @@ async fn run_step(
                         })
                         .map_err(|_| StepError::WindowClosed)?;
                     if drawn == *expected {
+                        account_through_now();
                         break Ok(());
                     }
                 }
@@ -1261,7 +1556,15 @@ fn scroll_region(
                         region: describe(region),
                         target: describe(target),
                     })?;
-                tracker.scroll_to_row(index);
+                // A provided list mounts a window of its rows, so a mounted
+                // row's position is counted from the window's first row.
+                let first = match runtime.graph.node(region_id).map(|node| &node.kind) {
+                    Some(crate::bridge::NodeKind::VirtualList {
+                        rows: Some(rows), ..
+                    }) => usize::try_from(rows.first).unwrap_or(usize::MAX),
+                    _ => 0,
+                };
+                tracker.scroll_to_row(first.saturating_add(index));
                 return Ok(());
             }
             // A scroll region lays every child out, below the fold included, so
@@ -1322,6 +1625,12 @@ pub(crate) fn primitive_rect(canvas: Rect, item: &crate::bridge::CanvasPrimitive
             item.y as f32,
             item.x as f32 + item.width as f32,
             item.y as f32 + item.height as f32,
+        ),
+        CanvasPrimitiveKind::Text => (
+            item.x as f32,
+            item.y as f32,
+            item.x as f32 + item.width as f32,
+            item.y as f32 + item.line_height() as f32,
         ),
         CanvasPrimitiveKind::Line => {
             let margin = (item.stroke_width as f32 / 2.0).max(1.0);
@@ -1456,6 +1765,39 @@ fn region_rect(
         // fold of its scroll region has no pixels down there to photograph, and
         // a rectangle reaching past the window would capture whatever the
         // desktop has behind it.
+        // A canvas is photographed where its picture is painted, the same
+        // surface its primitives and pointer steps are placed on.
+        Region::Locator(locator)
+            if resolve(runtime, locator).is_ok_and(|id| {
+                matches!(
+                    runtime.graph.node(id).map(|node| &node.kind),
+                    Some(crate::bridge::NodeKind::Canvas { .. })
+                )
+            }) =>
+        {
+            let canvas = resolve(runtime, locator)?;
+            let surface = runtime
+                .canvas_surfaces
+                .get(&canvas)
+                .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                .map(Rect::from_gpui)
+                .ok_or_else(|| StepError::NotPainted(describe(locator)))?;
+            let frame = runtime.painted().map_err(stale)?;
+            let mut clip = viewport;
+            for ancestor in runtime.graph.scroll_ancestors(canvas) {
+                if let Some(rect) = node_rect(runtime, &frame, ancestor) {
+                    clip = clip.intersect(rect).ok_or(StepError::OffScreen {
+                        locator: describe(locator),
+                        bounds: surface,
+                    })?;
+                }
+            }
+            let bounds = surface.intersect(clip).ok_or(StepError::OffScreen {
+                locator: describe(locator),
+                bounds: surface,
+            })?;
+            Ok((bounds.left, bounds.top, bounds.right, bounds.bottom))
+        }
         Region::Locator(locator) => {
             let bounds = visible_rect(runtime, locator, viewport)?;
             Ok((bounds.left, bounds.top, bounds.right, bounds.bottom))
@@ -1468,14 +1810,14 @@ fn region_rect(
 /// A capture that cannot happen is reported as `unavailable` with a reason
 /// rather than failing the run, unless the run required screenshots. Either way
 /// it never reports a pass it did not earn.
-fn take_screenshot(
+async fn take_screenshot(
     request: &Screenshot,
     ordinal: usize,
     window: WindowHandle<Runtime>,
     options: &Options,
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
-    let (geometry, native) = window
+    let (client, screen, scale, native, readback) = window
         .update(cx, |runtime, window, _| {
             let size = window.viewport_size();
             let viewport = Rect {
@@ -1485,47 +1827,91 @@ fn take_screenshot(
                 bottom: f32::from(size.height),
             };
             let region = region_rect(runtime, &request.region, viewport)?;
-            // Windows photographs the client area itself, so the region stays
-            // relative to it; elsewhere the capture tool takes screen space.
-            #[cfg(windows)]
-            let frame = (0.0, 0.0, viewport.right, viewport.bottom);
-            #[cfg(not(windows))]
-            let frame = {
-                let frame = window.bounds();
+            let content = (viewport.right, viewport.bottom);
+            let pad = request.pad as f32;
+            // A frame the host renders itself is cropped relative to its
+            // content area; a capture tool takes screen space.
+            let client = screenshot::screen_rect(
+                (0.0, 0.0, viewport.right, viewport.bottom),
+                content,
+                region,
+                pad,
+            );
+            let frame = window.bounds();
+            let screen = screenshot::screen_rect(
                 (
                     f32::from(frame.origin.x),
                     f32::from(frame.origin.y),
                     f32::from(frame.size.width),
                     f32::from(frame.size.height),
-                )
-            };
-            Ok::<_, StepError>((
-                screenshot::screen_rect(
-                    frame,
-                    (viewport.right, viewport.bottom),
-                    region,
-                    request.pad as f32,
                 ),
+                content,
+                region,
+                pad,
+            );
+            let readback = client.is_some() && window.request_frame_capture();
+            Ok::<_, StepError>((
+                client,
+                screen,
+                window.scale_factor(),
                 native_window(window),
+                readback,
             ))
         })
         .map_err(|_| StepError::WindowClosed)??;
 
     let file_name = format!("{ordinal:02}-{}.png", request.name);
     let destination = options.shot_dir.join(&file_name);
-    // Windows captures by asking the window to render, which is a message the
-    // window's own thread answers. This step runs on that thread; driving it
-    // from the background executor would wait for a pump that may never come.
-    let result = match (geometry, native) {
-        (None, _) => Err(screenshot::ShotError::DegenerateRegion),
-        #[cfg(windows)]
-        (Some(geometry), Some((hwnd, scale))) => {
-            screenshot::capture_window(hwnd, scale, geometry, &destination)
+    let result = if readback {
+        // The renderer copies out the next frame it presents. Ask for frames
+        // the way settling does until one has been presented and read.
+        let mut captured = None;
+        for _ in 0..READBACK_FRAMES {
+            next_frame(window, cx).await?;
+            captured = window
+                .update(cx, |_, window, _| window.take_captured_frame())
+                .map_err(|_| StepError::WindowClosed)?;
+            if captured.is_some() {
+                break;
+            }
         }
+        match (captured, client) {
+            (Some(frame), Some(client)) => screenshot::save_client_region(
+                screenshot::READBACK,
+                frame.width,
+                frame.height,
+                &frame.rgba,
+                scale,
+                client,
+                &destination,
+            ),
+            _ => Err(ShotError::ToolFailed {
+                tool: screenshot::READBACK,
+                status: None,
+                detail: format!("no frame was presented within {READBACK_FRAMES} frames"),
+            }),
+        }
+    } else {
+        // Windows captures by asking the window to render, which is a message
+        // the window's own thread answers. This step runs on that thread;
+        // driving it from the background executor would wait for a pump that
+        // may never come.
         #[cfg(windows)]
-        (Some(_), None) => Err(screenshot::ShotError::UnsupportedPlatform),
-        #[cfg(not(windows))]
-        (Some(geometry), ()) => screenshot::capture(geometry, &destination),
+        let _ = screen;
+        match native {
+            #[cfg(windows)]
+            Some((hwnd, scale)) => match client {
+                Some(client) => screenshot::capture_window(hwnd, scale, client, &destination),
+                None => Err(ShotError::DegenerateRegion),
+            },
+            #[cfg(windows)]
+            None => Err(ShotError::UnsupportedPlatform),
+            #[cfg(not(windows))]
+            () => match screen {
+                Some(screen) => screenshot::capture(screen, &destination),
+                None => Err(ShotError::DegenerateRegion),
+            },
+        }
     };
     match result {
         Ok(bytes) => Ok(Some(ShotRecord {
@@ -1546,6 +1932,11 @@ fn take_screenshot(
     }
 }
 
+/// Frames to wait for a requested readback before calling it failed. The
+/// frame after the request is the one read; the rest absorb a compositor that
+/// withholds a frame callback.
+const READBACK_FRAMES: usize = 8;
+
 /// The native window and its scale factor, which a Windows capture needs.
 #[cfg(windows)]
 fn native_window(window: &gpui::Window) -> Option<(isize, f32)> {
@@ -1559,6 +1950,85 @@ fn native_window(window: &gpui::Window) -> Option<(isize, f32)> {
 
 #[cfg(not(windows))]
 fn native_window(_window: &gpui::Window) {}
+
+/// Where the specification last put the window's pointer; outside the window
+/// until a step moves it in.
+static POINTER: std::sync::Mutex<Option<gpui::Point<gpui::Pixels>>> = std::sync::Mutex::new(None);
+
+/// Deliver a step's pointer event, remembering where it leaves the pointer.
+fn dispatch_pointer(window: &mut gpui::Window, input: gpui::PlatformInput, cx: &mut App) {
+    let position = match &input {
+        gpui::PlatformInput::MouseMove(event) => Some(event.position),
+        gpui::PlatformInput::MouseDown(event) => Some(event.position),
+        gpui::PlatformInput::MouseUp(event) => Some(event.position),
+        gpui::PlatformInput::ScrollWheel(event) => Some(event.position),
+        _ => None,
+    };
+    if let Some(position) = position {
+        *POINTER.lock().unwrap_or_else(|error| error.into_inner()) = Some(position);
+    }
+    window.dispatch_event(input, cx);
+}
+
+/// Put the window's pointer where the specification left it. GPUI reads the
+/// system cursor when it opens or resizes a window, and a cursor resting over
+/// a control would make it hovered before any step entered it.
+fn restore_pointer(window: &mut gpui::Window, cx: &mut App) {
+    let position = POINTER
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .unwrap_or_else(|| point(px(-1.0), px(-1.0)));
+    window.dispatch_event(
+        gpui::PlatformInput::MouseMove(MouseMoveEvent {
+            position,
+            pressed_button: None,
+            modifiers: Default::default(),
+        }),
+        cx,
+    );
+}
+
+/// A specification's window takes its pointer only from the specification.
+///
+/// Its steps move, press, and scroll the window's pointer themselves. On a
+/// desktop, the person's own cursor would also reach the window whenever it
+/// rests over it, and move hover or press controls between steps, so the same
+/// specification could pass or fail with where a mouse was left. On Windows the
+/// window's messages from the system pointer are dropped before GPUI reads
+/// them; the keyboard, painting, and every event a step dispatches are
+/// untouched. Elsewhere a specification window receives no stray pointer.
+#[cfg(windows)]
+fn own_the_pointer(window: &gpui::Window) {
+    use windows_sys::Win32::{
+        Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+        UI::Shell::{DefSubclassProc, SetWindowSubclass},
+    };
+    unsafe extern "system" fn system_pointer(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        _id: usize,
+        _data: usize,
+    ) -> LRESULT {
+        // Non-client mouse messages, client mouse messages, pointer messages,
+        // and hover and leave tracking, by their numbers in winuser.h.
+        let from_pointer = matches!(message, 0x00A0..=0x00AD | 0x0200..=0x020E | 0x0241..=0x0257 | 0x02A0..=0x02A3);
+        if from_pointer {
+            return 0;
+        }
+        unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+    }
+    let owned = native_window(window).is_some_and(
+        |(hwnd, _)| unsafe { SetWindowSubclass(hwnd as HWND, Some(system_pointer), 1, 0) } != 0,
+    );
+    if !owned {
+        eprintln!("window runner: the system pointer still reaches the specification's window");
+    }
+}
+
+#[cfg(not(windows))]
+fn own_the_pointer(_window: &gpui::Window) {}
 
 fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rect, StepError> {
     window
@@ -1578,6 +2048,10 @@ fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rec
 pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &mut App) {
     cx.spawn(async move |cx| {
         crate::watchdog::milestone(crate::watchdog::Milestone::DriverStarted);
+        let _ = cx.update_window(window.into(), |_, window, cx| {
+            own_the_pointer(window);
+            restore_pointer(window, cx);
+        });
         let file_baseline = crate::files::operation_counts();
         let mut outcome = Outcome {
             spec_name: spec.name.clone(),
@@ -1589,6 +2063,7 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
         };
 
         // Let the first real frame land before anything is asserted about it.
+        account_through_now();
         if let Err(error) = settle(window, 2, options.timeout, cx).await {
             outcome.failed = true;
             outcome.steps.push(StepRecord {
@@ -1756,6 +2231,7 @@ mod tests {
             stroke: None,
             stroke_width: 0,
             radius: 0,
+            ..Default::default()
         };
         assert_eq!(
             primitive_rect(canvas, &item),

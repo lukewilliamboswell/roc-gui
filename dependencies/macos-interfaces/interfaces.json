@@ -13,6 +13,750 @@
       ],
       "symbols": [
         {
+          "name": "_NSAccessibilityAnnouncementKey",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityAnnouncementKey",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityAnnouncementRequestedNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityAnnouncementRequestedNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityBackgroundColorTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityBackgroundColorTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityButtonRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityButtonRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityCellRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityCellRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityCheckBoxRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityCheckBoxRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityColorWellRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityColorWellRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityComboBoxRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityComboBoxRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityDialogSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityDialogSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityFocusedUIElementChangedNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityFocusedUIElementChangedNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityFontFamilyKey",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityFontFamilyKey",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityFontSizeKey",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityFontSizeKey",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityFontTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityFontTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityForegroundColorTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityForegroundColorTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityGroupRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityGroupRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityImageRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityImageRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityIncrementorRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityIncrementorRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityLanguageTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityLanguageTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityLevelIndicatorRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityLevelIndicatorRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityLinkRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityLinkRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityListRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityListRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityMenuBarRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityMenuBarRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityMenuItemRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityMenuItemRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityMenuRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityMenuRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityOutlineRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityOutlineRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityOutlineRowSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityOutlineRowSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityPopUpButtonRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityPopUpButtonRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityPostNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibility.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityPostNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "5014a4ad2bcc4bd0072755b5bf66ebb15a07fdd7fd0a3e2e16587190409a60e8"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityPostNotificationWithUserInfo",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityPostNotificationWithUserInfo",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityPriorityKey",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityPriorityKey",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityProgressIndicatorRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityProgressIndicatorRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityRadioButtonRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityRadioButtonRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityRadioGroupRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityRadioGroupRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityRowRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityRowRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityScrollBarRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityScrollBarRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilitySearchFieldSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilitySearchFieldSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilitySecureTextFieldSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilitySecureTextFieldSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilitySelectedRowsChangedNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilitySelectedRowsChangedNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilitySelectedTextChangedNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilitySelectedTextChangedNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilitySliderRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilitySliderRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilitySplitterRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilitySplitterRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityStaticTextRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityStaticTextRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityStrikethroughColorTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityStrikethroughColorTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityStrikethroughTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityStrikethroughTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilitySwitchSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilitySwitchSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTabButtonSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTabButtonSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTabGroupRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTabGroupRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTableRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTableRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTableRowSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTableRowSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTextAlignmentAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTextAlignmentAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTextAreaRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTextAreaRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTextFieldRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTextFieldRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityTitleChangedNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityTitleChangedNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityToggleSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityToggleSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityToolbarRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityToolbarRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityUIElementDestroyedNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityUIElementDestroyedNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityUnderlineColorTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityUnderlineColorTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityUnderlineTextAttribute",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityUnderlineTextAttribute",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityUnknownRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityUnknownRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityUnknownSubrole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityUnknownSubrole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityValueChangedNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityValueChangedNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
+          "name": "_NSAccessibilityWindowRole",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSAccessibilityConstants.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSAccessibilityWindowRole",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "6396d956c39065a37b18a859e9758059f799b63576c8e923b29bbd65de69ff87"
+            }
+          ]
+        },
+        {
           "name": "_NSAppKitVersionNumber",
           "sources": [
             {
@@ -98,6 +842,30 @@
           ]
         },
         {
+          "name": "_NSBeep",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSGraphics.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSBeep",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "f05bef76f2dd33026dd0b6f308d2aac954589d1626423bb52ddce9005205f32c"
+            }
+          ]
+        },
+        {
+          "name": "_NSDraggingImageComponentIconKey",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSDraggingItem.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSDraggingImageComponentIconKey",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "317bc30cb97d431c449b32abecfe33a2cfb716922a7302da7bc6ae56161eab59"
+            }
+          ]
+        },
+        {
           "name": "_NSFilenamesPboardType",
           "sources": [
             {
@@ -111,6 +879,18 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:04.797679+00:00",
               "response_sha256": "6f32e3277c0e13ebd4062f7575159391ef9db6b2a6289000c51e113c55c2c29c"
+            }
+          ]
+        },
+        {
+          "name": "_NSPasteboardNameFind",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSPasteboard.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSPasteboardNameFind",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "bb87920b57e8af85f0480fbaf9aaee142a89f3d54c3688d56eeefbafc3244bcf"
             }
           ]
         },
@@ -162,6 +942,30 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:05.759530+00:00",
               "response_sha256": "2e94d5f03a4af1ebef6e870ac1d1b23dc36512fce75a5e9dbaef21a7951d76d3"
+            }
+          ]
+        },
+        {
+          "name": "_NSWorkspaceDidWakeNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSWorkspace.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSWorkspaceDidWakeNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "8c6368f5a9366fbaca27d638dc3fa169257026335f3c353cc33dcf592c7c03b2"
+            }
+          ]
+        },
+        {
+          "name": "_NSWorkspaceWillSleepNotification",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-app-kit/0.3.2/source/src/generated/NSWorkspace.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "NSWorkspaceWillSleepNotification",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "8c6368f5a9366fbaca27d638dc3fa169257026335f3c353cc33dcf592c7c03b2"
             }
           ]
         }
@@ -348,6 +1152,18 @@
           ]
         },
         {
+          "name": "_TISCopyCurrentKeyboardInputSource",
+          "sources": [
+            {
+              "url": "https://raw.githubusercontent.com/lukewilliamboswell/zed/252b436e332f68c9ac2d6c785dd075fd19b69785/crates/gpui_macos/src/platform.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "TISCopyCurrentKeyboardInputSource",
+              "source_license": "Apache-2.0",
+              "response_sha256": "35c934914e36bbf4a4191485401766a53c1d64e007f53087558dd8b63a9a1df9"
+            }
+          ]
+        },
+        {
           "name": "_TISCopyCurrentKeyboardLayoutInputSource",
           "sources": [
             {
@@ -401,6 +1217,30 @@
           ]
         },
         {
+          "name": "_kTISPropertyInputSourceIsASCIICapable",
+          "sources": [
+            {
+              "url": "https://raw.githubusercontent.com/lukewilliamboswell/zed/252b436e332f68c9ac2d6c785dd075fd19b69785/crates/gpui_macos/src/platform.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "kTISPropertyInputSourceIsASCIICapable",
+              "source_license": "Apache-2.0",
+              "response_sha256": "35c934914e36bbf4a4191485401766a53c1d64e007f53087558dd8b63a9a1df9"
+            }
+          ]
+        },
+        {
+          "name": "_kTISPropertyInputSourceType",
+          "sources": [
+            {
+              "url": "https://raw.githubusercontent.com/lukewilliamboswell/zed/252b436e332f68c9ac2d6c785dd075fd19b69785/crates/gpui_macos/src/platform.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "kTISPropertyInputSourceType",
+              "source_license": "Apache-2.0",
+              "response_sha256": "35c934914e36bbf4a4191485401766a53c1d64e007f53087558dd8b63a9a1df9"
+            }
+          ]
+        },
+        {
           "name": "_kTISPropertyLocalizedName",
           "sources": [
             {
@@ -421,6 +1261,18 @@
               "identifier": "kTISPropertyUnicodeKeyLayoutData",
               "source_license": "Apache-2.0",
               "response_sha256": "6f35d3050474bad7acae209d2082c26890ac6377f95ea2e7236cbb25b995d62c"
+            }
+          ]
+        },
+        {
+          "name": "_kTISTypeKeyboardInputMode",
+          "sources": [
+            {
+              "url": "https://raw.githubusercontent.com/lukewilliamboswell/zed/252b436e332f68c9ac2d6c785dd075fd19b69785/crates/gpui_macos/src/platform.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "kTISTypeKeyboardInputMode",
+              "source_license": "Apache-2.0",
+              "response_sha256": "35c934914e36bbf4a4191485401766a53c1d64e007f53087558dd8b63a9a1df9"
             }
           ]
         }
@@ -695,6 +1547,18 @@
           ]
         },
         {
+          "name": "_CFBooleanGetValue",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/number.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFBooleanGetValue",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "4abc9815bce32b30d2b07704455590d27fde27f5a1494025d85de3a19ca493e1"
+            }
+          ]
+        },
+        {
           "name": "_CFDataCreate",
           "sources": [
             {
@@ -954,6 +1818,23 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:13.088170+00:00",
               "response_sha256": "89f423e7cb4ffae762ea22c7d3ee43539a078d7ca815300c51a29b92f584ee68"
+            }
+          ]
+        },
+        {
+          "name": "_CFPreferencesCopyAppValue",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/cfpreferencescopyappvalue(_:_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/cfpreferencescopyappvalue(_:_:).json",
+              "external_id": "c:@F@CFPreferencesCopyAppValue",
+              "title": "CFPreferencesCopyAppValue(_:_:)",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:51.595963+00:00",
+              "response_sha256": "0dd7084b44110e9a9ea3709410f5dfc79370b7edecc2bac168383e744d2fdfae"
             }
           ]
         },
@@ -1279,6 +2160,76 @@
           ]
         },
         {
+          "name": "_CFTimeZoneCopySystem",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/timezone.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFTimeZoneCopySystem",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "d6f15da0dee524f534d35f38f4c66a363c4dbdccf542f7482ab7264ef2de28fd"
+            }
+          ]
+        },
+        {
+          "name": "_CFTimeZoneGetName",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/timezone.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFTimeZoneGetName",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "d6f15da0dee524f534d35f38f4c66a363c4dbdccf542f7482ab7264ef2de28fd"
+            }
+          ]
+        },
+        {
+          "name": "_CFTimeZoneResetSystem",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-foundation-sys/0.8.7/source/src/timezone.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CFTimeZoneResetSystem",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "d6f15da0dee524f534d35f38f4c66a363c4dbdccf542f7482ab7264ef2de28fd"
+            }
+          ]
+        },
+        {
+          "name": "_CFURLGetFileSystemRepresentation",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/cfurlgetfilesystemrepresentation(_:_:_:_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/cfurlgetfilesystemrepresentation(_:_:_:_:).json",
+              "external_id": "c:@F@CFURLGetFileSystemRepresentation",
+              "title": "CFURLGetFileSystemRepresentation(_:_:_:_:)",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:44.959574+00:00",
+              "response_sha256": "f24171ce0e7620ae116d8a981a97b4f24653ff32e43262e30fb521c7ebe56887"
+            }
+          ]
+        },
+        {
+          "name": "_CFURLGetTypeID",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/cfurlgettypeid()",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/cfurlgettypeid().json",
+              "external_id": "c:@F@CFURLGetTypeID",
+              "title": "CFURLGetTypeID()",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:47.924691+00:00",
+              "response_sha256": "ff11eb4108a9eb5d3e6554ebe98a15d70500357d1ed98f19d2ec9c1e372a2cb9"
+            }
+          ]
+        },
+        {
           "name": "_CFUUIDGetUUIDBytes",
           "sources": [
             {
@@ -1381,6 +2332,23 @@
               "identifier": "kCFCoreFoundationVersionNumber",
               "source_license": "See linked crate license metadata",
               "response_sha256": "3a1fa0b85cf94b85b97770764f581a182e75694f87cac4a7a2dee40fe50c115f"
+            }
+          ]
+        },
+        {
+          "name": "_kCFPreferencesCurrentApplication",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/kcfpreferencescurrentapplication",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/kcfpreferencescurrentapplication.json",
+              "external_id": "c:@kCFPreferencesCurrentApplication",
+              "title": "kCFPreferencesCurrentApplication",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:54.711421+00:00",
+              "response_sha256": "ea79551c10518e7117474b12cef3c5c758d4fc46f8645ecf17c31b8cc0f16652"
             }
           ]
         },
@@ -1626,6 +2594,23 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:05:40.322313+00:00",
               "response_sha256": "9348ff41074f876b5b504d2c4a8a8a136512d952db1c9caecfcd0721fb579e26"
+            }
+          ]
+        },
+        {
+          "name": "_CGContextSetShouldSmoothFonts",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coregraphics/cgcontext/setshouldsmoothfonts(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coregraphics/cgcontext/setshouldsmoothfonts(_:).json",
+              "external_id": "c:@F@CGContextSetShouldSmoothFonts",
+              "title": "setShouldSmoothFonts(_:)",
+              "documented_modules": [
+                "Core Graphics"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:00:58.439533+00:00",
+              "response_sha256": "cd3d84e710bdc9d10bddd019bc73a2f4f0e3bc0070d1b2667a7d584017abca0d"
             }
           ]
         },
@@ -2918,6 +3903,40 @@
           ]
         },
         {
+          "name": "_kCTFontTraitsAttribute",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coretext/kctfonttraitsattribute",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coretext/kctfonttraitsattribute.json",
+              "external_id": "c:@kCTFontTraitsAttribute",
+              "title": "kCTFontTraitsAttribute",
+              "documented_modules": [
+                "Core Text"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:01:09.962000+00:00",
+              "response_sha256": "e7598a63a37dcc4fdac91e8cd47b747a2911a30d46103006054d3d1d778bd4a3"
+            }
+          ]
+        },
+        {
+          "name": "_kCTFontURLAttribute",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coretext/kctfonturlattribute",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coretext/kctfonturlattribute.json",
+              "external_id": "c:@kCTFontURLAttribute",
+              "title": "kCTFontURLAttribute",
+              "documented_modules": [
+                "Core Text"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-24T06:01:05.377084+00:00",
+              "response_sha256": "665368f24d652f01f1d962ff010a0b550d2b1a710a5d2043b2b3a9706ecbe867"
+            }
+          ]
+        },
+        {
           "name": "_kCTFontUniqueNameKey",
           "sources": [
             {
@@ -3045,6 +4064,18 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:06:12.129460+00:00",
               "response_sha256": "af5f79abd10fd763811c9abe3bd3cf60c47cac6f4fc90bfeed5da81883900ab8"
+            }
+          ]
+        },
+        {
+          "name": "_CVDisplayLinkRetain",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/core-video/0.5.2/source/src/display_link.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "CVDisplayLinkRetain",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "011ee125c41d031a8cc987b433dbeba8311829a0139a2b97f619a07258ff62a6"
             }
           ]
         },
@@ -3655,6 +4686,18 @@
               "response_sha256": "7b6a26c3dc6b61a39e3de924aa4fe772e0b6ed0561e454454883d6f09a7236d5"
             }
           ]
+        },
+        {
+          "name": "_MTLCreateSystemDefaultDevice",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/metal/0.33.0/source/src/device.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "MTLCreateSystemDefaultDevice",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "581e979be5b18425bc27cbd59e42ee7051d4a18429cdf269d8fa6119082d73b8"
+            }
+          ]
         }
       ],
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
@@ -4060,6 +5103,30 @@
         }
       ],
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
+    },
+    {
+      "name": "UserNotifications",
+      "path": "System/Library/Frameworks/UserNotifications.framework/UserNotifications.tbd",
+      "install_name": "/System/Library/Frameworks/UserNotifications.framework/UserNotifications",
+      "path_sources": [
+        "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/OSX_Technology_Overview/SystemFrameworks/SystemFrameworks.html",
+        "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html"
+      ],
+      "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup",
+      "symbols": [
+        {
+          "name": "_UNNotificationDefaultActionIdentifier",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2-user-notifications/0.3.2/source/src/generated/UNNotificationResponse.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "UNNotificationDefaultActionIdentifier",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "9353fe3c4e9b97e63c2294be05c1cba5c56d249154d941a3c5fb7e44563a8456"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "libSystem",
@@ -5302,6 +6369,18 @@
           ]
         },
         {
+          "name": "_dispatch_retain",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/dispatch2/0.3.1/source/src/generated/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "dispatch_retain",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "7a78c321d526f44a108f7107a10d19e10bfec58ad5d26a15d7d77587d20cc7eb"
+            }
+          ]
+        },
+        {
           "name": "_dispatch_semaphore_create",
           "sources": [
             {
@@ -5600,6 +6679,18 @@
               "evidence_kind": "exact_function_name_in_manpage_synopsis",
               "retrieved_at": "2026-09-09T10:06:47.381273+00:00",
               "response_sha256": "bd37705d23ea9025dcf504a74c03abf1a1a9e87b1888113cd5c1ec08caa370a8"
+            }
+          ]
+        },
+        {
+          "name": "_exp",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/exp.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-23T10:34:48.972465+00:00",
+              "response_sha256": "2f6d3fce4decaa663bce312809f7c879a601a1a5d32408c7d868c74c7e21f7a4"
             }
           ]
         },
@@ -6500,6 +7591,18 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-15T08:00:00+00:00",
               "response_sha256": "8e11cc12c45e6c12df12cee7a786b95c8add38bd9ebf371f7a5cc98f870d449d"
+            }
+          ]
+        },
+        {
+          "name": "_logf",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/log.3.html",
+              "documented_modules": [],
+              "evidence_kind": "exact_function_name_in_manpage_synopsis",
+              "retrieved_at": "2026-09-23T10:34:49.256300+00:00",
+              "response_sha256": "cdeab4ab8203f10561d1e5289ebd397e86d5888bd939a891bcbc76c50076738f"
             }
           ]
         },
@@ -7659,6 +8762,30 @@
               "revision": "42d026df5b07825070f60134b980a1ec2552dfee",
               "source_license": "APSL-2.0; additional source notices may apply",
               "response_sha256": "c14ac88c6c17f6eaea94ecd5a6fed5bb2a509cc154be43bfea44e6a4430468ca"
+            }
+          ]
+        },
+        {
+          "name": "_pthread_mach_thread_np",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "pthread_mach_thread_np",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "77ca694fcb8e212aa03bf34cad283d4bc5cac9dd5498052e6a90ee179b39147d"
+            }
+          ]
+        },
+        {
+          "name": "_pthread_main_np",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "pthread_main_np",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "77ca694fcb8e212aa03bf34cad283d4bc5cac9dd5498052e6a90ee179b39147d"
             }
           ]
         },
@@ -8898,6 +10025,18 @@
           ]
         },
         {
+          "name": "_thread_policy_set",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/libc/0.2.189/source/src/unix/bsd/apple/mod.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "thread_policy_set",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "77ca694fcb8e212aa03bf34cad283d4bc5cac9dd5498052e6a90ee179b39147d"
+            }
+          ]
+        },
+        {
           "name": "_time",
           "sources": [
             {
@@ -9252,6 +10391,30 @@
           ]
         },
         {
+          "name": "_class_getSuperclass",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/class.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "class_getSuperclass",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "df154b5b685c3c8f2c007ca0c52ca160c310aced391f6101c32a8e4e98de42bf"
+            }
+          ]
+        },
+        {
+          "name": "_class_isMetaClass",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/class.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "class_isMetaClass",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "df154b5b685c3c8f2c007ca0c52ca160c310aced391f6101c32a8e4e98de42bf"
+            }
+          ]
+        },
+        {
           "name": "_ivar_getOffset",
           "sources": [
             {
@@ -9286,6 +10449,18 @@
           ]
         },
         {
+          "name": "_objc_alloc",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_alloc",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
           "name": "_objc_allocateClassPair",
           "sources": [
             {
@@ -9299,6 +10474,54 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:06:57.329437+00:00",
               "response_sha256": "179425d6df06b9a25877602958b6108efe7c5b81fdd32be7d7c69c90091fe0cc"
+            }
+          ]
+        },
+        {
+          "name": "_objc_autoreleaseReturnValue",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_autoreleaseReturnValue",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
+          "name": "_objc_copyWeak",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_copyWeak",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
+          "name": "_objc_destroyWeak",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_destroyWeak",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
+          "name": "_objc_getAssociatedObject",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/various.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_getAssociatedObject",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "4f9a18456c45c2fff84429fea6e62bb78197ca8545925709daafe1350bae4c46"
             }
           ]
         },
@@ -9333,6 +10556,30 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:06:58.086546+00:00",
               "response_sha256": "e4d499ba052a2bbff13260e1a22f691f1108d4a1a0e4192ac6631c3aa68c1d80"
+            }
+          ]
+        },
+        {
+          "name": "_objc_initWeak",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_initWeak",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
+          "name": "_objc_loadWeakRetained",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_loadWeakRetained",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
             }
           ]
         },
@@ -9388,6 +10635,54 @@
           ]
         },
         {
+          "name": "_objc_release",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_release",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
+          "name": "_objc_retain",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_retain",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
+          "name": "_objc_retainAutoreleasedReturnValue",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/rc.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_retainAutoreleasedReturnValue",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "56e250192938cb6e1a4b60dfdb8a64f94e1c0ee1b844f278df13a508dad93668"
+            }
+          ]
+        },
+        {
+          "name": "_objc_setAssociatedObject",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/various.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_setAssociatedObject",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "4f9a18456c45c2fff84429fea6e62bb78197ca8545925709daafe1350bae4c46"
+            }
+          ]
+        },
+        {
           "name": "_object_getClass",
           "sources": [
             {
@@ -9401,6 +10696,18 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:06:58.687394+00:00",
               "response_sha256": "0e29c795708a67445a07fd9f94543d1618828a076d3fec7282d7577266ec9645"
+            }
+          ]
+        },
+        {
+          "name": "_object_setClass",
+          "sources": [
+            {
+              "url": "https://docs.rs/crate/objc2/0.6.4/source/src/ffi/object.rs",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "object_setClass",
+              "source_license": "MIT OR Apache-2.0",
+              "response_sha256": "8992370499304f9d5031e839da06b55f9c2d685cd9d9c027de8a0fab0f549f20"
             }
           ]
         },

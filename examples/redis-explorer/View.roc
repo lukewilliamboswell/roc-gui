@@ -157,7 +157,7 @@ scan_bar = |state| {
 					value: state.pattern,
 					placeholder: "a glob, for example profile:*",
 					enabled: link.ready,
-					on_change: |current, event| Gui.update(Explorer.set_pattern(current, event.value)),
+					on_change: |current, event| Gui.Action.update(Explorer.set_pattern(current, event.value)),
 					on_submit: |current, _| Explorer.scan(current, link.stream),
 					width: Fill,
 					grow: True,

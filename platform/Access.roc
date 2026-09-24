@@ -27,6 +27,43 @@ Access :: Resource.Access.{
 	pick_directory! : Access => Try(Files.Choice(Files.Selection), Files.FileErr)
 	pick_directory! = |Access.(raw)| Files.pick_directory!(raw)
 
+	## Acquire a read-only grant for one file the person chooses in the
+	## operating system's file chooser, offering only `types`. Canceling is
+	## `Ok(Canceled)`. The handle reads that file and nothing beside it.
+	pick_file! : Access, List(Files.FileType) => Try(Files.Choice(Files.FileSelection), Files.FileErr)
+	pick_file! = |Access.(raw), types| Files.pick_file!(raw, types)
+
+	## The files and folders this application remembered, most recent first,
+	## each checked now against what is at its place. The host keeps the list,
+	## outside the application's own storage, so it survives a restart.
+	recent! : Access => List(Files.Recent)
+	recent! = |Access.(raw)| Files.recent!(raw)
+
+	## Reopen a remembered file as a new read-only grant. The host first checks
+	## that the file at its place is still the one remembered, and answers why
+	## not when it is missing, replaced, or no longer readable.
+	reopen_file! : Access, U64 => Try(Files.FileSelection, Files.Unavailable)
+	reopen_file! = |Access.(raw), key| Files.reopen_file!(raw, key)
+
+	## Reopen a remembered folder as a new read-only grant, checked as
+	## `reopen_file!` checks a file.
+	reopen_directory! : Access, U64 => Try(Files.Selection, Files.Unavailable)
+	reopen_directory! = |Access.(raw), key| Files.reopen_directory!(raw, key)
+
+	## Remove one entry from the recent list, so it is not offered again.
+	forget_recent! : Access, U64 => Try({}, Files.Unavailable)
+	forget_recent! = |Access.(raw), key| Files.forget_recent!(raw, key)
+
+	## Remember a file a person chose or dropped, so a later run can reopen it
+	## from `recent!` without asking again. Only the application's root may
+	## remember: a library handed the file can read it, but not keep it.
+	remember_file! : Access, Files.File.Read => Try({}, Files.Unavailable)
+	remember_file! = |Access.(raw), file| Files.remember_file!(raw, file)
+
+	## Remember a folder a person chose, as `remember_file!` remembers a file.
+	remember_directory! : Access, Files.Dir.Read => Try({}, Files.Unavailable)
+	remember_directory! = |Access.(raw), directory| Files.remember_directory!(raw, directory)
+
 	## Acquire the private read-write application-data directory granted by the host.
 	app_data! : Access => Try(Files.Dir.ReadWrite, Files.FileErr)
 	app_data! = |Access.(raw)| Files.app_data!(raw)

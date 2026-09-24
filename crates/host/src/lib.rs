@@ -9,33 +9,41 @@ mod audio;
 mod bridge;
 mod clipboard;
 mod device;
+mod document;
 mod files;
 mod frame_spans;
 mod grant;
 mod http;
 mod image_data;
 mod input;
+mod keyboard;
 mod observatory;
 mod probe;
 mod process;
+mod recents;
 // Generated glue (scripts/regenerate_glue.py); variant names mirror the Roc types.
+mod appearance;
 #[allow(clippy::enum_variant_names)]
 mod roc_platform_abi;
+mod rows;
 mod runner;
 mod screenshot;
 mod spec;
 mod sqlite;
 mod system_monitor;
+mod tasks;
 mod tcp;
 mod timers;
+pub(crate) use appearance::Paint;
+mod watch;
 mod watchdog;
 mod window_runner;
 
 use bridge::{
-    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CheckboxIndicator, ControlKey,
-    ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify, Length,
-    MountedGraph, Node, NodeKind, Overflow, Patch, ScrollAxis, Style, TextOverflow, decode_commit,
-    validate_tree,
+    Align, BridgeState, CanvasPrimitive, CanvasPrimitiveKind, CanvasTextAlign, CheckboxIndicator,
+    ControlKey, ElementIdentity, FontFace, ImageFit, ImageFormat as BridgeImageFormat, Justify,
+    Length, MountedGraph, Node, NodeKind, Overflow, Patch, Placement, ScrollAxis, Style,
+    TextOverflow, TextRun, decode_commit, validate_tree,
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
@@ -44,10 +52,13 @@ use roc_platform_abi::{
     HostGlueKeyedEditBeginArgs, HostGlueKeyedInsertBeforeArgs, HostGlueKeyedMoveBeforeArgs,
     HostGlueKeyedSeedArgs, HostGlueKeyedSetArgs, HostGlueNodeActionButton,
     HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeStyledTextArgs,
-    HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs,
-    HostGlueNodeVirtualListArgs, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
+    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeDropTargetArgs,
+    HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodePopover, HostGlueNodePopoverArgs,
+    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeSplit, HostGlueNodeSplitArgs,
+    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueResizeEventRetRecord,
+    HostGlueShortcutEvent, HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs,
+    HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
     RocListWith, RocStr, decref_erased_callable, incref_erased_callable, make_roc_host,
     roc_gui_dispatch, roc_gui_init,
 };
@@ -99,6 +110,10 @@ struct TaskEnvelope {
     callable: usize,
     owner: u64,
     epoch: u64,
+    /// The supersede key; empty for a task that supersedes nothing.
+    key: String,
+    /// The task's lifetime, issued when its transaction commits.
+    slot: Option<Arc<tasks::TaskSlot>>,
 }
 
 impl TaskEnvelope {
@@ -180,8 +195,6 @@ struct TaskRuntime {
     jobs: async_channel::Sender<TaskEnvelope>,
     pending_jobs: async_channel::Receiver<TaskEnvelope>,
     completions: async_channel::Receiver<TaskEnvelope>,
-    accepted: AtomicU64,
-    completed: AtomicU64,
     /// The process-lived allocator remains valid after UI session retirement.
     allocator_host: usize,
 }
@@ -212,11 +225,29 @@ fn task_runtime() -> &'static TaskRuntime {
                         if task.epoch != TASK_EPOCH.load(Ordering::Acquire) {
                             continue;
                         }
+                        // A task superseded or cancelled while it was queued
+                        // never runs; dropping it releases its captures.
+                        let slot = task.slot.clone();
+                        if slot.as_ref().is_some_and(|slot| !tasks::begin(slot)) {
+                            continue;
+                        }
                         let completion = collect_task_completion(|| unsafe {
                             roc_gui_run_task(task.take_callable())
                         })
                         .expect("Roc worker must publish exactly one completion");
-                        task.callable = completion as usize;
+                        // A tracked completion waits in its task's slot, so a
+                        // task that ends before the UI thread takes it releases
+                        // its result at once rather than when it is taken.
+                        match &slot {
+                            Some(slot) => {
+                                let owned =
+                                    tasks::Owned::new(completion as usize, release_callable);
+                                if !tasks::finish(slot, owned) {
+                                    continue;
+                                }
+                            }
+                            None => task.callable = completion as usize,
+                        }
                         let _publication = TASK_PUBLICATION.lock().expect("task publication gate");
                         if task.epoch == TASK_EPOCH.load(Ordering::Acquire) {
                             let _ = completions.send_blocking(task);
@@ -229,8 +260,6 @@ fn task_runtime() -> &'static TaskRuntime {
             jobs: job_sender,
             pending_jobs: job_receiver,
             completions: completion_receiver,
-            accepted: AtomicU64::new(0),
-            completed: AtomicU64::new(0),
             allocator_host: ROC_HOST.load(Ordering::Acquire) as usize,
         }
     })
@@ -242,6 +271,7 @@ static ROC_HOST: AtomicPtr<RocHost> = AtomicPtr::new(core::ptr::null_mut());
 struct StagedTurn {
     dispatcher: Option<RocErasedCallable>,
     jobs: Vec<TaskEnvelope>,
+    cancels: Vec<(u64, String)>,
 }
 
 thread_local! {
@@ -249,15 +279,73 @@ thread_local! {
     static WINDOW_CONFIG: RefCell<WindowConfig> = RefCell::new(WindowConfig::default());
     static INPUT_VALUE: RefCell<Option<String>> = const { RefCell::new(None) };
     static CANVAS_EVENT: RefCell<Option<CanvasEventPayload>> = const { RefCell::new(None) };
+    static SHORTCUT_EVENT: RefCell<Option<(u64, String)>> = const { RefCell::new(None) };
+    static RESIZE_EVENT: RefCell<Option<bridge::Resize>> = const { RefCell::new(None) };
+    static DROP_EVENT: RefCell<Option<document::Dropped>> = const { RefCell::new(None) };
     static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
 }
 
 #[derive(Clone, Copy)]
 struct CanvasEventPayload {
+    /// 0, 1, 2: a pressed gesture's begin, move, and end. 3 and 4: pointer
+    /// movement with no button pressed and leaving the canvas. 5: a wheel.
+    /// 6: the size the canvas was laid out at.
     phase: u8,
     x: i32,
     y: i32,
+    /// A wheel's scroll distance in logical pixels; zero for every other phase.
+    dx: i32,
+    dy: i32,
     target: u64,
+}
+
+pub(crate) const CANVAS_HOVER_MOVE: u8 = 3;
+pub(crate) const CANVAS_HOVER_LEAVE: u8 = 4;
+pub(crate) const CANVAS_WHEEL: u8 = 5;
+/// The size a canvas was laid out at, carried as `x` (width) and `y` (height).
+pub(crate) const CANVAS_SIZE: u8 = 6;
+
+/// The payload that reports a canvas's laid-out size to its owner.
+pub(crate) fn canvas_size_event(width: u32, height: u32) -> CanvasEventPayload {
+    CanvasEventPayload {
+        phase: CANVAS_SIZE,
+        x: i32::try_from(width).unwrap_or(i32::MAX),
+        y: i32::try_from(height).unwrap_or(i32::MAX),
+        dx: 0,
+        dy: 0,
+        target: 0,
+    }
+}
+
+/// The size the semantic runner lays a canvas out at. It has no layout, so it
+/// uses the one extent it knows, the window the application asked for: a
+/// fixed dimension is its own size, and a flexible one is the window's,
+/// within the canvas's fixed minimum and maximum.
+pub(crate) fn semantic_canvas_size(style: &Style) -> (u32, u32) {
+    let window = WINDOW_CONFIG.with(|config| {
+        let config = config.borrow();
+        (config.width, config.height)
+    });
+    let extent = |length: Length, min: Length, max: Length, window: u32| {
+        let base = match length {
+            Length::Px(pixels) => pixels,
+            _ => window,
+        };
+        let base = match max {
+            Length::Px(pixels) => base.min(pixels),
+            _ => base,
+        };
+        match min {
+            Length::Px(pixels) => base.max(pixels),
+            _ => base,
+        }
+    };
+    let border = |a: u32, b: u32| a.saturating_add(b);
+    let width = extent(style.width, style.min_width, style.max_width, window.0)
+        .saturating_sub(border(style.border_width[1], style.border_width[3]));
+    let height = extent(style.height, style.min_height, style.max_height, window.1)
+        .saturating_sub(border(style.border_width[0], style.border_width[2]));
+    (width, height)
 }
 
 const SUBMIT_EVENT_BIT: u64 = 1 << 63;
@@ -269,8 +357,8 @@ struct WindowConfig {
     height: u32,
     /// The colour behind the root element, and the ink text inherits when it
     /// names none. `None` keeps the host's own ground.
-    background: Option<u32>,
-    foreground: Option<u32>,
+    background: Option<Paint>,
+    foreground: Option<Paint>,
 }
 
 impl Default for WindowConfig {
@@ -287,11 +375,11 @@ impl Default for WindowConfig {
 
 /// The application's chosen window ground, or None for the host's own.
 fn window_ground() -> Option<u32> {
-    WINDOW_CONFIG.with(|config| config.borrow().background)
+    WINDOW_CONFIG.with(|config| config.borrow().background.map(Paint::resolve))
 }
 
 fn window_ink() -> Option<u32> {
-    WINDOW_CONFIG.with(|config| config.borrow().foreground)
+    WINDOW_CONFIG.with(|config| config.borrow().foreground.map(Paint::resolve))
 }
 
 fn validate_window_config(config: WindowConfig) -> Result<WindowConfig, String> {
@@ -308,9 +396,11 @@ pub extern "C" fn roc_gui_window_config(
     title: RocStr,
     width: u32,
     height: u32,
-    background: u32,
-    foreground: u32,
+    background: u64,
+    foreground: u64,
+    opens: bool,
 ) {
+    OPENS.store(opens, Ordering::Release);
     let title_value = title.as_str().to_owned();
     unsafe { title.decref(roc_host()) };
     let config = validate_window_config(WindowConfig {
@@ -322,6 +412,18 @@ pub extern "C" fn roc_gui_window_config(
     })
     .unwrap_or_else(|message| panic!("invalid native window configuration: {message}"));
     WINDOW_CONFIG.with(|current| *current.borrow_mut() = config);
+}
+
+/// Whether the application declared an opening action, which the host sends
+/// once, as the event [`OPEN_EVENT`], after the first state is shown.
+static OPENS: AtomicBool = AtomicBool::new(false);
+
+/// The event an application's opening action answers. No node has id 0.
+pub(crate) const OPEN_EVENT: u64 = 0;
+
+/// Whether the application mounted last declared an opening action.
+pub(crate) fn opens() -> bool {
+    OPENS.load(Ordering::Acquire)
 }
 
 fn set_roc_host(host: *mut RocHost) {
@@ -394,6 +496,12 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
         if mask & domain::HTTP != 0 {
             http::route_dealloc(pointer);
         }
+        if mask & domain::DOCUMENT != 0 {
+            document::route_dealloc(pointer);
+        }
+        if mask & domain::WATCH != 0 {
+            watch::route_dealloc(pointer);
+        }
     }
     DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
 }
@@ -413,6 +521,8 @@ pub(crate) mod resource_domain {
     pub const PROCESS: u32 = 1 << 9;
     pub const TIMERS: u32 = 1 << 10;
     pub const HTTP: u32 = 1 << 11;
+    pub const DOCUMENT: u32 = 1 << 12;
+    pub const WATCH: u32 = 1 << 13;
 }
 
 /// Monotonic per domain: registration enables that domain's routing before the
@@ -691,7 +801,24 @@ pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> u64 {
     let value = args.value.as_str().to_owned();
-    unsafe { args.value.decref(roc_host()) };
+    let runs = args
+        .runs
+        .as_slice()
+        .iter()
+        .map(|run| TextRun {
+            len: usize::try_from(run.len).expect("text run length exceeds the address space"),
+            fg: decode_color(run.fg),
+            bg: decode_color(run.bg),
+            font_weight: run.font_weight,
+            underline: run.underline,
+            monospace: run.monospace,
+        })
+        .collect::<Vec<_>>();
+    unsafe { args.decref(roc_host()) };
+    assert!(
+        runs_cover(&value, &runs),
+        "rich text runs must cover the text exactly, on character boundaries"
+    );
     stage_node(
         NodeKind::StyledText {
             value,
@@ -699,9 +826,29 @@ pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> 
             font_size: args.font_size,
             font_weight: args.font_weight,
             font_face: decode_font_face(args.font_face),
+            runs,
         },
         vec![],
     )
+}
+
+/// Whether `runs` is empty, or covers `value` exactly with every boundary on a
+/// character boundary.
+fn runs_cover(value: &str, runs: &[TextRun]) -> bool {
+    if runs.is_empty() {
+        return true;
+    }
+    let mut end = 0usize;
+    for run in runs {
+        end = match end.checked_add(run.len) {
+            Some(next) => next,
+            None => return false,
+        };
+        if !value.is_char_boundary(end) {
+            return false;
+        }
+    }
+    end == value.len()
 }
 
 /// Begin a host-owned child sequence. Builders may be nested while recursively lowering.
@@ -919,6 +1066,75 @@ pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
     )
 }
 
+/// Stage one popover: its anchor, then the surface's content.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_popover(args: HostGlueNodePopoverArgs) -> HostGlueNodePopover {
+    let label = args.label.as_str().to_owned();
+    let shortcuts = args
+        .shortcuts
+        .as_slice()
+        .iter()
+        .map(|item| bridge::Shortcut {
+            keys: keyboard::canonical_chord(item.keys.as_str())
+                .unwrap_or_else(|message| panic!("invalid shortcut: {message}")),
+            scope: if item.focus {
+                bridge::ShortcutScope::Focus
+            } else {
+                bridge::ShortcutScope::Window
+            },
+        })
+        .collect::<Vec<_>>();
+    for (index, shortcut) in shortcuts.iter().enumerate() {
+        assert!(
+            shortcuts[..index]
+                .iter()
+                .all(|earlier| earlier.keys != shortcut.keys),
+            "invalid shortcut: one region declares {} twice",
+            shortcut.keys
+        );
+    }
+    unsafe { args.decref(roc_host()) };
+    let answers = !shortcuts.is_empty();
+    let placement = match args.placement {
+        0 => Placement::Below,
+        1 => Placement::Above,
+        2 => Placement::Start,
+        3 => Placement::End,
+        other => panic!("invalid popover placement {other}"),
+    };
+    let id = stage_node(
+        NodeKind::Popover {
+            label,
+            placement,
+            delay_ms: args.delay_ms,
+            hover_enter: args.hover_enter,
+            hover_exit: args.hover_exit,
+            shortcuts,
+            focus_serial: args.focus_serial,
+            style: decode_layout_style!(args),
+        },
+        finish_children(args.builder),
+    );
+    HostGlueNodePopover {
+        shortcut: if answers {
+            id | bridge::SHORTCUT_EVENT_BIT
+        } else {
+            0
+        },
+        id,
+        hover_enter: if args.hover_enter {
+            id | bridge::HOVER_ENTER_EVENT_BIT
+        } else {
+            0
+        },
+        hover_exit: if args.hover_exit {
+            id | bridge::HOVER_EXIT_EVENT_BIT
+        } else {
+            0
+        },
+    }
+}
+
 /// Stage one styled, semantically labelled panel.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_panel(args: HostGlueNodePanelArgs) -> u64 {
@@ -963,15 +1179,61 @@ pub extern "C" fn roc_gui_node_virtual_item(key: u64, content: u64) -> u64 {
 pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -> u64 {
     let name = args.name.as_str().to_owned();
     unsafe { args.name.decref(roc_host()) };
+    // Instance zero is the application root, which is never a list's own
+    // boundary, so it marks a list that carries all of its rows.
+    let rows = (args.instance != 0).then_some(bridge::ProvidedRows {
+        instance: args.instance,
+        count: args.count,
+        first: args.first,
+        notify: args.notify,
+    });
     stage_node(
         NodeKind::VirtualList {
             name,
             row_height: args.row_height,
             row_gap: args.row_gap,
             style: decode_layout_style!(args),
+            rows,
         },
         finish_children(args.builder),
     )
+}
+
+/// Name the rows a provided list mounts in this render, applying a new scroll
+/// request first. The host owns the viewport, so the host decides.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_virtual_window(
+    args: HostGlueVirtualWindowArgs,
+) -> HostGlueVirtualWindowRetRecord {
+    assert!(
+        (1..=16_384).contains(&args.row_height),
+        "virtual row height must be between 1 and 16384"
+    );
+    assert!(args.scroll_align <= 4, "invalid virtual row alignment");
+    let window_height = WINDOW_CONFIG.with(|config| config.borrow().height);
+    let estimate = u64::from(window_height.div_ceil(args.row_height));
+    let window = rows::window(
+        args.instance,
+        args.count,
+        estimate,
+        (args.scroll_row, args.scroll_align, args.scroll_serial),
+    );
+    HostGlueVirtualWindowRetRecord {
+        first: window.start,
+        end: window.end,
+    }
+}
+
+/// Consume the viewport payload installed for a provided list's dispatch.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_virtual_rows_event() -> HostGlueVirtualRowsEventRetRecord {
+    let event = rows::event();
+    HostGlueVirtualRowsEventRetRecord {
+        refresh: event.refresh,
+        report: event.report,
+        start: event.start,
+        end: event.end,
+    }
 }
 
 /// Stage one styled action button.
@@ -989,6 +1251,12 @@ pub extern "C" fn roc_gui_node_action_button(
         NodeKind::Button {
             caption,
             label,
+            role: match args.role {
+                0 => bridge::ButtonRole::Button,
+                1 => bridge::ButtonRole::Tab { selected: false },
+                2 => bridge::ButtonRole::Tab { selected: true },
+                other => panic!("invalid button role {other}"),
+            },
             enabled: args.enabled,
             hover_enter: args.hover_enter,
             hover_exit: args.hover_exit,
@@ -1081,8 +1349,13 @@ fn decode_overflow(value: u8) -> Overflow {
     }
 }
 
-fn decode_color(value: u32) -> Option<u32> {
-    (value != 0x0100_0000).then_some(value)
+fn decode_color(value: u64) -> Option<Paint> {
+    Paint::decode(value)
+}
+
+/// A colour as GPUI paints it under the effective appearance.
+fn paint(value: Paint) -> gpui::Rgba {
+    rgb(value.resolve())
 }
 
 #[unsafe(no_mangle)]
@@ -1178,6 +1451,7 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
                 0 => CanvasPrimitiveKind::Ellipse,
                 1 => CanvasPrimitiveKind::Line,
                 2 => CanvasPrimitiveKind::Rectangle,
+                3 => CanvasPrimitiveKind::Text,
                 other => panic!("invalid canvas primitive kind {other}"),
             },
             key: item.key,
@@ -1192,8 +1466,20 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
             stroke: decode_color(item.stroke),
             stroke_width: item.stroke_width,
             radius: item.radius,
+            text: item.text.as_str().to_owned(),
+            text_size: item.text_size,
+            align: match item.align {
+                0 => CanvasTextAlign::Start,
+                1 => CanvasTextAlign::Center,
+                2 => CanvasTextAlign::End,
+                other => panic!("invalid canvas text alignment {other}"),
+            },
         })
         .collect::<Vec<_>>();
+    assert!(
+        primitives.iter().all(|item| !item.text.contains('\n')),
+        "canvas text is a single line"
+    );
     assert!(
         primitives.iter().all(|item| item.key != 0),
         "canvas primitive keys must be non-zero"
@@ -1220,10 +1506,26 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
         NodeKind::Canvas {
             label,
             primitives,
+            hover: args.hover,
+            wheel: args.wheel,
+            size: args.size,
             style,
         },
         vec![],
     )
+}
+
+/// Consume the shortcut installed for a key dispatch: which of the region's
+/// shortcuts matched, and the chord in canonical spelling.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_shortcut_event() -> HostGlueShortcutEvent {
+    let (index, keys) = SHORTCUT_EVENT
+        .with(|slot| slot.borrow_mut().take())
+        .expect("a shortcut route ran without a matched shortcut");
+    HostGlueShortcutEvent {
+        index,
+        keys: RocStr::from_str(&keys, roc_host()),
+    }
 }
 
 /// Consume the direct-manipulation payload installed for a canvas dispatch.
@@ -1235,13 +1537,174 @@ pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
             phase: 2,
             x: 0,
             y: 0,
+            dx: 0,
+            dy: 0,
             target: 0,
         });
     HostGlueCanvasEventRetRecord {
         phase: event.phase,
         x: event.x,
         y: event.y,
+        dx: event.dx,
+        dy: event.dy,
         target: event.target,
+    }
+}
+
+/// Stage one split: its two panes, already built, and the divider between
+/// them. The divider's size requests use the split's own id as their route and
+/// its keys the region route every shortcut uses.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_split(args: HostGlueNodeSplitArgs) -> HostGlueNodeSplit {
+    let label = args.label.as_str().to_owned();
+    let shortcuts = args
+        .keys
+        .as_slice()
+        .iter()
+        .map(|item| bridge::Shortcut {
+            keys: keyboard::canonical_chord(item.keys.as_str())
+                .unwrap_or_else(|message| panic!("invalid split key: {message}")),
+            scope: bridge::ShortcutScope::Focus,
+        })
+        .collect::<Vec<_>>();
+    unsafe { args.decref(roc_host()) };
+    assert!(!label.is_empty(), "split label must not be empty");
+    for (index, shortcut) in shortcuts.iter().enumerate() {
+        assert!(
+            shortcuts[..index]
+                .iter()
+                .all(|earlier| earlier.keys != shortcut.keys),
+            "invalid split key: one divider declares {} twice",
+            shortcut.keys
+        );
+    }
+    let axis = match args.axis {
+        0 => bridge::SplitAxis::Horizontal,
+        1 => bridge::SplitAxis::Vertical,
+        other => panic!("invalid split axis {other}"),
+    };
+    let side = match args.side {
+        0 => bridge::SplitSide::Start,
+        1 => bridge::SplitSide::End,
+        other => panic!("invalid split side {other}"),
+    };
+    let answers = !shortcuts.is_empty();
+    let id = stage_node(
+        NodeKind::Split {
+            label,
+            axis,
+            side,
+            size: args.size,
+            min: args.min,
+            max: args.max,
+            collapsible: args.collapsible,
+            collapsed: args.collapsed,
+            thickness: args.thickness,
+            shortcuts,
+            style: decode_layout_style!(args),
+        },
+        finish_children(args.builder),
+    );
+    HostGlueNodeSplit {
+        id,
+        shortcut: if answers {
+            id | bridge::SHORTCUT_EVENT_BIT
+        } else {
+            0
+        },
+    }
+}
+
+/// Consume the size installed for a divider's dispatch.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_resize_event() -> HostGlueResizeEventRetRecord {
+    let event = RESIZE_EVENT
+        .with(|slot| slot.borrow_mut().take())
+        .expect("a divider route ran without a requested size");
+    HostGlueResizeEventRetRecord {
+        size: event.size,
+        collapsed: event.collapsed,
+    }
+}
+
+/// Stage one drop target: a column of children already built, and the file
+/// types it accepts. A drop is delivered through the target's own id as its
+/// route.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_drop_target(args: HostGlueNodeDropTargetArgs) -> u64 {
+    let label = args.label.as_str().to_owned();
+    let offered = args
+        .types
+        .as_slice()
+        .iter()
+        .map(|raw| document::FileType {
+            label: raw.label.as_str().to_owned(),
+            extensions: raw
+                .extensions
+                .as_slice()
+                .iter()
+                .map(|value| value.as_str().to_owned())
+                .collect(),
+            mime_types: raw
+                .mime_types
+                .as_slice()
+                .iter()
+                .map(|value| value.as_str().to_owned())
+                .collect(),
+        })
+        .collect::<Vec<_>>();
+    let drop_bg = decode_color(args.drop_bg);
+    let drop_border = decode_color(args.drop_border);
+    let style = decode_layout_style!(args);
+    let builder = args.builder;
+    unsafe { args.decref(roc_host()) };
+    assert!(!label.is_empty(), "drop target label must not be empty");
+    let types = document::validate(offered).unwrap_or_else(|| {
+        panic!("invalid drop target type: an extension is one name, and a MIME type names a type and a subtype")
+    });
+    stage_node(
+        NodeKind::DropTarget {
+            label,
+            types,
+            drop_bg,
+            drop_border,
+            style,
+        },
+        finish_children(builder),
+    )
+}
+
+/// Grant the files of the drop being dispatched, and hand them to the
+/// application's route with every refused item. The grants are made here, as
+/// the route asks for them, so a drop no route takes grants nothing.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_drop_event() -> roc_platform_abi::AnonStruct5456361a272f3187 {
+    let dropped = DROP_EVENT
+        .with(|slot| slot.borrow_mut().take())
+        .expect("a drop target route ran without a drop");
+    let (granted, refused) = document::grant_drop(dropped);
+    let host = roc_host();
+    let files = granted
+        .into_iter()
+        .map(
+            |(name, file)| roc_platform_abi::AnonStructA295f39559baa24d {
+                file,
+                name: RocStr::from_str(&name, host),
+            },
+        )
+        .collect::<Vec<_>>();
+    let refused = refused
+        .into_iter()
+        .map(
+            |(name, reason)| roc_platform_abi::AnonStruct6fe360748589880f {
+                name: RocStr::from_str(&name, host),
+                reason: reason as u8,
+            },
+        )
+        .collect::<Vec<_>>();
+    roc_platform_abi::AnonStruct5456361a272f3187 {
+        files: unsafe { RocList::from_slice(&files, host) },
+        refused: unsafe { RocList::from_slice(&refused, host) },
     }
 }
 
@@ -1311,6 +1774,26 @@ pub extern "C" fn roc_gui_set_dispatch(dispatcher: RocErasedCallable) {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_appearance_current() -> u8 {
+    appearance::system().bits()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_appearance_next_change(known: u8) -> u8 {
+    appearance::next_change(appearance::Settings::from_bits(known)).bits()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_appearance_prefer(preference: u8) {
+    appearance::prefer(match preference {
+        0 => appearance::Preference::System,
+        1 => appearance::Preference::Light,
+        2 => appearance::Preference::Dark,
+        _ => panic!("invalid appearance preference {preference}"),
+    });
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_timer_start(interval_ms: u64) -> *mut u64 {
     timers::start(interval_ms)
 }
@@ -1336,15 +1819,28 @@ pub extern "C" fn roc_http_acquire() -> HostGlueHttpAcquireResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_enqueue_task(owner: u64, task: RocErasedCallable) {
+pub extern "C" fn roc_gui_enqueue_task(owner: u64, key: RocStr, task: RocErasedCallable) {
     assert!(!task.is_null(), "Roc enqueued a null task");
+    let key_text = key.as_str().to_owned();
+    unsafe { key.decref(roc_host()) };
     STAGED_TURN.with(|turn| {
         turn.borrow_mut().jobs.push(TaskEnvelope {
             callable: task as usize,
             owner,
             epoch: TASK_EPOCH.load(Ordering::Acquire),
+            key: key_text,
+            slot: None,
         })
     });
+}
+
+/// Stage a cancellation of `owner`'s task with `key`. Like the jobs of the
+/// same turn, it takes effect only if the turn's transaction commits.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_cancel_task(owner: u64, key: RocStr) {
+    let key_text = key.as_str().to_owned();
+    unsafe { key.decref(roc_host()) };
+    STAGED_TURN.with(|turn| turn.borrow_mut().cancels.push((owner, key_text)));
 }
 
 /// Publish a turn only after the mounted graph accepted its patch. Jobs cannot
@@ -1356,23 +1852,59 @@ pub(crate) fn accept_transaction(graph: &MountedGraph, applied: &bridge::GraphAp
         if let Some(components) = &mut bridge.components {
             components.commit(graph, applied);
         }
-        if let Some(next) = turn.dispatcher {
-            if let Some(previous) = bridge.dispatcher.replace(next) {
-                unsafe { decref_erased_callable(previous, roc_host()) };
-            }
+        if let Some(next) = turn.dispatcher
+            && let Some(previous) = bridge.dispatcher.replace(next)
+        {
+            unsafe { decref_erased_callable(previous, roc_host()) };
         }
     });
     observatory::commit_component_work();
-    for job in turn.jobs {
+    let removed: Vec<u64> = applied
+        .removed_instances
+        .iter()
+        .copied()
+        .filter(|instance| graph.boundary_root(*instance).is_none())
+        .collect();
+    rows::retire(removed.iter().copied());
+    // A removed component's tasks end with it, then the turn's own
+    // cancellations apply, then its tasks are issued, each superseding its
+    // key's predecessor.
+    tasks::unmount(&removed);
+    for (owner, key) in &turn.cancels {
+        tasks::cancel(*owner, key);
+    }
+    for mut job in turn.jobs {
         if job.owner == 0 || graph.boundary_root(job.owner).is_some() {
-            let runtime = task_runtime();
-            runtime.accepted.fetch_add(1, Ordering::Relaxed);
-            runtime
+            job.slot = Some(tasks::issue(job.owner, std::mem::take(&mut job.key)));
+            task_runtime()
                 .jobs
                 .send_blocking(job)
                 .expect("Roc task runtime stopped");
         }
     }
+}
+
+/// The UI thread took a completion from the queue. It is delivered unless its
+/// session ended or its task was superseded or cancelled after it was queued;
+/// an undelivered completion is dropped here and records no cycle.
+fn deliverable(completion: &mut TaskEnvelope) -> bool {
+    if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+        return false;
+    }
+    match &completion.slot {
+        None => true,
+        Some(slot) => match tasks::deliver(slot) {
+            Some(owned) => {
+                completion.callable = owned.into_raw();
+                true
+            }
+            None => false,
+        },
+    }
+}
+
+fn release_callable(callable: usize) {
+    unsafe { decref_erased_callable(callable as RocErasedCallable, roc_host()) };
 }
 
 pub(crate) fn reject_transaction() {
@@ -1409,11 +1941,10 @@ fn await_task_completion() -> Result<TaskEnvelope, String> {
     let deadline = started + TASK_BUDGET;
     loop {
         match runtime.completions.try_recv() {
-            Ok(value) => {
-                if value.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+            Ok(mut value) => {
+                if !deliverable(&mut value) {
                     continue;
                 }
-                runtime.completed.fetch_add(1, Ordering::Relaxed);
                 return Ok(value);
             }
             Err(async_channel::TryRecvError::Closed) => return Err("task runtime stopped".into()),
@@ -1441,12 +1972,11 @@ fn await_task_completion() -> Result<TaskEnvelope, String> {
     }
 }
 
+/// Tasks issued, and tasks that have ended by delivery, supersession, or
+/// cancellation. A task that ended undelivered is settled at the moment it
+/// ended, so nothing waits on work whose result nobody will see.
 fn task_counts() -> (u64, u64) {
-    let runtime = task_runtime();
-    (
-        runtime.accepted.load(Ordering::Relaxed),
-        runtime.completed.load(Ordering::Relaxed),
-    )
+    tasks::issued_and_settled()
 }
 
 #[unsafe(no_mangle)]
@@ -1546,6 +2076,53 @@ fn dispatch_canvas(event_id: u64, event: CanvasEventPayload) -> Patch {
     patch
 }
 
+fn dispatch_resize(event_id: u64, event: bridge::Resize) -> Patch {
+    RESIZE_EVENT.with(|slot| {
+        assert!(
+            slot.borrow_mut().replace(event).is_none(),
+            "nested divider dispatch"
+        );
+    });
+    let patch = dispatch(event_id);
+    RESIZE_EVENT.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
+/// Deliver one admitted drop through a drop target's route. What the drop
+/// yields is installed for the route to take; anything it did not take is
+/// discarded with the slot, ungranted.
+pub(crate) fn dispatch_drop(event_id: u64, dropped: document::Dropped) -> Patch {
+    DROP_EVENT.with(|slot| {
+        assert!(
+            slot.borrow_mut().replace(dropped).is_none(),
+            "nested drop dispatch"
+        );
+    });
+    let patch = dispatch(event_id);
+    DROP_EVENT.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
+fn dispatch_shortcut(found: &bridge::ShortcutMatch) -> Patch {
+    SHORTCUT_EVENT.with(|slot| {
+        assert!(
+            slot.borrow_mut()
+                .replace((found.index, found.keys.clone()))
+                .is_none(),
+            "nested shortcut dispatch"
+        );
+    });
+    let patch = dispatch(found.event);
+    SHORTCUT_EVENT.with(|slot| {
+        slot.borrow_mut().take();
+    });
+    patch
+}
+
 fn complete(mut completion: TaskEnvelope) -> Patch {
     observatory::begin_component_work();
     if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
@@ -1590,11 +2167,10 @@ fn clear_bridge() {
             while let Ok(pending) = runtime.pending_jobs.try_recv() {
                 retired.push(pending);
             }
-            runtime.accepted.store(0, Ordering::Relaxed);
-            runtime.completed.store(0, Ordering::Relaxed);
         }
         retired
     };
+    tasks::reset();
     drop(retired);
     reject_transaction();
     observatory::clear_component_work();
@@ -1613,6 +2189,7 @@ fn clear_bridge() {
     CANVAS_EVENT.with(|slot| {
         slot.borrow_mut().take();
     });
+    rows::clear();
 }
 
 fn button_with_name(nodes: &[Node], expected: &str) -> Option<u64> {
@@ -1873,6 +2450,11 @@ struct NodeView {
     /// and so that a window specification can reach the same offset cell the
     /// production wheel handler writes.
     scroll: Option<ScrollTracker>,
+    /// Whether this popover's surface is presenting, as the graph decided.
+    popover_open: bool,
+    /// A popover's handle on its own region and the subscriptions reporting
+    /// keyboard focus entering and leaving it. Made on first render.
+    popover_focus: Option<(FocusHandle, [Subscription; 2])>,
 }
 
 impl NodeView {
@@ -2001,22 +2583,22 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
         element = element.max_h(px(value as f32));
     }
     if style.grow {
-        element = element.flex_grow();
+        element = element.flex_grow(1.0);
     }
     if let Some(value) = style.bg {
-        element = element.bg(rgb(value));
+        element = element.bg(paint(value));
     }
     if let Some(value) = style.hover_bg {
-        element = element.hover(move |s| s.bg(rgb(value)));
+        element = element.hover(move |s| s.bg(paint(value)));
     }
     if let Some(value) = style.active_bg {
-        element = element.active(move |s| s.bg(rgb(value)));
+        element = element.active(move |s| s.bg(paint(value)));
     }
     if let Some(value) = style.fg {
-        element = element.text_color(rgb(value));
+        element = element.text_color(paint(value));
     }
     if let Some(value) = style.border_color {
-        element = element.border_color(rgb(value));
+        element = element.border_color(paint(value));
     }
     element = element
         .border_t(px(style.border_width[0] as f32))
@@ -2039,7 +2621,7 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     // border has too little contrast to read. The blur is the element's own,
     // so a paper-light palette can choose both the colour and how much of it.
     if style.shadow > 0 {
-        let rgba = style.shadow_color.unwrap_or(0x000000);
+        let rgba = style.shadow_color.map(Paint::resolve).unwrap_or(0x000000);
         let alpha = (style.shadow_alpha.min(100) as f32) / 100.0;
         element = element.shadow(vec![BoxShadow {
             color: gpui::Rgba {
@@ -2052,6 +2634,7 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
             offset: gpui::point(px(0.0), px(style.shadow_y as f32)),
             blur_radius: px(style.shadow as f32),
             spread_radius: px(0.0),
+            inset: false,
         }]);
     }
     element = match style.text_overflow {
@@ -2071,9 +2654,50 @@ fn apply_style(mut element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     }
 }
 
+/// Paint one canvas text primitive: a single shaped line in the canvas's
+/// inherited font, placed within its box by its alignment.
+fn paint_canvas_text(
+    item: &CanvasPrimitive,
+    origin: Point<Pixels>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    if item.text.is_empty() || item.text_size == 0 {
+        return;
+    }
+    let mut run = window.text_style().to_run(item.text.len());
+    if let Some(color) = item.fill {
+        run.color = paint(color).into();
+    }
+    let size = px(item.text_size as f32);
+    let line =
+        window
+            .text_system()
+            .shape_line(SharedString::from(item.text.clone()), size, &[run], None);
+    let slack = item.width as f32 - f32::from(line.width);
+    let offset = match item.align {
+        CanvasTextAlign::Start => 0.0,
+        CanvasTextAlign::Center => slack / 2.0,
+        CanvasTextAlign::End => slack,
+    };
+    let _ = line.paint(
+        point(
+            origin.x + px(item.x as f32 + offset),
+            origin.y + px(item.y as f32),
+        ),
+        px(item.line_height() as f32),
+        TextAlign::Left,
+        None,
+        window,
+        cx,
+    );
+}
+
 pub(crate) fn canvas_target(primitives: &[CanvasPrimitive], x: i32, y: i32) -> Option<u64> {
     primitives.iter().rev().find_map(|item| {
         let hit = match item.kind {
+            // Text labels shapes; it is never itself a pointer target.
+            CanvasPrimitiveKind::Text => false,
             CanvasPrimitiveKind::Rectangle => {
                 x >= item.x
                     && y >= item.y
@@ -2112,6 +2736,11 @@ pub(crate) fn canvas_target(primitives: &[CanvasPrimitive], x: i32, y: i32) -> O
         hit.then_some(item.key)
     })
 }
+
+/// The most lines a wrapping popover surface shows. It stands in for no limit:
+/// GPUI truncates an inherited ellipsis at one line's width unless a line
+/// count scales it.
+const SURFACE_LINES: usize = 64;
 
 const FOCUS_RING: u32 = 0xf2a65a;
 const DISABLED_BG: u32 = 0x24333c;
@@ -2160,8 +2789,14 @@ fn trace_ellipse(builder: &mut PathBuilder, center: Point<Pixels>, radii: Size<f
 /// is what left a saturated pill still reading as live on a near-black ground.
 fn apply_disabled(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
     let element = element
-        .bg(rgb(style.disabled_bg.unwrap_or(DISABLED_BG)))
-        .text_color(rgb(style.disabled_fg.unwrap_or(DISABLED_FG)))
+        .bg(rgb(style
+            .disabled_bg
+            .map(Paint::resolve)
+            .unwrap_or(DISABLED_BG)))
+        .text_color(rgb(style
+            .disabled_fg
+            .map(Paint::resolve)
+            .unwrap_or(DISABLED_FG)))
         .cursor_default();
     match (style.disabled_bg, style.disabled_fg) {
         (None, None) => element.opacity(0.55),
@@ -2170,7 +2805,7 @@ fn apply_disabled(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
 }
 
 fn apply_focus_ring(element: Stateful<Div>, style: &Style) -> Stateful<Div> {
-    let ring = rgb(style.focus_color.unwrap_or(FOCUS_RING));
+    let ring = rgb(style.focus_color.map(Paint::resolve).unwrap_or(FOCUS_RING));
     element.focus(move |focused| focused.border_2().border_color(ring))
 }
 
@@ -2200,7 +2835,33 @@ fn fixed_node_extent(node: &Node, is_root: bool) -> Option<(u32, u32)> {
     .then_some((width, height))
 }
 
-fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
+/// The layout style a node carries, when it has one.
+fn node_style(kind: &NodeKind) -> Option<&Style> {
+    match kind {
+        NodeKind::Canvas { style, .. }
+        | NodeKind::Button { style, .. }
+        | NodeKind::Checkbox { style, .. }
+        | NodeKind::Textarea { style, .. }
+        | NodeKind::Image { style, .. }
+        | NodeKind::Column { style, .. }
+        | NodeKind::KeyedColumn { style, .. }
+        | NodeKind::Dialog { style, .. }
+        | NodeKind::Panel { style, .. }
+        | NodeKind::Row { style, .. }
+        | NodeKind::Scroll { style, .. }
+        | NodeKind::VirtualList { style, .. }
+        | NodeKind::Split { style, .. }
+        | NodeKind::DropTarget { style, .. }
+        | NodeKind::TextInput { style, .. } => Some(style),
+        NodeKind::Popover { .. }
+        | NodeKind::Boundary { .. }
+        | NodeKind::VirtualItem { .. }
+        | NodeKind::StyledText { .. }
+        | NodeKind::Text(_) => None,
+    }
+}
+
+fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyElement {
     let node = view.read(cx);
     observatory::note_native_view_element(if node.keyed_children.is_some() {
         observatory::KEYED_CONTAINER_NATIVE_KIND
@@ -2242,16 +2903,67 @@ fn native_node_view(view: Entity<NodeView>, cx: &App) -> AnyView {
             // the host does not expose implicit group-hover style contexts.
             if independent_children {
                 view.cached_with_independent_children(layout.style().clone())
+                    .into_any_element()
             } else {
-                view.cached(layout.style().clone())
+                view.cached(layout.style().clone()).into_any_element()
             }
         }
-        None => view,
+        None => view.into_any_element(),
+    }
+}
+
+/// Text is its own flex item, and a flex item is never narrower than its
+/// content unless told otherwise. Under a container that keeps text on one
+/// line (`NoWrap` or `Ellipsis`), that floor would lay the string out at full
+/// width and leave the container to clip it, so truncation would never see the
+/// narrower width. Such text may shrink to its container and clips itself.
+/// Wrapping text keeps its floor, the width of its longest word.
+/// One text element whose runs restyle their own bytes. The highlights are
+/// resolved against the inherited text style at layout, so a run that sets
+/// nothing keeps the element's colour, size, weight, and face.
+fn rich_text(value: &str, runs: &[TextRun]) -> gpui::StyledText {
+    let mut highlights = Vec::with_capacity(runs.len());
+    let mut families = Vec::new();
+    let mut start = 0usize;
+    for run in runs {
+        let range = start..start + run.len;
+        start = range.end;
+        if run.len == 0 {
+            continue;
+        }
+        let highlight = HighlightStyle {
+            color: run.fg.map(|color| paint(color).into()),
+            background_color: run.bg.map(|color| paint(color).into()),
+            font_weight: (run.font_weight > 0).then_some(FontWeight(run.font_weight as f32)),
+            underline: run.underline.then(|| UnderlineStyle {
+                thickness: px(1.0),
+                color: None,
+                wavy: false,
+            }),
+            ..HighlightStyle::default()
+        };
+        if highlight != HighlightStyle::default() {
+            highlights.push((range.clone(), highlight));
+        }
+        if run.monospace {
+            families.push((range, SharedString::from(MONOSPACE_FAMILY)));
+        }
+    }
+    gpui::StyledText::new(value.to_owned())
+        .with_highlights(highlights)
+        .with_font_family_overrides(families)
+}
+
+fn single_line_text(element: Stateful<Div>, window: &Window) -> Stateful<Div> {
+    if window.text_style().white_space == WhiteSpace::Nowrap {
+        element.min_w_0().flex_shrink(1.0).overflow_x_hidden()
+    } else {
+        element
     }
 }
 
 impl Render for NodeView {
-    fn render(&mut self, _: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         observatory::note_native_render(if self.keyed_children.is_some() {
             observatory::KEYED_CONTAINER_NATIVE_KIND
         } else {
@@ -2272,6 +2984,11 @@ impl Render for NodeView {
         // constant key inside it is both stable and unique.
         let mut element = div().id("node");
         let mut append_children = true;
+        // Disabled is the application's word for a control. A modal dialog
+        // makes the controls behind it inert, not disabled: they keep their
+        // own look and only stop answering input.
+        #[cfg(test)]
+        let mut shows_disabled = false;
         if self.is_root {
             element = element.size_full().min_h_0().min_w_0();
         }
@@ -2280,22 +2997,50 @@ impl Render for NodeView {
             NodeKind::Canvas {
                 label: _,
                 primitives,
+                hover,
+                wheel,
+                size: sized,
                 style,
             } => {
+                let (hover, wheel, sized) = (*hover, *wheel, *sized);
+                let size_runtime = self.runtime.clone();
                 let paint_items = primitives.clone();
                 let hit_items = primitives.clone();
+                let hover_items = primitives.clone();
+                let wheel_items = primitives.clone();
                 let bounds_slot = self.canvas_bounds.clone();
                 let down_bounds = self.canvas_bounds.clone();
+                let hover_bounds = self.canvas_bounds.clone();
+                let wheel_bounds = self.canvas_bounds.clone();
+                let hover_runtime = self.runtime.clone();
+                let leave_runtime = self.runtime.clone();
+                let wheel_runtime = self.runtime.clone();
                 let down_runtime = self.runtime.clone();
                 let paint_runtime = self.runtime.clone();
                 let canvas_id = self.node.id;
                 let drawing = canvas(
-                    move |bounds, _, _| {
+                    move |bounds, _, cx| {
                         *bounds_slot.lock().expect("canvas bounds poisoned") = Some(bounds);
+                        // The size is a fact about a drawn frame, so it is
+                        // reported after this one; the runtime delivers each
+                        // size once.
+                        if sized {
+                            let width = f32::from(bounds.size.width).round().max(0.0) as u32;
+                            let height = f32::from(bounds.size.height).round().max(0.0) as u32;
+                            let runtime = size_runtime.clone();
+                            cx.defer(move |cx| {
+                                let _ = runtime.update(cx, |runtime, cx| {
+                                    runtime.canvas_laid_out(canvas_id, width, height, cx)
+                                });
+                            });
+                        }
                     },
-                    move |bounds, _, window, _| {
+                    move |bounds, _, window, cx| {
                         for item in &paint_items {
                             match item.kind {
+                                CanvasPrimitiveKind::Text => {
+                                    paint_canvas_text(item, bounds.origin, window, cx);
+                                }
                                 CanvasPrimitiveKind::Rectangle => {
                                     let item_bounds = Bounds::new(
                                         point(
@@ -2307,9 +3052,9 @@ impl Render for NodeView {
                                     window.paint_quad(quad(
                                         item_bounds,
                                         px(item.radius as f32),
-                                        item.fill.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
+                                        item.fill.map(paint).unwrap_or_else(|| rgba(0x00000000)),
                                         px(item.stroke_width as f32),
-                                        item.stroke.map(rgb).unwrap_or_else(|| rgba(0x00000000)),
+                                        item.stroke.map(paint).unwrap_or_else(|| rgba(0x00000000)),
                                         Default::default(),
                                     ));
                                 }
@@ -2326,7 +3071,7 @@ impl Render for NodeView {
                                         let mut builder = PathBuilder::fill();
                                         trace_ellipse(&mut builder, center, radii);
                                         if let Ok(path) = builder.build() {
-                                            window.paint_path(path, rgb(fill));
+                                            window.paint_path(path, paint(fill));
                                         }
                                     }
                                     if let (Some(stroke), true) =
@@ -2336,7 +3081,7 @@ impl Render for NodeView {
                                             PathBuilder::stroke(px(item.stroke_width as f32));
                                         trace_ellipse(&mut builder, center, radii);
                                         if let Ok(path) = builder.build() {
-                                            window.paint_path(path, rgb(stroke));
+                                            window.paint_path(path, paint(stroke));
                                         }
                                     }
                                 }
@@ -2355,7 +3100,7 @@ impl Render for NodeView {
                                         window.paint_path(
                                             path,
                                             item.stroke
-                                                .map(rgb)
+                                                .map(paint)
                                                 .unwrap_or_else(|| rgba(0x00000000)),
                                         );
                                     }
@@ -2389,7 +3134,60 @@ impl Render for NodeView {
                     },
                 )
                 .size_full();
-                element = apply_style(element, style)
+                element = apply_style(element, style);
+                if hover {
+                    element = element
+                        .on_mouse_move(move |event, _, cx| {
+                            // A pressed pointer is a gesture, delivered as one.
+                            if event.pressed_button.is_some() {
+                                return;
+                            }
+                            let Some(bounds) =
+                                *hover_bounds.lock().expect("canvas bounds poisoned")
+                            else {
+                                return;
+                            };
+                            let x = f32::from(event.position.x - bounds.origin.x).round() as i32;
+                            let y = f32::from(event.position.y - bounds.origin.y).round() as i32;
+                            let target = canvas_target(&hover_items, x, y).unwrap_or(0);
+                            let _ = hover_runtime.update(cx, |runtime, cx| {
+                                runtime.canvas_hover_for_node(canvas_id, x, y, target, cx)
+                            });
+                        })
+                        .on_hover(move |entered, _, cx| {
+                            if !*entered {
+                                let _ = leave_runtime.update(cx, |runtime, cx| {
+                                    runtime.canvas_leave_for_node(canvas_id, cx)
+                                });
+                            }
+                        });
+                }
+                if wheel {
+                    element = element.on_scroll_wheel(move |event, window, cx| {
+                        let Some(bounds) = *wheel_bounds.lock().expect("canvas bounds poisoned")
+                        else {
+                            return;
+                        };
+                        // A canvas that handles the wheel owns it: an enclosing
+                        // scroll region does not also move.
+                        cx.stop_propagation();
+                        let delta = event.delta.pixel_delta(window.line_height());
+                        let x = f32::from(event.position.x - bounds.origin.x).round() as i32;
+                        let y = f32::from(event.position.y - bounds.origin.y).round() as i32;
+                        // GPUI reports a scroll towards the content's end as a
+                        // negative delta; the event carries it as positive.
+                        let dx = -f32::from(delta.x).round() as i32;
+                        let dy = -f32::from(delta.y).round() as i32;
+                        if dx == 0 && dy == 0 {
+                            return;
+                        }
+                        let target = canvas_target(&wheel_items, x, y).unwrap_or(0);
+                        let _ = wheel_runtime.update(cx, |runtime, cx| {
+                            runtime.canvas_wheel_for_node(canvas_id, x, y, dx, dy, target, cx)
+                        });
+                    });
+                }
+                element = element
                     .child(drawing)
                     .cursor(CursorStyle::Crosshair)
                     .on_mouse_down(MouseButton::Left, move |event, _, cx| {
@@ -2407,6 +3205,48 @@ impl Render for NodeView {
             | NodeKind::KeyedColumn { style, .. }
             | NodeKind::Panel { style, .. } => {
                 element = apply_style(element.flex().flex_col(), style);
+            }
+            NodeKind::DropTarget {
+                types,
+                drop_bg,
+                drop_border,
+                style,
+                ..
+            } => {
+                element = apply_style(element.flex().flex_col(), style);
+                if self.input_enabled {
+                    let node_id = self.node.id;
+                    let accepted = types.clone();
+                    let (drop_bg, drop_border) = (*drop_bg, *drop_border);
+                    let drop_runtime = self.runtime.clone();
+                    element = element
+                        // Feedback only for a drag that carries something the
+                        // target would take: a target that lights up for a
+                        // file it will refuse has told the person the wrong
+                        // thing before they let go.
+                        .drag_over::<ExternalPaths>(move |refinement, dragged, _, _| {
+                            if !dragged.paths().iter().any(|path| {
+                                path.file_name().is_some_and(|name| {
+                                    document::admits(&accepted, &name.to_string_lossy())
+                                })
+                            }) {
+                                return refinement;
+                            }
+                            let mut refinement = refinement;
+                            if let Some(value) = drop_bg {
+                                refinement = refinement.bg(paint(value));
+                            }
+                            if let Some(value) = drop_border {
+                                refinement = refinement.border_2().border_color(paint(value));
+                            }
+                            refinement
+                        })
+                        .on_drop(move |dropped: &ExternalPaths, _, cx| {
+                            let paths = dropped.paths().to_vec();
+                            let _ = drop_runtime
+                                .update(cx, |runtime, cx| runtime.drop_if_live(node_id, paths, cx));
+                        });
+                }
             }
             NodeKind::Dialog { style, .. } => {
                 let dialog_id = self.node.id;
@@ -2435,11 +3275,162 @@ impl Render for NodeView {
                     .child(inner);
                 append_children = false;
             }
+            NodeKind::Popover {
+                placement,
+                hover_enter,
+                hover_exit,
+                style,
+                ..
+            } => {
+                let presents = self.children.len() > 1;
+                // The wrapper stands in for its anchor in the parent's layout,
+                // so it takes the anchor's share of the parent's space.
+                element = element.relative().flex().flex_col();
+                // Through boundaries and nested popovers, which add no box.
+                let mut anchor_view = self.children.first().cloned();
+                while let Some(view) = anchor_view.clone() {
+                    let node = view.read(_cx);
+                    if matches!(
+                        node.node.kind,
+                        NodeKind::Boundary { .. } | NodeKind::Popover { .. }
+                    ) {
+                        anchor_view = node.children.first().cloned();
+                    } else {
+                        break;
+                    }
+                }
+                if let Some(anchor) =
+                    anchor_view.and_then(|view| node_style(&view.read(_cx).node.kind).cloned())
+                {
+                    if anchor.grow {
+                        element = element.flex_grow(1.0);
+                    }
+                    if anchor.width == Length::Fill {
+                        element = element.w_full();
+                    }
+                    if anchor.height == Length::Fill {
+                        element = element.h_full();
+                    }
+                    // An anchor that takes a share of the parent's space sizes
+                    // by that share, not by its content; its wrapper must not
+                    // hold it open at its content's width.
+                    if (anchor.grow || anchor.width == Length::Fill)
+                        && anchor.min_width == Length::Auto
+                    {
+                        element = element.min_w_0();
+                    }
+                    if anchor.height == Length::Fill && anchor.min_height == Length::Auto {
+                        element = element.min_h_0();
+                    }
+                }
+                if presents || *hover_enter || *hover_exit {
+                    let hover_runtime = self.runtime.clone();
+                    let hover_view = _cx.entity().downgrade();
+                    element = element.on_hover(move |entered, _, cx| {
+                        // As for a button: follow this surviving native entity to
+                        // its current node, never a stale id.
+                        let Some(view) = hover_view.upgrade() else {
+                            return;
+                        };
+                        let _ = hover_runtime.update(cx, |runtime, cx| {
+                            runtime.popover_hover_if_live(&view, *entered, cx)
+                        });
+                    });
+                }
+                if presents && self.input_enabled {
+                    if self.popover_focus.is_none() {
+                        let handle = _cx.focus_handle();
+                        let entered = _cx.on_focus_in(&handle, window, |view, _, cx| {
+                            let (id, runtime) = (view.node.id, view.runtime.clone());
+                            cx.defer(move |cx| {
+                                let _ = runtime.update(cx, |runtime, cx| {
+                                    runtime.popover_focus_if_live(id, true, cx)
+                                });
+                            });
+                        });
+                        let left = _cx.on_focus_out(&handle, window, |view, _, _, cx| {
+                            let (id, runtime) = (view.node.id, view.runtime.clone());
+                            cx.defer(move |cx| {
+                                let _ = runtime.update(cx, |runtime, cx| {
+                                    runtime.popover_focus_if_live(id, false, cx)
+                                });
+                            });
+                        });
+                        self.popover_focus = Some((handle, [entered, left]));
+                    }
+                    if let Some((handle, _)) = &self.popover_focus {
+                        // Tracked only to hear focus arrive in the anchor. A
+                        // press on the anchor must not move focus here.
+                        element = element
+                            .track_focus(handle)
+                            .on_mouse_down(MouseButton::Left, |_, window, _| {
+                                window.prevent_default()
+                            });
+                    }
+                }
+                if let Some(anchor) = self.children.first() {
+                    element = element.child(native_node_view(anchor.clone(), _cx));
+                }
+                if presents && self.popover_open {
+                    let mut surface = apply_style(
+                        div().id("popover-surface").relative().flex().flex_col(),
+                        style,
+                    )
+                    .children(
+                        self.children
+                            .iter()
+                            .skip(1)
+                            .cloned()
+                            .map(|view| native_node_view(view, _cx)),
+                    );
+                    // The surface floats outside its anchor's layout, so it
+                    // must not take the anchor's text truncation with it: a
+                    // note in a clipped table cell wraps within the surface
+                    // unless the surface's own style says otherwise.
+                    if style.text_overflow == TextOverflow::Wrap {
+                        surface = surface.whitespace_normal();
+                        surface.text_style().line_clamp = Some(SURFACE_LINES);
+                    }
+                    // The popover's recorded bounds are its surface's.
+                    if probe::enabled() {
+                        surface = surface.child(probe::marker(self.node.id));
+                    }
+                    let (corner, offset, holder) = match placement {
+                        Placement::Below => (
+                            Anchor::TopLeft,
+                            point(px(0.0), px(4.0)),
+                            div().absolute().top_full().left_0(),
+                        ),
+                        Placement::Above => (
+                            Anchor::BottomLeft,
+                            point(px(0.0), px(-4.0)),
+                            div().absolute().top_0().left_0(),
+                        ),
+                        Placement::Start => (
+                            Anchor::TopRight,
+                            point(px(-4.0), px(0.0)),
+                            div().absolute().top_0().left_0(),
+                        ),
+                        Placement::End => (
+                            Anchor::TopLeft,
+                            point(px(4.0), px(0.0)),
+                            div().absolute().top_0().left_full(),
+                        ),
+                    };
+                    element = element.child(
+                        holder.child(
+                            deferred(anchored().anchor(corner).offset(offset).child(surface))
+                                .with_priority(1),
+                        ),
+                    );
+                }
+                append_children = false;
+            }
             NodeKind::Row { style, .. } => {
                 element = apply_style(element.flex().flex_row().items_center(), style);
             }
             NodeKind::Scroll { axis, style, .. } => {
-                element = apply_style(element.flex().flex_col().flex_grow(), style)
+                element = apply_style(element.flex().flex_col().flex_grow(1.0), style)
                     .scrollbar_width(px(8.0));
                 // Tracking hands GPUI the view's own offset cell in place of
                 // the one it would keep in per-element state. The wheel handler
@@ -2465,14 +3456,33 @@ impl Render for NodeView {
                 row_height,
                 row_gap,
                 style,
+                rows,
                 ..
             } => {
                 let list_id = self.node.id;
-                let count = self.node.children.len();
+                // A provided list scrolls through all of its rows, though it
+                // mounts only a window of them.
+                let count = match rows {
+                    Some(rows) => usize::try_from(rows.count).unwrap_or(usize::MAX),
+                    None => self.node.children.len(),
+                };
+                if let (Some(rows), Some(ScrollTracker::List(handle))) = (rows, &self.scroll)
+                    && let Some((row, align)) = rows::take_pending_scroll(rows.instance)
+                {
+                    let strategy = match align {
+                        rows::Align::Start => ScrollStrategy::Top,
+                        rows::Align::Center => ScrollStrategy::Center,
+                        rows::Align::End => ScrollStrategy::Bottom,
+                    };
+                    handle.scroll_to_item_strict(
+                        usize::try_from(row).unwrap_or(usize::MAX),
+                        strategy,
+                    );
+                }
                 let runtime = self.runtime.clone();
                 let height = *row_height;
                 let gap = *row_gap;
-                element = apply_style(element.flex().flex_col().flex_grow(), style)
+                element = apply_style(element.flex().flex_col().flex_grow(1.0), style)
                     .min_h_0()
                     .max_h_full()
                     .child({
@@ -2485,13 +3495,13 @@ impl Render for NodeView {
                         })
                         .size_full();
                         match &self.scroll {
-                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle.clone()),
+                            Some(ScrollTracker::List(handle)) => list.track_scroll(handle),
                             _ => list,
                         }
                     });
             }
             NodeKind::Text(value) => {
-                element = element.child(value.clone());
+                element = single_line_text(element, window).child(value.clone());
             }
             // A typographic step is about the string alone, so it costs no
             // container: the colour, size, weight, and face are the text
@@ -2502,10 +3512,16 @@ impl Render for NodeView {
                 font_size,
                 font_weight,
                 font_face,
+                runs,
             } => {
-                element = element.child(value.clone());
+                element = single_line_text(element, window);
+                element = if runs.is_empty() {
+                    element.child(value.clone())
+                } else {
+                    element.child(rich_text(value, runs))
+                };
                 if let Some(color) = fg {
-                    element = element.text_color(rgb(*color));
+                    element = element.text_color(paint(*color));
                 }
                 if *font_size > 0 {
                     element = element.text_size(px(*font_size as f32));
@@ -2557,6 +3573,10 @@ impl Render for NodeView {
                         });
                 } else if !*enabled {
                     element = apply_disabled(element, style);
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
                 let _ = label;
             }
@@ -2618,10 +3638,163 @@ impl Render for NodeView {
                 }
                 element = element.child(picture);
             }
+            NodeKind::Split {
+                axis,
+                size,
+                thickness,
+                style,
+                ..
+            } => {
+                let node_id = self.node.id;
+                let horizontal = *axis == bridge::SplitAxis::Horizontal;
+                let sized_first = matches!(
+                    self.node.kind,
+                    NodeKind::Split {
+                        side: bridge::SplitSide::Start,
+                        ..
+                    }
+                );
+                let hidden = self.node.kind.hidden_pane();
+                // The split's own style sizes it; its colours are the divider's.
+                let frame = Style {
+                    width: style.width,
+                    height: style.height,
+                    min_width: style.min_width,
+                    min_height: style.min_height,
+                    max_width: style.max_width,
+                    max_height: style.max_height,
+                    grow: style.grow,
+                    ..Style::default()
+                };
+                element = apply_style(
+                    if horizontal {
+                        element.flex().flex_row()
+                    } else {
+                        element.flex().flex_col()
+                    },
+                    &frame,
+                )
+                .min_w_0()
+                .min_h_0()
+                .overflow_hidden();
+                let pane = |index: usize, sized: bool| {
+                    let mut holder = div()
+                        .flex()
+                        .flex_col()
+                        .min_w_0()
+                        .min_h_0()
+                        .overflow_hidden();
+                    holder = match (sized, horizontal) {
+                        (true, true) => holder.flex_none().w(px(*size as f32)).h_full(),
+                        (true, false) => holder.flex_none().h(px(*size as f32)).w_full(),
+                        (false, true) => holder.flex_1().h_full(),
+                        (false, false) => holder.flex_1().w_full(),
+                    };
+                    holder.children(
+                        self.children
+                            .get(index)
+                            .cloned()
+                            .map(|view| native_node_view(view, _cx)),
+                    )
+                };
+                let mut divider = div().id("divider").relative().flex_none();
+                divider = if horizontal {
+                    divider
+                        .w(px(*thickness as f32))
+                        .h_full()
+                        .cursor(CursorStyle::ResizeLeftRight)
+                } else {
+                    divider
+                        .h(px(*thickness as f32))
+                        .w_full()
+                        .cursor(CursorStyle::ResizeUpDown)
+                };
+                if let Some(value) = style.bg {
+                    divider = divider.bg(paint(value));
+                }
+                if let Some(value) = style.hover_bg {
+                    divider = divider.hover(move |refinement| refinement.bg(paint(value)));
+                }
+                if let Some(value) = style.active_bg {
+                    divider = divider.active(move |refinement| refinement.bg(paint(value)));
+                }
+                if self.input_enabled {
+                    if let Some(handle) = &self.focus_handle {
+                        divider = divider.track_focus(handle).tab_index(0);
+                    }
+                    let ring = rgb(style.focus_color.map(Paint::resolve).unwrap_or(FOCUS_RING));
+                    let down_runtime = self.runtime.clone();
+                    let paint_runtime = self.runtime.clone();
+                    divider = divider
+                        .focus(move |focused| focused.bg(ring))
+                        .on_mouse_down(MouseButton::Left, move |event, _, cx| {
+                            let _ = down_runtime.update(cx, |runtime, _| {
+                                runtime.splitter_press(node_id, event.position)
+                            });
+                        })
+                        // A drag leaves the divider's few pixels at once, so it
+                        // is followed at the window, as a canvas gesture is.
+                        .child(
+                            canvas(
+                                |_, _, _| {},
+                                move |_, _, window, _| {
+                                    let move_runtime = paint_runtime.clone();
+                                    window.on_mouse_event(
+                                        move |event: &MouseMoveEvent, phase, _, cx| {
+                                            if phase == DispatchPhase::Bubble
+                                                && event.pressed_button == Some(MouseButton::Left)
+                                            {
+                                                let _ = move_runtime.update(cx, |runtime, cx| {
+                                                    runtime.splitter_move(event.position, cx)
+                                                });
+                                            }
+                                        },
+                                    );
+                                    let up_runtime = paint_runtime.clone();
+                                    window.on_mouse_event(
+                                        move |event: &MouseUpEvent, phase, _, cx| {
+                                            if phase == DispatchPhase::Bubble
+                                                && event.button == MouseButton::Left
+                                            {
+                                                let _ = up_runtime.update(cx, |runtime, _| {
+                                                    runtime.splitter_release()
+                                                });
+                                            }
+                                        },
+                                    );
+                                },
+                            )
+                            .absolute()
+                            .size_full(),
+                        );
+                }
+                // The split's recorded bounds are its divider's: that is what
+                // a person presses, and what a specification drags.
+                if probe::enabled() {
+                    divider = divider.child(probe::marker(node_id));
+                }
+                let (first, second) = if sized_first {
+                    (pane(0, true), pane(1, false))
+                } else {
+                    (pane(0, false), pane(1, true))
+                };
+                if hidden != Some(0) {
+                    element = element.child(first);
+                }
+                element = element.child(divider);
+                if hidden != Some(1) {
+                    element = element.child(second);
+                }
+                append_children = false;
+            }
             NodeKind::TextInput { enabled, style, .. } => {
                 element = apply_style(element.flex().items_center(), style);
-                if !enabled || !self.input_enabled {
+                if !enabled {
                     element = apply_disabled(element, style);
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
                 if let Some(editor) = &self.input {
                     element = element.child(editor.clone());
@@ -2690,8 +3863,12 @@ impl Render for NodeView {
                                     .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
                             }
                         });
-                } else {
+                } else if !*enabled {
                     element = apply_disabled(element, style);
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
             }
             NodeKind::Checkbox {
@@ -2703,16 +3880,24 @@ impl Render for NodeView {
             } => {
                 let node_id = self.node.id;
                 let runtime = self.runtime.clone();
-                let enabled_box = *enabled && self.input_enabled;
                 let mark = if *checked { "✓" } else { "" };
                 let box_bg = if *checked {
-                    indicator.box_checked_bg.unwrap_or(CHECKBOX_CHECKED_BG)
+                    indicator
+                        .box_checked_bg
+                        .map(Paint::resolve)
+                        .unwrap_or(CHECKBOX_CHECKED_BG)
                 } else {
-                    indicator.box_bg.unwrap_or(CHECKBOX_BG)
+                    indicator.box_bg.map(Paint::resolve).unwrap_or(CHECKBOX_BG)
                 };
-                let box_border = indicator.box_border.unwrap_or(CHECKBOX_BORDER);
+                let box_border = indicator
+                    .box_border
+                    .map(Paint::resolve)
+                    .unwrap_or(CHECKBOX_BORDER);
                 let box_fg = if *checked {
-                    indicator.mark_color.unwrap_or(CHECKBOX_CHECKED_FG)
+                    indicator
+                        .mark_color
+                        .map(Paint::resolve)
+                        .unwrap_or(CHECKBOX_CHECKED_FG)
                 } else {
                     box_border
                 };
@@ -2727,10 +3912,10 @@ impl Render for NodeView {
                             .w(px(18.0))
                             .h(px(18.0))
                             .border_1()
-                            .border_color(rgb(if enabled_box {
+                            .border_color(rgb(if *enabled {
                                 box_border
                             } else {
-                                style.disabled_fg.unwrap_or(DISABLED_FG)
+                                style.disabled_fg.map(Paint::resolve).unwrap_or(DISABLED_FG)
                             }))
                             .bg(rgb(box_bg))
                             .text_color(rgb(box_fg))
@@ -2766,16 +3951,16 @@ impl Render for NodeView {
                     element = element.max_h(px(value as f32));
                 }
                 if style.grow {
-                    element = element.flex_grow();
+                    element = element.flex_grow(1.0);
                 }
                 if let Some(value) = style.bg {
-                    element = element.bg(rgb(value));
+                    element = element.bg(paint(value));
                 }
                 if let Some(value) = style.fg {
-                    element = element.text_color(rgb(value));
+                    element = element.text_color(paint(value));
                 }
                 if let Some(value) = style.border_color {
-                    element = element.border_color(rgb(value));
+                    element = element.border_color(paint(value));
                 }
                 element = element
                     .border_t(px(style.border_width[0] as f32))
@@ -2810,10 +3995,10 @@ impl Render for NodeView {
                     Overflow::Scroll => element.overflow_y_scroll(),
                 };
                 if let Some(value) = style.hover_bg {
-                    element = element.hover(move |refinement| refinement.bg(rgb(value)));
+                    element = element.hover(move |refinement| refinement.bg(paint(value)));
                 }
                 if let Some(value) = style.active_bg {
-                    element = element.active(move |refinement| refinement.bg(rgb(value)));
+                    element = element.active(move |refinement| refinement.bg(paint(value)));
                 }
                 if *enabled && self.input_enabled {
                     let space_runtime = self.runtime.clone();
@@ -2833,12 +4018,22 @@ impl Render for NodeView {
                                     .update(cx, |runtime, cx| runtime.event_if_live(node_id, cx));
                             }
                         });
-                } else {
+                } else if !*enabled {
                     element = apply_disabled(element, style);
+                    #[cfg(test)]
+                    {
+                        shows_disabled = true;
+                    }
                 }
             }
         }
-        if probe::enabled() {
+        #[cfg(test)]
+        tests::record_disabled_look(_cx.entity_id(), shows_disabled);
+        // A popover that presents records its surface's bounds instead.
+        let presents =
+            matches!(self.node.kind, NodeKind::Popover { .. }) && self.children.len() > 1;
+        let records_own = presents || matches!(self.node.kind, NodeKind::Split { .. });
+        if probe::enabled() && !records_own {
             element = element.child(probe::marker(self.node.id));
         }
         if append_children {
@@ -2855,6 +4050,11 @@ impl Render for NodeView {
 }
 
 struct Runtime {
+    /// Keeps the process-visible chooser route owned by this GPUI application.
+    /// Dropping the runtime closes its request task on the same scheduler that
+    /// created it, even when another test application has already taken over
+    /// the process route.
+    _chooser: files::ChooserRegistration,
     /// The host root's own focus handle.
     ///
     /// GPUI resolves a key event against the dispatch path of whatever holds
@@ -2887,6 +4087,8 @@ struct Runtime {
     virtual_entities: HashMap<u64, VirtualCached>,
     preserved_virtual: std::collections::HashSet<u64>,
     virtual_constructions: u64,
+    /// Each list's GPUI frame in progress, settled once the frame is drawn.
+    virtual_frames: HashMap<u64, VirtualFrame>,
     focus_handles: HashMap<u64, FocusHandle>,
     /// The live scroll position of every mounted scrolling node, by id. The
     /// same tracker the node's view holds, so writing through it moves the
@@ -2900,8 +4102,11 @@ struct Runtime {
     canvas_surfaces: HashMap<u64, Arc<Mutex<Option<Bounds<Pixels>>>>>,
     root: Option<Entity<NodeView>>,
     cycle_ordinal: u64,
+    /// The recorded cycle whose patch is being applied to native views.
+    applying_cycle: Option<u64>,
     active_dialog: Option<u64>,
     dialog_return_focus: Option<ElementIdentity>,
+    focus_root_after_render: bool,
     last_trigger_focus: Option<ElementIdentity>,
     focused_identity: Option<(u64, ElementIdentity)>,
     /// The focused control's position in the focus order when it was last
@@ -2914,12 +4119,41 @@ struct Runtime {
     editors: HashMap<ElementIdentity, Entity<input::TextInput>>,
     editor_nodes: HashMap<ElementIdentity, u64>,
     canvas_drag: Option<(ElementIdentity, u64)>,
+    /// The divider a pointer is dragging: its identity, where the pointer
+    /// pressed, the divider as it was then, and the size last asked for.
+    splitter_drag: Option<SplitterDrag>,
+    /// A hovered popover's delay, by the native view that asked for it. The
+    /// view survives a rebuild of its node, so the timer finds the popover's
+    /// current node when it fires. Dropping a task cancels it.
+    popover_timers: HashMap<EntityId, Task<()>>,
+    /// The canvas the pointer is hovering and the last point delivered to it.
+    canvas_hover: Option<(ElementIdentity, (i32, i32))>,
+}
+
+struct SplitterDrag {
+    identity: ElementIdentity,
+    origin: Point<Pixels>,
+    grip: bridge::SplitterGrip,
+    last: Option<bridge::Resize>,
 }
 
 #[derive(Clone)]
 struct VirtualCached {
     view: Entity<NodeView>,
     entities: u64,
+}
+
+/// What one list's row callbacks did during the frame being drawn.
+#[derive(Default)]
+struct VirtualFrame {
+    /// The last range GPUI asked for, which is the viewport's.
+    range: std::ops::Range<usize>,
+    /// Native entities built for this list during the frame.
+    materialized: u64,
+    scheduled: bool,
+    /// The draw that asked for these rows, and when it first did.
+    draw: Option<u64>,
+    started_ns: u64,
 }
 
 #[derive(Default)]
@@ -2946,7 +4180,11 @@ struct KeyedNativeApply {
 
 impl Runtime {
     fn new(initial: InitialMount, cx: &mut Context<Self>) -> Self {
+        let (chooser_requests, chooser_pending) =
+            async_channel::unbounded::<files::ChooserRequest>();
+        let chooser = files::install_chooser(chooser_requests);
         let mut runtime = Self {
+            _chooser: chooser,
             root_focus: cx.focus_handle(),
             graph: MountedGraph::default(),
             generation: 0,
@@ -2959,13 +4197,16 @@ impl Runtime {
             virtual_entities: HashMap::new(),
             preserved_virtual: std::collections::HashSet::new(),
             virtual_constructions: 0,
+            virtual_frames: HashMap::new(),
             focus_handles: HashMap::new(),
             scroll_trackers: HashMap::new(),
             canvas_surfaces: HashMap::new(),
             root: None,
             cycle_ordinal: 0,
+            applying_cycle: None,
             active_dialog: None,
             dialog_return_focus: None,
+            focus_root_after_render: false,
             last_trigger_focus: None,
             focused_identity: None,
             focused_position: None,
@@ -2974,11 +4215,15 @@ impl Runtime {
             editors: HashMap::new(),
             editor_nodes: HashMap::new(),
             canvas_drag: None,
+            splitter_drag: None,
+            popover_timers: HashMap::new(),
+            canvas_hover: None,
         };
         if observatory::active() {
             runtime.apply_recorded(
                 initial.patch,
                 "init",
+                None,
                 initial.cycle_started,
                 initial.roc_callback_ns,
                 initial.roc_work,
@@ -2988,13 +4233,37 @@ impl Runtime {
         } else {
             runtime.apply_unrecorded(initial.patch, cx);
         }
+        // The application's opening action runs once the first state is
+        // shown and before any input, as one `open` cycle no element caused.
+        if opens() {
+            if observatory::active() {
+                let cycle_started = Instant::now();
+                observatory::reset_roc_work();
+                let roc_started = Instant::now();
+                let patch = dispatch(OPEN_EVENT);
+                let roc_callback_ns = elapsed_ns(roc_started);
+                let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                runtime.apply_recorded(
+                    patch,
+                    "open",
+                    None,
+                    cycle_started,
+                    roc_callback_ns,
+                    roc_work,
+                    roc_work_valid,
+                    cx,
+                );
+            } else {
+                let patch = dispatch(OPEN_EVENT);
+                runtime.apply_unrecorded(patch, cx);
+            }
+        }
         let completions = task_runtime().completions.clone();
         cx.spawn(async move |runtime, cx| {
-            while let Ok(completion) = completions.recv().await {
-                if completion.epoch != TASK_EPOCH.load(Ordering::Acquire) {
+            while let Ok(mut completion) = completions.recv().await {
+                if !deliverable(&mut completion) {
                     continue;
                 }
-                task_runtime().completed.fetch_add(1, Ordering::Relaxed);
                 if runtime
                     .update(cx, |runtime, cx| {
                         runtime.complete_live_task(completion, cx);
@@ -3006,24 +4275,40 @@ impl Runtime {
             }
         })
         .detach();
+        // Adaptive colours resolve as they are painted, so a change of
+        // appearance redraws every view and renders nothing again. It moves the
+        // generation a painted read compares against, as a patch does.
+        if let Some(repaints) = appearance::repaints() {
+            cx.spawn(async move |runtime, cx| {
+                while repaints.recv().await.is_ok() {
+                    if runtime
+                        .update(cx, |runtime, cx| {
+                            runtime.generation += 1;
+                            cx.refresh_windows();
+                            cx.notify();
+                        })
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            })
+            .detach();
+        }
         // The chooser wakes on the request rather than polling for it. A person
         // who presses Open waits for the panel, and every millisecond between
         // the press and the panel is time the application looks unresponsive
         // for no reason.
-        let (chooser_requests, chooser_pending) =
-            async_channel::unbounded::<files::ChooserRequest>();
-        files::install_chooser(chooser_requests);
         cx.spawn(async move |_, cx| {
             while let Ok(request) = chooser_pending.recv().await {
                 let prompt = cx.update(|cx| {
                     cx.prompt_for_paths(PathPromptOptions {
-                        files: false,
-                        directories: true,
+                        files: !request.directories,
+                        directories: request.directories,
                         multiple: false,
                         prompt: Some("Open".into()),
                     })
                 });
-                let Ok(prompt) = prompt else { break };
                 let chosen = match prompt.await {
                     Ok(Ok(Some(paths))) => paths.into_iter().next(),
                     _ => None,
@@ -3036,41 +4321,18 @@ impl Runtime {
         cx.spawn(async move |_, cx| {
             loop {
                 executor.timer(std::time::Duration::from_millis(100)).await;
-                if cx
-                    .update(|cx| {
-                        clipboard::observe_system(
-                            cx.read_from_clipboard().and_then(|item| item.text()),
-                        );
-                        if let Some(text) = clipboard::take_system_write() {
-                            cx.write_to_clipboard(ClipboardItem::new_string(text));
-                        }
-                    })
-                    .is_err()
-                {
-                    break;
-                }
+                cx.update(|cx| {
+                    clipboard::observe_system(
+                        cx.read_from_clipboard().and_then(|item| item.text()),
+                    );
+                    if let Some(text) = clipboard::take_system_write() {
+                        cx.write_to_clipboard(ClipboardItem::new_string(text));
+                    }
+                });
             }
         })
         .detach();
         runtime
-    }
-
-    fn canvas_pointer(
-        &mut self,
-        label: &str,
-        phase: u8,
-        x: i32,
-        y: i32,
-        target: u64,
-        cx: &mut Context<Self>,
-    ) {
-        let id = self.graph.nodes_preorder().into_iter().find_map(|node| {
-            matches!(&node.kind, NodeKind::Canvas { label: current, .. } if current == label)
-                .then_some(node.id)
-        });
-        if let Some(id) = id {
-            self.canvas_pointer_for_node(id, phase, x, y, target, cx);
-        }
     }
 
     fn canvas_pointer_for_node(
@@ -3106,12 +4368,247 @@ impl Runtime {
             phase,
             x,
             y,
+            dx: 0,
+            dy: 0,
             target: resolved_target,
         };
-        let patch = dispatch_canvas(id, event);
-        self.apply_unrecorded(patch, cx);
+        // A pressed gesture ends any hover: the pointer that begins it is no
+        // longer merely moving over the canvas.
+        self.canvas_hover = None;
+        self.dispatch_canvas_event(id, event, "drag", cx);
         if phase == 2 {
             self.canvas_drag = None;
+        }
+    }
+
+    /// A pointer pressed a divider. Nothing is asked of Roc until it moves.
+    fn splitter_press(&mut self, id: u64, position: Point<Pixels>) {
+        if self
+            .active_dialog
+            .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
+        let Some(grip) = self
+            .graph
+            .node(id)
+            .and_then(|node| node.kind.splitter_grip())
+        else {
+            return;
+        };
+        let Some(identity) = self.identities.get(&id).cloned() else {
+            return;
+        };
+        self.splitter_drag = Some(SplitterDrag {
+            identity,
+            origin: position,
+            grip,
+            last: None,
+        });
+    }
+
+    /// A pressed pointer moved while dragging a divider. The size it asks
+    /// for is measured from the press; one `drag` cycle is recorded for each
+    /// size that differs from what the divider shows and from the last one
+    /// asked for.
+    fn splitter_move(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        let Some(drag) = &self.splitter_drag else {
+            return;
+        };
+        let Some(id) = self.find_native_identity(&drag.identity) else {
+            self.splitter_drag = None;
+            return;
+        };
+        let resize = drag.grip.resize(
+            f32::from(position.x - drag.origin.x),
+            f32::from(position.y - drag.origin.y),
+        );
+        let shown = self
+            .graph
+            .node(id)
+            .and_then(|node| node.kind.splitter_value());
+        if drag.last == Some(resize) || shown == Some(resize) {
+            return;
+        }
+        if let Some(drag) = &mut self.splitter_drag {
+            drag.last = Some(resize);
+        }
+        self.dispatch_resize_event(id, resize, cx);
+    }
+
+    fn splitter_release(&mut self) {
+        self.splitter_drag = None;
+    }
+
+    /// Dispatch one requested size through a divider's route, recorded as a
+    /// `drag` cycle when a capture is recording.
+    fn dispatch_resize_event(&mut self, id: u64, resize: bridge::Resize, cx: &mut Context<Self>) {
+        if observatory::active() {
+            let target = self.graph.cycle_target(id);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_resize(id, resize);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "drag",
+                target,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_resize(id, resize);
+            self.apply_unrecorded(patch, cx);
+        }
+    }
+
+    /// The identity of a mounted canvas whose owner handles `wants`, or `None`.
+    fn canvas_listening(&self, id: u64, wants: fn(&NodeKind) -> bool) -> Option<ElementIdentity> {
+        let kind = &self.graph.node(id)?.kind;
+        if !matches!(kind, NodeKind::Canvas { .. }) || !wants(kind) {
+            return None;
+        }
+        self.identities.get(&id).cloned()
+    }
+
+    /// Pointer movement over a canvas with no button pressed. One cycle is
+    /// recorded, with the trigger `hover`, for each change of point; a move
+    /// that GPUI reports at the point already delivered changes nothing and
+    /// dispatches nothing.
+    fn canvas_hover_for_node(
+        &mut self,
+        id: u64,
+        x: i32,
+        y: i32,
+        target: u64,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(identity) = self.canvas_listening(id, |kind| {
+            matches!(kind, NodeKind::Canvas { hover: true, .. })
+        }) else {
+            return;
+        };
+        if self.canvas_drag.is_some() {
+            return;
+        }
+        if matches!(&self.canvas_hover, Some((active, at)) if *active == identity && *at == (x, y))
+        {
+            return;
+        }
+        self.canvas_hover = Some((identity, (x, y)));
+        let event = CanvasEventPayload {
+            phase: CANVAS_HOVER_MOVE,
+            x,
+            y,
+            dx: 0,
+            dy: 0,
+            target,
+        };
+        self.dispatch_canvas_event(id, event, "hover", cx);
+    }
+
+    /// The pointer left a canvas it was hovering. Delivered once, only after
+    /// a move was delivered to the same canvas, at the last point delivered.
+    fn canvas_leave_for_node(&mut self, id: u64, cx: &mut Context<Self>) {
+        let Some(identity) = self.canvas_listening(id, |kind| {
+            matches!(kind, NodeKind::Canvas { hover: true, .. })
+        }) else {
+            return;
+        };
+        let (x, y) = match &self.canvas_hover {
+            Some((active, at)) if *active == identity => *at,
+            _ => return,
+        };
+        self.canvas_hover = None;
+        let event = CanvasEventPayload {
+            phase: CANVAS_HOVER_LEAVE,
+            x,
+            y,
+            dx: 0,
+            dy: 0,
+            target: 0,
+        };
+        self.dispatch_canvas_event(id, event, "hover", cx);
+    }
+
+    /// One wheel scroll over a canvas, recorded as a `wheel` cycle.
+    #[allow(clippy::too_many_arguments)]
+    fn canvas_wheel_for_node(
+        &mut self,
+        id: u64,
+        x: i32,
+        y: i32,
+        dx: i32,
+        dy: i32,
+        target: u64,
+        cx: &mut Context<Self>,
+    ) {
+        if self
+            .canvas_listening(id, |kind| {
+                matches!(kind, NodeKind::Canvas { wheel: true, .. })
+            })
+            .is_none()
+        {
+            return;
+        }
+        let event = CanvasEventPayload {
+            phase: CANVAS_WHEEL,
+            x,
+            y,
+            dx,
+            dy,
+            target,
+        };
+        self.dispatch_canvas_event(id, event, "wheel", cx);
+    }
+
+    /// The size a drawn frame laid a canvas out at. A canvas whose owner
+    /// handles its size hears each size once, as one `resize` cycle; the same
+    /// size in a later frame, or after a rebuild that keeps the canvas's
+    /// identity, delivers nothing.
+    fn canvas_laid_out(&mut self, id: u64, width: u32, height: u32, cx: &mut Context<Self>) {
+        if !self.graph.report_canvas_size(id, (width, height)) {
+            return;
+        }
+        rows::note_turn();
+        self.dispatch_canvas_event(id, canvas_size_event(width, height), "resize", cx);
+    }
+
+    /// Dispatch one canvas event through the canvas's route, recording its
+    /// cycle under `trigger` when a capture is recording.
+    fn dispatch_canvas_event(
+        &mut self,
+        id: u64,
+        event: CanvasEventPayload,
+        trigger: &'static str,
+        cx: &mut Context<Self>,
+    ) {
+        if observatory::active() {
+            let target = self.graph.cycle_target(id);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_canvas(id, event);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                trigger,
+                target,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_canvas(id, event);
+            self.apply_unrecorded(patch, cx);
         }
     }
 
@@ -3138,6 +4635,49 @@ impl Runtime {
         self.dispatch_live_event(id, "click", cx);
     }
 
+    /// Files dropped on a drop target. They are admitted against the types it
+    /// accepts and delivered through its route as one `drop` cycle, whatever
+    /// was dropped: a drop of nothing acceptable is still something the
+    /// person did, and the application says why nothing opened.
+    pub(crate) fn drop_if_live(&mut self, id: u64, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
+        if self
+            .active_dialog
+            .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
+        let Some(NodeKind::DropTarget { types, .. }) = self.graph.node(id).map(|node| &node.kind)
+        else {
+            return;
+        };
+        if paths.is_empty() {
+            return;
+        }
+        let dropped = document::admit_drop(types, &paths);
+        if observatory::active() {
+            let target = self.graph.cycle_target(id);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_drop(id, dropped);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "drop",
+                target,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_drop(id, dropped);
+            self.apply_unrecorded(patch, cx);
+        }
+    }
+
     fn hover_if_live(&mut self, id: u64, entered: bool, cx: &mut Context<Self>) {
         if let Some(route) = self.graph.hover_transition(id, entered) {
             self.dispatch_live_event(
@@ -3145,6 +4685,98 @@ impl Runtime {
                 if entered { "hover-enter" } else { "hover-exit" },
                 cx,
             );
+        }
+    }
+
+    /// A pointer edge on a popover or hover region. The graph decides what the
+    /// edge means; this waits out a delay the graph asks for, draws the
+    /// result, and delivers any installed hover handler.
+    fn popover_hover_if_live(
+        &mut self,
+        view: &Entity<NodeView>,
+        entered: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let id = view.read(cx).node.id;
+        let was_open = self.graph.popover_open(id);
+        let route = self.graph.hover_transition(id, entered);
+        let key = view.entity_id();
+        if !entered {
+            self.popover_timers.remove(&key);
+        }
+        if let Some(delay) = self.graph.popover_delay(id)
+            && !self.popover_timers.contains_key(&key)
+        {
+            let waiting = view.downgrade();
+            let task = cx.spawn(async move |runtime, cx| {
+                cx.background_executor()
+                    .timer(Duration::from_millis(u64::from(delay)))
+                    .await;
+                let _ = runtime.update(cx, |runtime, cx| {
+                    runtime.popover_timers.remove(&key);
+                    if let Some(view) = waiting.upgrade() {
+                        let id = view.read(cx).node.id;
+                        if runtime.graph.popover_elapse(id) {
+                            runtime.present_popovers(&[id], cx);
+                        }
+                    }
+                });
+            });
+            self.popover_timers.insert(key, task);
+        }
+        if self.graph.popover_open(id) != was_open {
+            self.present_popovers(&[id], cx);
+        }
+        if let Some(route) = route {
+            self.dispatch_live_event(
+                route,
+                if entered { "hover-enter" } else { "hover-exit" },
+                cx,
+            );
+        }
+    }
+
+    /// Keyboard focus entered or left a popover's region.
+    fn popover_focus_if_live(&mut self, id: u64, within: bool, cx: &mut Context<Self>) {
+        if within
+            && self
+                .active_dialog
+                .is_some_and(|dialog| !self.graph.is_descendant_of(id, dialog))
+        {
+            return;
+        }
+        if self.graph.popover_focus(id, within) {
+            self.present_popovers(&[id], cx);
+        }
+    }
+
+    /// Escape, reaching the window root because nothing nearer took it.
+    fn dismiss_popovers(&mut self, cx: &mut Context<Self>) {
+        let closed = self.graph.dismiss_popovers();
+        self.popover_timers.clear();
+        self.present_popovers(&closed, cx);
+    }
+
+    /// Show each popover's surface as the graph now decides. Presentation is
+    /// part of what a frame draws, so it moves the generation a painted read
+    /// compares against, exactly as a patch does.
+    fn present_popovers(&mut self, ids: &[u64], cx: &mut Context<Self>) {
+        let mut changed = false;
+        for id in ids {
+            let open = self.graph.popover_open(*id);
+            if let Some(view) = self.native_view(*id) {
+                view.update(cx, |view, cx| {
+                    if view.popover_open != open {
+                        view.popover_open = open;
+                        changed = true;
+                        cx.notify();
+                    }
+                });
+            }
+        }
+        if changed {
+            self.generation += 1;
+            cx.notify();
         }
     }
 
@@ -3190,6 +4822,7 @@ impl Runtime {
             editor.update(cx, |editor, _| editor.begin_acknowledgement(submitted));
         }
         if observatory::active() {
+            let target = self.graph.cycle_target(event_id);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -3199,6 +4832,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 trigger,
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -3226,6 +4860,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 "task",
+                None,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -3240,6 +4875,7 @@ impl Runtime {
 
     fn dispatch_live_event(&mut self, id: u64, trigger: &'static str, cx: &mut Context<Self>) {
         if observatory::active() {
+            let target = self.graph.cycle_target(id);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -3249,6 +4885,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 trigger,
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -3279,6 +4916,7 @@ impl Runtime {
             return;
         }
         if observatory::active() {
+            let target = self.graph.cycle_target(id);
             let cycle_started = Instant::now();
             observatory::reset_roc_work();
             let roc_started = Instant::now();
@@ -3288,6 +4926,7 @@ impl Runtime {
             self.apply_recorded(
                 patch,
                 "input",
+                target,
                 cycle_started,
                 roc_callback_ns,
                 roc_work,
@@ -3298,6 +4937,72 @@ impl Runtime {
             let patch = dispatch_input(id, value);
             self.apply_unrecorded(patch, cx);
         }
+    }
+
+    /// The control holding keyboard focus, if any does. The one focused when
+    /// the window last drew is checked first, so a keystroke does not search
+    /// every focusable control to find it.
+    fn focused_control(&self, window: &Window) -> Option<u64> {
+        if self.root_focus.is_focused(window) {
+            return None;
+        }
+        self.focused_identity
+            .as_ref()
+            .map(|(id, _)| *id)
+            .filter(|id| {
+                self.focus_handles
+                    .get(id)
+                    .is_some_and(|handle| handle.is_focused(window))
+            })
+            .or_else(|| {
+                self.focus_handles
+                    .iter()
+                    .find(|(_, handle)| handle.is_focused(window))
+                    .map(|(id, _)| *id)
+            })
+    }
+
+    /// A keystroke nothing nearer took. The graph names the shortcut it
+    /// reaches, if any, and its handler runs as a `key` cycle.
+    fn shortcut_if_live(
+        &mut self,
+        keystroke: &Keystroke,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let focused = self.focused_control(window);
+        let Some(found) = self.graph.resolve_shortcut(
+            focused,
+            keyboard::types_character(keystroke),
+            |declared| keyboard::matches(keystroke, declared),
+        ) else {
+            return false;
+        };
+        // A dialog the shortcut opens returns focus here when it closes.
+        self.last_trigger_focus = focused.and_then(|id| self.identities.get(&id).cloned());
+        if observatory::active() {
+            let target = self.graph.cycle_target(found.event);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = dispatch_shortcut(&found);
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "key",
+                target,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = dispatch_shortcut(&found);
+            self.apply_unrecorded(patch, cx);
+        }
+        true
     }
 
     fn activate_if_live(&mut self, id: u64, key: ControlKey, cx: &mut Context<Self>) {
@@ -3329,6 +5034,7 @@ impl Runtime {
         &mut self,
         patch: Patch,
         trigger: &'static str,
+        target: Option<observatory::CycleTarget>,
         cycle_started: Instant,
         roc_callback_ns: u64,
         roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
@@ -3342,16 +5048,27 @@ impl Runtime {
         accept_transaction(&self.graph, &applied);
         let graph_apply_ns = applied.facts.apply_ns;
         let gpui_started = Instant::now();
+        self.applying_cycle = Some(self.cycle_ordinal);
         let keyed_native = self.apply_to_gpui(&applied, cx);
+        self.applying_cycle = None;
         let gpui_apply_ns = elapsed_ns(gpui_started);
+        // A patch that changed native views is drawn by the next frame to
+        // begin; that frame's element takes this ordinal as one of its causes.
+        if applied.facts.kind != "no_change" {
+            observatory::note_cycle_applied(self.cycle_ordinal);
+        }
+        let (start_ns, end_ns) = observatory::interval_since(cycle_started);
         observatory::cycle(observatory::Cycle {
             run_id: 1,
             ordinal: self.cycle_ordinal,
             step_ordinal: None,
             measurement_phase: "interactive",
             trigger,
+            target,
             patch_kind: applied.facts.kind,
-            duration_ns: elapsed_ns(cycle_started),
+            start_ns,
+            end_ns,
+            duration_ns: end_ns - start_ns,
             roc_callback_ns,
             validate_ns: applied.facts.validate_ns,
             apply_ns: graph_apply_ns.saturating_add(gpui_apply_ns),
@@ -3393,6 +5110,14 @@ impl Runtime {
         if applied.facts.kind == "keyed" {
             return self.apply_keyed_to_gpui(applied, cx);
         }
+        let pass_started_ns = if observatory::active() {
+            observatory::now_ns()
+        } else {
+            0
+        };
+        let pass_origin = observatory::ListPassOrigin::Patch {
+            cycle: self.applying_cycle,
+        };
         let retired_identities = applied
             .removed_ids
             .iter()
@@ -3485,7 +5210,15 @@ impl Runtime {
                     // without rebuilding any of its native descendants.
                     self.cache_virtual_row(owner, item, cached);
                 } else {
-                    observatory::virtual_list_frame(old_list, 0, 0, cached.entities, 0);
+                    observatory::virtual_list_frame(
+                        pass_started_ns,
+                        pass_origin,
+                        old_list,
+                        0,
+                        0,
+                        cached.entities,
+                        0,
+                    );
                     self.offer_subtree(cached.view, cx);
                 }
             }
@@ -3547,6 +5280,8 @@ impl Runtime {
                     (summary.rows.len() as u64, summary.entities)
                 });
                 observatory::virtual_list_frame(
+                    pass_started_ns,
+                    pass_origin,
                     list,
                     items,
                     self.virtual_constructions - constructions_before,
@@ -3566,29 +5301,45 @@ impl Runtime {
                     .dialog_return_focus
                     .take()
                     .and_then(|identity| self.find_native_identity(&identity));
+                // A dialog whose opener is gone returns focus to the window,
+                // where the window's shortcuts still reach, rather than
+                // leaving it on the dialog's unmounted field.
+                self.focus_root_after_render = self.focus_after_render.is_none();
             }
             _ => {
-                if let Some((id, identity)) = self.focused_identity.clone() {
-                    if self.graph.node(id).is_none() {
-                        // The same control under a new id keeps focus. A
-                        // control that is gone hands focus to whatever now
-                        // holds its place, rather than dropping it and
-                        // leaving a person's next Tab starting from nowhere.
-                        self.focus_after_render =
-                            self.find_native_identity(&identity).or_else(|| {
-                                self.focused_position
-                                    .and_then(|was_at| self.graph.focus_destination(was_at))
-                            });
-                    }
+                if let Some((id, identity)) = self.focused_identity.clone()
+                    && self.graph.node(id).is_none()
+                {
+                    // The same control under a new id keeps focus. A
+                    // control that is gone hands focus to whatever now
+                    // holds its place, rather than dropping it and
+                    // leaving a person's next Tab starting from nowhere.
+                    self.focus_after_render = self.find_native_identity(&identity).or_else(|| {
+                        self.focused_position
+                            .and_then(|was_at| self.graph.focus_destination(was_at))
+                    });
                 }
             }
         }
+        // A region that asked for focus with a new serial takes it, over
+        // whatever the dialog policy above chose.
+        if let Some(target) = self.graph.take_focus_request() {
+            self.focus_after_render = Some(target);
+        }
         if self.active_dialog != next_dialog {
-            for (id, view) in self.views.iter().chain(
-                self.virtual_entities
-                    .iter()
-                    .map(|(id, cached)| (id, &cached.view)),
-            ) {
+            // Only live nodes: a retired id still indexes the view a rebuilt
+            // control reclaimed until the retirement below, and must not
+            // disable the control that now owns it.
+            for (id, view) in self
+                .views
+                .iter()
+                .chain(
+                    self.virtual_entities
+                        .iter()
+                        .map(|(id, cached)| (id, &cached.view)),
+                )
+                .filter(|(id, _)| self.graph.node(**id).is_some())
+            {
                 let enabled =
                     next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
                 view.update(cx, |view, cx| {
@@ -3670,6 +5421,13 @@ impl Runtime {
             .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
         {
             self.canvas_drag = None;
+        }
+        if self
+            .canvas_hover
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_hover = None;
         }
         KeyedNativeApply::default()
     }
@@ -3753,6 +5511,10 @@ impl Runtime {
                     .dialog_return_focus
                     .take()
                     .and_then(|identity| self.find_native_identity(&identity));
+                // A dialog whose opener is gone returns focus to the window,
+                // where the window's shortcuts still reach, rather than
+                // leaving it on the dialog's unmounted field.
+                self.focus_root_after_render = self.focus_after_render.is_none();
             }
             _ => {
                 if let Some((id, identity)) = self.focused_identity.clone()
@@ -3765,12 +5527,25 @@ impl Runtime {
                 }
             }
         }
+        // A region that asked for focus with a new serial takes it, over
+        // whatever the dialog policy above chose.
+        if let Some(target) = self.graph.take_focus_request() {
+            self.focus_after_render = Some(target);
+        }
         if self.active_dialog != next_dialog {
-            for (id, view) in self.views.iter().chain(
-                self.virtual_entities
-                    .iter()
-                    .map(|(id, cached)| (id, &cached.view)),
-            ) {
+            // Only live nodes: a retired id still indexes the view a rebuilt
+            // control reclaimed until the retirement below, and must not
+            // disable the control that now owns it.
+            for (id, view) in self
+                .views
+                .iter()
+                .chain(
+                    self.virtual_entities
+                        .iter()
+                        .map(|(id, cached)| (id, &cached.view)),
+                )
+                .filter(|(id, _)| self.graph.node(**id).is_some())
+            {
                 let enabled =
                     next_dialog.is_none_or(|dialog| self.graph.is_descendant_of(*id, dialog));
                 view.update(cx, |view, cx| {
@@ -3807,6 +5582,13 @@ impl Runtime {
             .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
         {
             self.canvas_drag = None;
+        }
+        if self
+            .canvas_hover
+            .as_ref()
+            .is_some_and(|(identity, _)| self.find_native_identity(identity).is_none())
+        {
+            self.canvas_hover = None;
         }
         work
     }
@@ -3911,6 +5693,7 @@ impl Runtime {
             .and_then(|view| view.read(cx).scroll.clone())
             .or_else(|| ScrollTracker::for_kind(&node.kind));
         let editor = self.editor_for_node(&node, input_enabled, cx);
+        let popover_open = self.graph.popover_open(node.id);
         let focus_handle = if let Some(editor) = &editor {
             Some(editor.read(cx).focus_handle())
         } else if node.kind.focus_identity().is_some() {
@@ -3936,6 +5719,7 @@ impl Runtime {
                     existing.focus_handle = focus_handle;
                     existing.input = editor;
                     existing.scroll = scroll;
+                    existing.popover_open = popover_open;
                     cx.notify();
                 });
                 view
@@ -3955,6 +5739,8 @@ impl Runtime {
                     input: editor,
                     canvas_bounds: Arc::new(Mutex::new(None)),
                     scroll,
+                    popover_open,
+                    popover_focus: None,
                 })
             }
         }
@@ -3979,14 +5765,12 @@ impl Runtime {
             if matches!(
                 self.graph.node(*id).map(|node| &node.kind),
                 Some(NodeKind::TextInput { .. })
-            ) {
-                if let Some(identity) = self
-                    .identities
-                    .get(id)
-                    .filter(|identity| self.editors.contains_key(*identity))
-                {
-                    self.editor_nodes.insert(identity.clone(), *id);
-                }
+            ) && let Some(identity) = self
+                .identities
+                .get(id)
+                .filter(|identity| self.editors.contains_key(*identity))
+            {
+                self.editor_nodes.insert(identity.clone(), *id);
             }
         }
         let eager = node_ids
@@ -4250,6 +6034,12 @@ impl Runtime {
         Some(cached)
     }
 
+    /// GPUI's row callback: the elements for `range` of a list's rows.
+    ///
+    /// GPUI calls this more than once a frame — first for the row it measures,
+    /// then for the rows the viewport shows — so nothing is evicted and nothing
+    /// is recorded here. The last range of the frame is the viewport's, and
+    /// [`Self::finish_virtual_frame`] settles the frame once GPUI has drawn it.
     fn virtual_range(
         &mut self,
         list_id: u64,
@@ -4259,19 +6049,106 @@ impl Runtime {
         cx: &mut Context<Self>,
     ) -> Vec<AnyElement> {
         let list = self.graph.node(list_id).expect("virtual list is missing");
+        let first = provided_first(&list.kind);
+        // A provided list mounts a window of its rows. A row outside it has no
+        // node yet, and holds its place until the list's route builds it.
         let wanted = range
-            .filter_map(|index| list.children.get(index).copied())
+            .clone()
+            .map(|index| {
+                index
+                    .checked_sub(first)
+                    .and_then(|offset| list.children.get(offset).copied())
+            })
             .collect::<Vec<_>>();
-        let wanted_set = wanted
-            .iter()
-            .copied()
+        let construction_start = self.virtual_constructions;
+        for item in wanted.iter().flatten() {
+            if !self.virtual_views.contains_key(&(list_id, *item)) {
+                let (view, entities) = self.build_virtual_node(*item, cx);
+                self.cache_virtual_row(list_id, *item, VirtualCached { view, entities });
+            }
+        }
+        let frame = self.virtual_frames.entry(list_id).or_default();
+        frame.range = range.clone();
+        frame.materialized += self.virtual_constructions - construction_start;
+        if !frame.scheduled {
+            frame.scheduled = true;
+            frame.draw = observatory::current_frame_draw();
+            frame.started_ns = if observatory::active() {
+                observatory::now_ns()
+            } else {
+                0
+            };
+            let runtime = cx.entity().downgrade();
+            cx.defer(move |cx| {
+                let _ = runtime.update(cx, |runtime, cx| runtime.finish_virtual_frame(list_id, cx));
+            });
+        }
+        wanted
+            .into_iter()
+            .zip(range)
+            .map(|(item, index)| {
+                let Some(id) = item else {
+                    return div()
+                        .id(("virtual-pending", index))
+                        .h(px(row_height as f32))
+                        .into_any_element();
+                };
+                let view = self.virtual_views[&(list_id, id)].view.clone();
+                let key = match self.graph.node(id).map(|node| &node.kind) {
+                    Some(NodeKind::VirtualItem { key }) => *key,
+                    _ => panic!("virtual list child is not an item"),
+                };
+                // The gap is held clear inside the row's own height, which is
+                // what keeps a list's scroll arithmetic exactly row_height per
+                // row while its rows still read as separate surfaces.
+                div()
+                    .id(("virtual-row", key))
+                    .h(px(row_height as f32))
+                    .pb(px(row_gap.min(row_height.saturating_sub(1)) as f32))
+                    .child(view)
+                    .into_any_element()
+            })
+            .collect()
+    }
+
+    /// Settle one list's frame after GPUI has drawn it.
+    ///
+    /// Rows the viewport no longer shows are recycled, except the row GPUI
+    /// measures every frame, which it lays out whether or not it is in view.
+    /// The frame's materialisation is recorded here, by the owner of the work,
+    /// once per frame rather than once per callback. A provided list then
+    /// learns which rows it showed, and its route is dispatched when the
+    /// mounted window must move or the application asked to hear the range.
+    fn finish_virtual_frame(&mut self, list_id: u64, cx: &mut Context<Self>) {
+        let Some(frame) = self.virtual_frames.remove(&list_id) else {
+            return;
+        };
+        let Some(list) = self.graph.node(list_id) else {
+            return;
+        };
+        let rows = match &list.kind {
+            NodeKind::VirtualList { rows, .. } => *rows,
+            _ => return,
+        };
+        let first = provided_first(&list.kind);
+        let mounted = list.children.len();
+        let row_at = |index: usize| {
+            index
+                .checked_sub(first)
+                .and_then(|offset| list.children.get(offset).copied())
+        };
+        let mut kept = frame
+            .range
+            .clone()
+            .filter_map(row_at)
             .collect::<std::collections::HashSet<_>>();
+        kept.extend(row_at(0));
         let evicted = self
             .virtual_lists
             .get(&list_id)
             .into_iter()
             .flat_map(|summary| summary.rows.iter().copied())
-            .filter(|item| !wanted_set.contains(item))
+            .filter(|item| !kept.contains(item))
             .collect::<Vec<_>>();
         let mut recycled = 0;
         for item in evicted {
@@ -4289,7 +6166,7 @@ impl Runtime {
                 let mut child = *id;
                 while let Some((parent, _)) = self.graph.parent(child) {
                     if parent == list_id {
-                        return !wanted_set.contains(&child);
+                        return !kept.contains(&child);
                     }
                     child = parent;
                 }
@@ -4302,43 +6179,44 @@ impl Runtime {
                 self.forget_virtual_subtree(cached.view, cx);
             }
         }
-        let construction_start = self.virtual_constructions;
-        for item in &wanted {
-            if !self.virtual_views.contains_key(&(list_id, *item)) {
-                let (view, entities) = self.build_virtual_node(*item, cx);
-                self.cache_virtual_row(list_id, *item, VirtualCached { view, entities });
-            }
-        }
         let live_entities = self
             .virtual_lists
             .get(&list_id)
             .map_or(0, |summary| summary.entities);
+        // Settled after GPUI drew the list: the pass belongs to the frame that
+        // asked for these rows, if that frame is the one that was painted.
         observatory::virtual_list_frame(
+            frame.started_ns,
+            observatory::ListPassOrigin::Paint {
+                frame: observatory::painted_frame(frame.draw),
+            },
             list_id,
-            wanted.len() as u64,
-            self.virtual_constructions - construction_start,
+            frame.range.len() as u64,
+            frame.materialized,
             recycled,
             live_entities,
         );
-        wanted
-            .into_iter()
-            .map(|id| {
-                let view = self.virtual_views[&(list_id, id)].view.clone();
-                let key = match self.graph.node(id).map(|node| &node.kind) {
-                    Some(NodeKind::VirtualItem { key }) => *key,
-                    _ => panic!("virtual list child is not an item"),
-                };
-                // The gap is held clear inside the row's own height, which is
-                // what keeps a list's scroll arithmetic exactly row_height per
-                // row while its rows still read as separate surfaces.
-                div()
-                    .id(("virtual-row", key))
-                    .h(px(row_height as f32))
-                    .pb(px(row_gap.min(row_height.saturating_sub(1)) as f32))
-                    .child(view)
-                    .into_any_element()
-            })
-            .collect()
+        let Some(rows) = rows else {
+            return;
+        };
+        let visible = frame.range.start as u64..frame.range.end as u64;
+        let mounted = rows.first..rows.first + mounted as u64;
+        if let Some(event) = rows::observe(rows.instance, visible, rows.count, mounted, rows.notify)
+        {
+            rows::begin_event(event);
+            self.dispatch_live_event(list_id, "viewport", cx);
+            rows::end_event();
+        }
+    }
+}
+
+/// The index of a list's first mounted row: zero unless its rows are provided.
+fn provided_first(kind: &NodeKind) -> usize {
+    match kind {
+        NodeKind::VirtualList {
+            rows: Some(rows), ..
+        } => usize::try_from(rows.first).unwrap_or(usize::MAX),
+        _ => 0,
     }
 }
 
@@ -4436,15 +6314,18 @@ impl Render for Runtime {
         // Only when nothing else holds it: this exists to give host chords a
         // dispatch path, never to take focus away from the application.
         if window.focused(_cx).is_none() {
-            self.root_focus.focus(window);
+            self.root_focus.focus(window, _cx);
         }
         // What this frame is drawing, so a painted read can tell whether the
         // window has caught up with the graph it is being asked about.
         probe::begin_frame(self.generation);
+        if std::mem::take(&mut self.focus_root_after_render) {
+            self.root_focus.focus(window, _cx);
+        }
         if let Some(target) = self.focus_after_render.take()
             && let Some(handle) = self.focus_handles.get(&target)
         {
-            handle.focus(window);
+            handle.focus(window, _cx);
         }
         let focused_now = self
             .focus_handles
@@ -4469,8 +6350,15 @@ impl Render for Runtime {
             div()
                 .id("roc-gui-root")
                 .track_focus(&self.root_focus)
-                .on_action(|_: &FocusNext, window, _| window.focus_next())
-                .on_action(|_: &FocusPrevious, window, _| window.focus_prev())
+                .on_action(|_: &FocusNext, window, cx| window.focus_next(cx))
+                .on_action(|_: &FocusPrevious, window, cx| window.focus_prev(cx))
+                // Escape that nothing nearer handled closes presenting popovers.
+                .on_action({
+                    let runtime = _cx.entity().downgrade();
+                    move |_: &ActivateEscape, _, cx| {
+                        let _ = runtime.update(cx, |runtime, cx| runtime.dismiss_popovers(cx));
+                    }
+                })
                 // A plain closure, like its neighbours. A `cx.listener` here
                 // leases the runtime entity while GPUI is dispatching, and the
                 // surface's state is host-owned precisely so this handler does
@@ -4478,6 +6366,23 @@ impl Render for Runtime {
                 .on_action(|_: &ToggleAppAccess, window, _| {
                     access_panel::request_toggle();
                     window.refresh();
+                })
+                // Reached only by a keystroke no action on the focus path
+                // took, after the focused control's own key listeners: the
+                // application's shortcuts come after the host's keys and after
+                // text a focused field is typing.
+                .on_key_down({
+                    let runtime = _cx.entity().downgrade();
+                    move |event: &KeyDownEvent, window, cx| {
+                        let answered = runtime
+                            .update(cx, |runtime, cx| {
+                                runtime.shortcut_if_live(&event.keystroke, window, cx)
+                            })
+                            .unwrap_or(false);
+                        if answered {
+                            cx.stop_propagation();
+                        }
+                    }
                 })
                 .size_full()
                 .flex()
@@ -4523,6 +6428,13 @@ struct HostArgs {
     stats_job_count: usize,
     cap_dir: Option<PathBuf>,
     cap_dir_canceled: bool,
+    /// The granted directory is a disposable copy a `replace-file` step may
+    /// change.
+    cap_dir_copy: bool,
+    cap_file: Option<PathBuf>,
+    cap_file_canceled: bool,
+    /// The file chooser answers with the capture this run is recording.
+    cap_file_recording: bool,
     cap_http_origin: Option<String>,
     cap_app_data: Option<PathBuf>,
     cap_assets: Option<PathBuf>,
@@ -4533,6 +6445,21 @@ struct HostArgs {
     cap_audio: audio::Grant,
     cap_device: Option<device::GrantedDevice>,
     cap_system_monitor: system_monitor::Grant,
+    /// The system appearance to report instead of the desktop's.
+    host_theme: Option<appearance::Settings>,
+    /// The recent list provisioned for this run, in place of the person's.
+    recent_seeds: Vec<RecentArg>,
+}
+
+/// One provisioned recent entry, as a flag names it.
+enum RecentArg {
+    /// `--host-recent PATH`: a file or folder.
+    Path(PathBuf),
+    /// `--host-recent-each DIR EXT`: every ordinary file directly in a folder
+    /// whose extension is `EXT`, or every one when `EXT` is empty.
+    Each(PathBuf, String),
+    /// `--host-recent-copied NAME`: a child of the disposable directory grant.
+    Copied(String),
 }
 
 fn parse_host_args() -> Result<HostArgs, String> {
@@ -4563,6 +6490,10 @@ fn parse_host_args() -> Result<HostArgs, String> {
         stats_job_count: 1,
         cap_dir: None,
         cap_dir_canceled: false,
+        cap_dir_copy: false,
+        cap_file: None,
+        cap_file_canceled: false,
+        cap_file_recording: false,
         cap_http_origin: None,
         cap_app_data: None,
         cap_assets: None,
@@ -4573,6 +6504,8 @@ fn parse_host_args() -> Result<HostArgs, String> {
         cap_audio: audio::Grant::System,
         cap_device: None,
         cap_system_monitor: system_monitor::Grant::Denied,
+        host_theme: None,
+        recent_seeds: Vec::new(),
     };
     let mut pending = arguments.peekable();
     while let Some(argument) = pending.next() {
@@ -4653,6 +6586,27 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_dir = Some(path.into());
         } else if argument == "--host-cap-dir-canceled" {
             parsed.cap_dir_canceled = true;
+        } else if argument == "--host-cap-dir-copy" {
+            parsed.cap_dir = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-cap-dir-copy requires a directory path".to_string())?
+                    .into(),
+            );
+            parsed.cap_dir_copy = true;
+        } else if argument == "--host-cap-file" {
+            parsed.cap_file = Some(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-cap-file requires a file path".to_string())?
+                    .into(),
+            );
+        } else if let Some(path) = argument.strip_prefix("--host-cap-file=") {
+            parsed.cap_file = Some(path.into());
+        } else if argument == "--host-cap-file-canceled" {
+            parsed.cap_file_canceled = true;
+        } else if argument == "--host-cap-file-recording" {
+            parsed.cap_file_recording = true;
         } else if argument == "--host-cap-http-origin" {
             parsed.cap_http_origin = Some(
                 pending
@@ -4716,6 +6670,33 @@ fn parse_host_args() -> Result<HostArgs, String> {
             parsed.cap_system_monitor = parse_system_monitor_fixture(&pending.next().ok_or_else(|| "--host-cap-system-monitor-fixture requires standard, unavailable, or processes:N".to_string())?)?;
         } else if let Some(value) = argument.strip_prefix("--host-cap-system-monitor-fixture=") {
             parsed.cap_system_monitor = parse_system_monitor_fixture(value)?;
+        } else if argument == "--host-recent" {
+            parsed.recent_seeds.push(RecentArg::Path(
+                pending
+                    .next()
+                    .ok_or_else(|| "--host-recent requires a file or folder path".to_string())?
+                    .into(),
+            ));
+        } else if argument == "--host-recent-each" {
+            let usage = "--host-recent-each requires a folder path and an extension, or \"\"";
+            let folder = pending.next().ok_or_else(|| usage.to_string())?;
+            let extension = pending.next().ok_or_else(|| usage.to_string())?;
+            parsed
+                .recent_seeds
+                .push(RecentArg::Each(folder.into(), extension));
+        } else if argument == "--host-recent-copied" {
+            parsed
+                .recent_seeds
+                .push(RecentArg::Copied(pending.next().ok_or_else(|| {
+                    "--host-recent-copied requires a name in the copied folder".to_string()
+                })?));
+        } else if let Some(value) = argument.strip_prefix("--host-theme=") {
+            parsed.host_theme = Some(appearance::Settings::parse(value)?);
+        } else if argument == "--host-theme" {
+            parsed.host_theme =
+                Some(appearance::Settings::parse(&pending.next().ok_or_else(
+                    || "--host-theme requires light or dark".to_string(),
+                )?)?);
         } else if let Some(path) = argument.strip_prefix("--host-stats-output=") {
             parsed.stats_output = Some(path.into());
             parsed.stats_record = true;
@@ -4852,6 +6833,7 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
 
     let mut flags: Vec<String> = Vec::new();
     let mut app_data_seed: Option<String> = None;
+    let mut directory_copy: Option<String> = None;
     let mut servers: Vec<(String, u32)> = Vec::new();
     for grant in &case.grants {
         let resolved = match grant.path() {
@@ -4871,6 +6853,26 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
                 flags.push(path.display().to_string());
             }
             spec::Grant::DirectoryCanceled => flags.push("--host-cap-dir-canceled".into()),
+            spec::Grant::File(_) => {
+                let path = resolved.expect("file grant names a path");
+                if !path.is_file() {
+                    return Err(format!("file grant does not exist: {}", path.display()));
+                }
+                flags.push("--host-cap-file".into());
+                flags.push(path.display().to_string());
+            }
+            spec::Grant::FileCanceled => flags.push("--host-cap-file-canceled".into()),
+            spec::Grant::FileRecording => flags.push("--host-cap-file-recording".into()),
+            spec::Grant::DirectoryCopy(_) => {
+                let path = resolved.expect("directory grant names a path");
+                if !path.is_dir() {
+                    return Err(format!(
+                        "directory grant does not exist: {}",
+                        path.display()
+                    ));
+                }
+                directory_copy = Some(path.display().to_string());
+            }
             spec::Grant::AppData(_) => {
                 let path = resolved.expect("app-data grant names a path");
                 if !path.is_dir() {
@@ -4915,6 +6917,42 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
                 flags.push("--host-cap-system-monitor-fixture".into());
                 flags.push(kind.clone());
             }
+            spec::Grant::Recents(seeds) => {
+                for seed in seeds {
+                    match seed {
+                        spec::RecentSeed::Path(relative) => {
+                            let path = resolve_grant_path(application, relative)?;
+                            flags.push("--host-recent".into());
+                            flags.push(path.display().to_string());
+                        }
+                        spec::RecentSeed::Each(relative, extension) => {
+                            let path = resolve_grant_path(application, relative)?;
+                            if !path.is_dir() {
+                                return Err(format!(
+                                    "recents folder does not exist: {}",
+                                    path.display()
+                                ));
+                            }
+                            flags.push("--host-recent-each".into());
+                            flags.push(path.display().to_string());
+                            flags.push(extension.clone().unwrap_or_default());
+                        }
+                        spec::RecentSeed::Copied(name) => {
+                            flags.push("--host-recent-copied".into());
+                            flags.push(name.clone());
+                        }
+                    }
+                }
+            }
+            spec::Grant::Theme(settings) => flags.push(format!(
+                "--host-theme={}{}",
+                if settings.dark { "dark" } else { "light" },
+                if settings.reduced_motion {
+                    ",reduced-motion"
+                } else {
+                    ""
+                }
+            )),
             spec::Grant::Server { port, .. } => {
                 let path = resolved.expect("server grant names a path");
                 if !path.is_file() {
@@ -4941,6 +6979,11 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
         Some(seed) => json.push_str(&json_string(seed)),
         None => json.push_str("null"),
     }
+    json.push_str(",\"directory_copy\":");
+    match &directory_copy {
+        Some(source) => json.push_str(&json_string(source)),
+        None => json.push_str("null"),
+    }
     json.push_str(",\"servers\":[");
     for (index, (script, port)) in servers.iter().enumerate() {
         if index > 0 {
@@ -4954,12 +6997,80 @@ fn describe_spec(path: &std::path::Path) -> Result<String, String> {
     Ok(json)
 }
 
+/// Read the recent list this run starts with. Provisioned entries replace
+/// the person's list for the run and are never written; otherwise an
+/// interactive run reads and keeps the person's list in their state folder,
+/// and a specification or smoke run keeps an empty list of its own.
+fn configure_recents(args: &HostArgs) -> Result<(), String> {
+    let mut seeds = Vec::new();
+    for seed in &args.recent_seeds {
+        match seed {
+            RecentArg::Path(path) => seeds.push(path.clone()),
+            RecentArg::Each(folder, extension) => {
+                let mut files = std::fs::read_dir(folder)
+                    .map_err(|error| format!("cannot list {}: {error}", folder.display()))?
+                    .filter_map(Result::ok)
+                    .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+                    .map(|entry| entry.path())
+                    .filter(|path| {
+                        extension.is_empty()
+                            || path
+                                .extension()
+                                .is_some_and(|found| found == extension.as_str())
+                    })
+                    .collect::<Vec<_>>();
+                files.sort();
+                seeds.extend(files);
+            }
+            RecentArg::Copied(name) => {
+                let folder = args
+                    .cap_dir
+                    .as_ref()
+                    .filter(|_| args.cap_dir_copy)
+                    .ok_or_else(|| {
+                        "--host-recent-copied requires --host-cap-dir-copy".to_string()
+                    })?;
+                if !files::valid_name(name) {
+                    return Err("--host-recent-copied names one direct child".into());
+                }
+                seeds.push(folder.join(name));
+            }
+        }
+    }
+    let scripted = args.spec_path.is_some() || args.window_spec_path.is_some() || args.host_smoke;
+    let backing = if scripted {
+        None
+    } else {
+        recents::default_store(&args.app_name)
+    };
+    recents::configure(backing, &seeds)
+}
+
+/// The application directory of the specification this run executes, which
+/// the paths a `drop` step names are relative to.
+static SPEC_APPLICATION: OnceLock<PathBuf> = OnceLock::new();
+
+/// Resolve the paths a `drop` step names, each inside the application
+/// directory, as every path a specification supplies is.
+pub(crate) fn spec_drop_paths(paths: &[String]) -> Result<Vec<PathBuf>, String> {
+    let application = SPEC_APPLICATION
+        .get()
+        .ok_or_else(|| "drop has no application directory".to_string())?;
+    paths
+        .iter()
+        .map(|relative| resolve_grant_path(application, relative))
+        .collect()
+}
+
 /// Resolve one specification-supplied path against the application directory.
 ///
 /// A path that leaves the application directory is refused here, before it can
 /// reach a capability. Both sides are canonicalized, so a symbolic link cannot
 /// step outside what the textual path promised.
-fn resolve_grant_path(application: &std::path::Path, relative: &str) -> Result<PathBuf, String> {
+pub(crate) fn resolve_grant_path(
+    application: &std::path::Path,
+    relative: &str,
+) -> Result<PathBuf, String> {
     let root = application
         .canonicalize()
         .map_err(|error| format!("cannot resolve application directory: {error}"))?;
@@ -5001,6 +7112,10 @@ fn print_host_help(app_name: &str) {
            --host-help                         Show this help and exit\n\
            --host-cap-dir PATH                 Grant read access to one directory\n\
            --host-cap-dir-canceled             Answer the directory chooser with a cancellation\n\
+           --host-cap-file PATH                Grant read access to one file\n\
+           --host-cap-file-canceled            Answer the file chooser with a cancellation\n\
+           --host-cap-file-recording           Answer the file chooser with this run's own capture\n\
+           --host-cap-dir-copy PATH            Grant a disposable directory replace-file may change\n\
            --host-cap-http-origin ORIGIN       Grant HTTP access to one origin\n\
            --host-cap-app-data PATH            Grant private application-data storage\n\
            --host-cap-assets PATH              Provision the application content directory\n\
@@ -5010,6 +7125,10 @@ fn print_host_help(app_name: &str) {
            --host-cap-process PROFILE         Grant local-shell or test-program PTY profile\n\
 		   --host-cap-device DEVICE            Grant one virtual or VID:PID HID device\n\
 		   --host-cap-system-monitor           Grant read-only local system sampling\n\
+           --host-theme=light|dark[,reduced-motion]  Report this appearance instead of the desktop's\n\
+           --host-recent PATH                  Provision a recent file or folder (repeatable)\n\
+           --host-recent-each DIR EXT          Provision every file in DIR with extension EXT (\"\" for all) as recent\n\
+           --host-recent-copied NAME           Provision a child of the copied directory as recent\n\
            --host-run-spec PATH                Run one semantic .scm specification\n\
            --host-run-window-spec PATH         Run one .scm specification against the real window\n\
            --host-window-report=PATH           Write the window run's JSON report here\n\
@@ -5116,6 +7235,8 @@ fn start_requested_recorder(
 pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let host = Box::leak(Box::new(make_counted_roc_host(core::ptr::null_mut())));
     set_roc_host(host);
+    // Before any database is opened, by the recorder or by the application.
+    sqlite::share_files_like_posix();
 
     let args = match parse_host_args() {
         Ok(args) => args,
@@ -5189,6 +7310,15 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         set_roc_host(core::ptr::null_mut());
         return 2;
     }
+    if let Err(message) = document::configure(
+        args.cap_file.as_deref(),
+        args.spec_path.is_none() && args.window_spec_path.is_none() && !args.host_smoke,
+        args.cap_file_canceled,
+    ) {
+        eprintln!("roc-gui capability error: {message}");
+        set_roc_host(core::ptr::null_mut());
+        return 2;
+    }
     if let Err(message) = http::configure(args.cap_http_origin.as_deref()) {
         eprintln!("roc-gui capability error: {message}");
         set_roc_host(core::ptr::null_mut());
@@ -5210,9 +7340,19 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     tcp::configure(args.cap_tcp);
     process::configure(args.cap_process);
     sqlite::configure();
+    watch::configure();
     audio::configure(args.cap_audio);
     device::configure(args.cap_device);
     system_monitor::configure(args.cap_system_monitor);
+    // A specification sees the appearance it names, and a light one when it
+    // names none: never the desktop's, which would make a case depend on the
+    // machine it runs on.
+    let under_spec = args.spec_path.is_some() || args.window_spec_path.is_some();
+    appearance::configure(
+        args.host_theme
+            .or(under_spec.then(appearance::Settings::default)),
+        !args.host_smoke,
+    );
     let window_spec = match args.window_spec_path.as_ref() {
         Some(path) => match std::fs::read_to_string(path) {
             Ok(text) => match spec::parse(&text) {
@@ -5251,6 +7391,46 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
             return 2;
         }
     };
+    // The recorder has created its capture by now, so the file it is writing
+    // can be the file the chooser answers with.
+    if args.cap_file_recording {
+        let granted = match stats_path.as_deref() {
+            Some(path) => document::configure(Some(path), false, false),
+            None => Err("--host-cap-file-recording requires a capture being recorded".into()),
+        };
+        if let Err(message) = granted {
+            eprintln!("roc-gui capability error: {message}");
+            set_roc_host(core::ptr::null_mut());
+            return 2;
+        }
+    }
+    if args.cap_dir_copy {
+        // A `replace-file` source is named relative to the application, as
+        // every other path a specification supplies is.
+        let application = args
+            .spec_path
+            .as_deref()
+            .or(args.window_spec_path.as_deref())
+            .and_then(std::path::Path::parent)
+            .and_then(std::path::Path::parent)
+            .map(std::path::Path::to_path_buf);
+        files::set_private_copy(args.cap_dir.clone(), application);
+    }
+
+    if let Err(message) = configure_recents(&args) {
+        eprintln!("roc-gui capability error: {message}");
+        set_roc_host(core::ptr::null_mut());
+        return 2;
+    }
+    if let Some(application) = args
+        .spec_path
+        .as_deref()
+        .or(args.window_spec_path.as_deref())
+        .and_then(std::path::Path::parent)
+        .and_then(std::path::Path::parent)
+    {
+        let _ = SPEC_APPLICATION.set(application.to_path_buf());
+    }
 
     if let Some((case, _)) = parsed_spec.as_ref() {
         let result = runner::run(case);
@@ -5332,11 +7512,11 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
         );
     }
 
-    Application::new().run(move |cx| {
+    gpui_platform::application().run(move |cx| {
         watchdog::milestone(watchdog::Milestone::AppRunEntered);
         input::bind_keys(cx);
         cx.bind_keys(host_bindings());
-        cx.on_window_closed(|cx| {
+        cx.on_window_closed(|cx, _window_id| {
             if cx.windows().is_empty() {
                 cx.quit();
             }
@@ -5414,7 +7594,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
                 assert!(renders > 0, "no GPUI views rendered");
                 eprintln!("PASS: GPUI mounted and rendered {renders} frame(s)");
                 watchdog::disarm();
-                cx.update(|cx| cx.quit()).unwrap();
+                cx.update(|cx| cx.quit());
             })
             .detach();
         }
@@ -5447,6 +7627,36 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn rich_text_runs_cover_their_text_on_character_boundaries() {
+        use super::{TextRun, runs_cover};
+        let run = |len| TextRun {
+            len,
+            ..TextRun::default()
+        };
+        assert!(runs_cover("anything", &[]));
+        assert!(runs_cover(
+            "(test \"左\")",
+            &[run(1), run(4), run(1), run(5), run(1)]
+        ));
+        assert!(
+            !runs_cover("(test", &[run(1), run(3)]),
+            "runs short of the text"
+        );
+        assert!(
+            !runs_cover("(test", &[run(1), run(5)]),
+            "runs past the text"
+        );
+        assert!(
+            !runs_cover("左", &[run(1), run(2)]),
+            "a boundary inside a character"
+        );
+        assert!(
+            !runs_cover("ab", &[run(usize::MAX), run(3)]),
+            "an overflowing length"
+        );
+    }
+
     use super::{ActivateEnter, InitialMount, Runtime, install_test_dispatcher};
     use super::{
         CanvasPrimitive, CanvasPrimitiveKind, WindowConfig, canvas_target, counted_roc_alloc,
@@ -5469,11 +7679,25 @@ mod tests {
     pub(super) fn record_native_style(id: gpui::EntityId, node: &Node) {
         NATIVE_STYLES.with(|styles| {
             let background = match &node.kind {
-                NodeKind::Button { style, .. } => style.bg,
+                NodeKind::Button { style, .. } => style.bg.map(crate::Paint::resolve),
                 _ => None,
             };
             styles.borrow_mut().insert(id, background);
         });
+    }
+
+    thread_local! {
+        static DISABLED_LOOKS: RefCell<std::collections::HashMap<gpui::EntityId, bool>> = RefCell::new(std::collections::HashMap::new());
+    }
+
+    pub(super) fn record_disabled_look(id: gpui::EntityId, disabled: bool) {
+        DISABLED_LOOKS.with(|looks| {
+            looks.borrow_mut().insert(id, disabled);
+        });
+    }
+
+    fn disabled_look(id: gpui::EntityId) -> Option<bool> {
+        DISABLED_LOOKS.with(|looks| looks.borrow().get(&id).copied())
     }
 
     fn native_style(id: gpui::EntityId) -> Option<u32> {
@@ -5505,7 +7729,7 @@ mod tests {
             if let NodeKind::Button { style, .. } = &mut node.kind {
                 style.max_width = Length::Px(100);
                 style.max_height = Length::Px(100);
-                style.bg = Some(0x123456);
+                style.bg = Some(crate::Paint::Rgb(0x123456));
             }
         }
         nodes[0].children = vec![base + 3, base + 4];
@@ -5544,7 +7768,7 @@ mod tests {
     fn native_cache_retains_siblings_and_refreshes_changed_buttons(cx: &mut TestAppContext) {
         let events = recording_dispatcher();
         let nodes = fixed_hover_buttons(1000);
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
         });
         cx.run_until_parked();
@@ -5566,7 +7790,7 @@ mod tests {
             let mut next = runtime.graph.node(1001).unwrap().clone();
             next.id = 2001;
             if let NodeKind::Button { style, .. } = &mut next.kind {
-                style.bg = Some(0xabcdef);
+                style.bg = Some(crate::Paint::Rgb(0xabcdef));
             }
             let nodes = vec![next];
             let expected = patched_button_count(&nodes);
@@ -5851,7 +8075,7 @@ mod tests {
             kind: NodeKind::Boundary { instance: 9 },
             children: vec![1000],
         });
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(initial_mount(Patch::Mount { root: 900, nodes }), cx)
         });
         cx.run_until_parked();
@@ -5872,7 +8096,7 @@ mod tests {
             let mut panel = runtime.graph.node(901).unwrap().clone();
             panel.id = 1901;
             if let NodeKind::Panel { style, .. } = &mut panel.kind {
-                style.fg = Some(0xabcdef);
+                style.fg = Some(crate::Paint::Rgb(0xabcdef));
                 style.font_size = 19;
             }
             runtime.apply_unrecorded(
@@ -6005,6 +8229,7 @@ mod tests {
                     nodes.push(Node {
                         id: button,
                         kind: NodeKind::Button {
+                            role: crate::bridge::ButtonRole::Button,
                             caption: String::new(),
                             label: format!("Cell {index}"),
                             enabled: true,
@@ -6017,7 +8242,7 @@ mod tests {
                                 max_width: Length::Px(5),
                                 min_height: Length::Px(5),
                                 max_height: Length::Px(5),
-                                bg: Some(0x123456),
+                                bg: Some(crate::Paint::Rgb(0x123456)),
                                 ..Style::default()
                             }),
                         },
@@ -6063,7 +8288,7 @@ mod tests {
                 let mut button = runtime.graph.node(1001).unwrap().clone();
                 button.id = 1_000_001;
                 if let NodeKind::Button { style, .. } = &mut button.kind {
-                    style.bg = Some(0xabcdef);
+                    style.bg = Some(crate::Paint::Rgb(0xabcdef));
                 }
                 let nodes = vec![
                     Node {
@@ -6243,6 +8468,8 @@ mod tests {
             callable: completion as usize,
             owner: 71,
             epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+            key: String::new(),
+            slot: None,
         };
         assert_eq!(envelope.owner, 71);
         assert!(matches!(super::complete(envelope), Patch::NoChange));
@@ -6264,6 +8491,8 @@ mod tests {
             callable: current as usize,
             owner: 71,
             epoch: super::TASK_EPOCH.load(Ordering::Acquire),
+            key: String::new(),
+            slot: None,
         };
         assert!(matches!(super::complete(envelope), Patch::NoChange));
         super::TEST_COMPLETION_DISPATCHER.with(|slot| slot.borrow_mut().take());
@@ -6284,7 +8513,7 @@ mod tests {
         let old = counted_callable(&old_drops);
         super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher = Some(old));
         super::roc_gui_set_dispatch(counted_callable(&next_drops));
-        super::roc_gui_enqueue_task(0, counted_callable(&task_drops));
+        super::roc_gui_enqueue_task(0, super::RocStr::empty(), counted_callable(&task_drops));
 
         super::reject_transaction();
         super::reject_transaction();
@@ -6307,7 +8536,7 @@ mod tests {
         let drops = Arc::new(AtomicU64::new(0));
         let mut graph = MountedGraph::default();
         let applied = graph.apply(Patch::NoChange).expect("empty accepted turn");
-        super::roc_gui_enqueue_task(42, counted_callable(&drops));
+        super::roc_gui_enqueue_task(42, super::RocStr::empty(), counted_callable(&drops));
 
         super::accept_transaction(&graph, &applied);
 
@@ -6326,6 +8555,8 @@ mod tests {
             callable: counted_callable(&drops) as usize,
             owner: 0,
             epoch: super::TASK_EPOCH.load(Ordering::Acquire).wrapping_sub(1),
+            key: String::new(),
+            slot: None,
         };
 
         assert!(matches!(super::complete(completion), Patch::NoChange));
@@ -6378,10 +8609,11 @@ mod tests {
             height,
             x2,
             y2,
-            fill: Some(0xffffff),
-            stroke: Some(0),
+            fill: Some(crate::Paint::Rgb(0xffffff)),
+            stroke: Some(crate::Paint::Rgb(0)),
             stroke_width: 2,
             radius: 0,
+            ..Default::default()
         };
         let shapes = vec![
             primitive(CanvasPrimitiveKind::Rectangle, 1, 0, 0, 30, 30, 0, 0),
@@ -6419,6 +8651,7 @@ mod tests {
                 Node {
                     id: button,
                     kind: NodeKind::Button {
+                        role: crate::bridge::ButtonRole::Button,
                         caption: caption.into(),
                         label: label.into(),
                         enabled: true,
@@ -6500,6 +8733,7 @@ mod tests {
                         row_height: 40,
                         row_gap: 0,
                         style: Box::default(),
+                        rows: None,
                     },
                     children: vec![base + 2],
                 },
@@ -6511,6 +8745,7 @@ mod tests {
                 Node {
                     id: base + 3,
                     kind: NodeKind::Button {
+                        role: crate::bridge::ButtonRole::Button,
                         caption: "Track seven".into(),
                         label: "Play track seven".into(),
                         enabled: true,
@@ -6559,6 +8794,7 @@ mod tests {
             Node {
                 id: button,
                 kind: NodeKind::Button {
+                    role: crate::bridge::ButtonRole::Button,
                     caption: label.into(),
                     label: label.into(),
                     enabled: true,
@@ -6582,7 +8818,7 @@ mod tests {
 
     #[gpui::test]
     fn keyed_native_move_preserves_entities_and_remove_retires_routes(cx: &mut TestAppContext) {
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1,
@@ -6688,7 +8924,7 @@ mod tests {
 
     #[gpui::test]
     fn keyed_native_move_work_is_independent_of_ten_thousand_items(cx: &mut TestAppContext) {
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1,
@@ -6759,7 +8995,7 @@ mod tests {
     #[gpui::test]
     fn live_task_completion_records_its_own_patch_and_callback(cx: &mut TestAppContext) {
         let _guard = observatory::RECORDER_TEST.lock().unwrap();
-        let (runtime, cx) = cx.add_window_view(|_, cx| {
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -6815,6 +9051,8 @@ mod tests {
                         callable: 0,
                         owner,
                         epoch: super::TASK_EPOCH.load(std::sync::atomic::Ordering::Acquire),
+                        key: String::new(),
+                        slot: None,
                     },
                     cx,
                 );
@@ -6840,6 +9078,471 @@ mod tests {
         assert_eq!(timed, 2);
         drop(db);
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[gpui::test]
+    fn live_canvas_pointer_phases_record_drag_cycles(cx: &mut TestAppContext) {
+        let _guard = observatory::RECORDER_TEST.lock().unwrap();
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: vec![Node {
+                        id: 1000,
+                        kind: NodeKind::Canvas {
+                            label: "Board".into(),
+                            primitives: vec![],
+                            hover: false,
+                            wheel: false,
+                            size: false,
+                            style: Box::new(Style::default()),
+                        },
+                        children: vec![],
+                    }],
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-live-canvas-{}-{}.rgstats",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        observatory::start(observatory::Config {
+            path: path.clone(),
+            detail: observatory::Detail::Full,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-test",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        observatory::run_start(1, "interactive", None, 0, 1);
+        let seen: Rc<RefCell<Vec<u8>>> = Rc::new(RefCell::new(Vec::new()));
+        let recorded = seen.clone();
+        install_test_dispatcher(move |_| {
+            observatory::start_roc_work(0);
+            let phase = super::CANVAS_EVENT.with(|slot| slot.borrow().map(|event| event.phase));
+            recorded.borrow_mut().push(phase.unwrap());
+            observatory::end_roc_work(0);
+            Patch::NoChange
+        });
+        runtime.update(cx, |runtime, cx| {
+            for phase in 0..3 {
+                runtime.canvas_pointer_for_node(1000, phase, 5, 5, 0, cx);
+            }
+        });
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(*seen.borrow(), vec![0, 1, 2]);
+        observatory::run_end(1, "pass", 0, None);
+        observatory::finish("success").unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        let rows: i64 = db
+            .query_row(
+                "SELECT count(*) FROM cycles WHERE trigger='drag' AND roc_work_valid AND roc_callback_ns <= duration_ns",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 3);
+        // Each phase names the canvas, by one structural identity, and the
+        // init cycle names nothing.
+        let targets: Vec<(String, Option<String>, Option<String>)> = db
+            .prepare("SELECT trigger, target_kind, target_identity FROM cycles ORDER BY ordinal")
+            .unwrap()
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let drags: Vec<_> = targets.iter().filter(|row| row.0 == "drag").collect();
+        assert_eq!(drags.len(), 3);
+        assert!(drags.iter().all(|row| row.1.as_deref() == Some("canvas")));
+        assert!(
+            drags
+                .iter()
+                .all(|row| row.2 == drags[0].2 && row.2.as_ref().is_some_and(|id| id.len() == 16))
+        );
+        assert!(
+            targets
+                .iter()
+                .filter(|row| row.0 == "init")
+                .all(|row| row.1.is_none() && row.2.is_none())
+        );
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    /// A divider dragged in the live window asks for the size measured from
+    /// the press, once for each size it has not already asked for, and each
+    /// request is a `drag` cycle that names the split.
+    #[gpui::test]
+    fn live_divider_drag_asks_each_new_size_once(cx: &mut TestAppContext) {
+        let _guard = observatory::RECORDER_TEST.lock().unwrap();
+        let split = |id: u64| Node {
+            id,
+            kind: NodeKind::Split {
+                label: "Divider".into(),
+                axis: crate::bridge::SplitAxis::Horizontal,
+                side: crate::bridge::SplitSide::End,
+                size: 300,
+                min: 200,
+                max: 600,
+                collapsible: true,
+                collapsed: false,
+                thickness: 6,
+                shortcuts: vec![],
+                style: Box::new(Style::default()),
+            },
+            children: vec![id + 1, id + 2],
+        };
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: vec![
+                        split(1000),
+                        Node {
+                            id: 1001,
+                            kind: NodeKind::Text("main".into()),
+                            children: vec![],
+                        },
+                        Node {
+                            id: 1002,
+                            kind: NodeKind::Text("aside".into()),
+                            children: vec![],
+                        },
+                    ],
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        let path = std::env::temp_dir().join(format!(
+            "roc-gui-live-divider-{}-{}.rgstats",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        observatory::start(observatory::Config {
+            path: path.clone(),
+            detail: observatory::Detail::Full,
+            buffer_mib: 1,
+            max_mib: 16,
+            backend: "gpui-test",
+            app_name: "test".into(),
+            spec_name: None,
+            spec_hash: None,
+            benchmark: None,
+            job_count: 1,
+            patch_expected: false,
+        })
+        .unwrap();
+        observatory::run_start(1, "interactive", None, 0, 1);
+        let seen: Rc<RefCell<Vec<(u32, bool)>>> = Rc::new(RefCell::new(Vec::new()));
+        let recorded = seen.clone();
+        install_test_dispatcher(move |_| {
+            observatory::start_roc_work(0);
+            let asked = super::RESIZE_EVENT
+                .with(|slot| slot.borrow().map(|event| (event.size, event.collapsed)));
+            recorded.borrow_mut().push(asked.unwrap());
+            observatory::end_roc_work(0);
+            Patch::NoChange
+        });
+        runtime.update(cx, |runtime, cx| {
+            runtime.splitter_press(1000, point(px(500.0), px(40.0)));
+            // The sized pane follows the divider towards the start.
+            runtime.splitter_move(point(px(460.0), px(40.0)), cx);
+            // The same size again, and movement across the axis, ask nothing.
+            runtime.splitter_move(point(px(460.2), px(90.0)), cx);
+            runtime.splitter_move(point(px(459.0), px(40.0)), cx);
+            // Past half the minimum from the press, the pane asks to fold.
+            runtime.splitter_move(point(px(900.0), px(40.0)), cx);
+            runtime.splitter_release();
+            runtime.splitter_move(point(px(300.0), px(40.0)), cx);
+        });
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(
+            *seen.borrow(),
+            vec![(340, false), (341, false), (300, true)]
+        );
+        observatory::run_end(1, "pass", 0, None);
+        observatory::finish("success").unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        let kinds: Vec<Option<String>> = db
+            .prepare("SELECT target_kind FROM cycles WHERE trigger='drag' AND roc_work_valid ORDER BY ordinal")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(kinds, vec![Some("split".to_owned()); 3]);
+        drop(db);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    /// A canvas that asks hears the size a drawn frame laid it out at, once:
+    /// later frames at the same size, and a rebuild that keeps the canvas's
+    /// identity, deliver nothing. A canvas that does not ask hears nothing.
+    #[gpui::test]
+    fn a_sized_canvas_hears_its_laid_out_size_once(cx: &mut TestAppContext) {
+        let canvas = |id: u64, label: &str, size: bool| Node {
+            id,
+            kind: NodeKind::Canvas {
+                label: label.into(),
+                primitives: vec![],
+                hover: false,
+                wheel: false,
+                size,
+                style: Box::new(Style {
+                    width: Length::Px(200),
+                    height: Length::Px(100),
+                    border_width: [1; 4],
+                    ..Style::default()
+                }),
+            },
+            children: vec![],
+        };
+        let column = |id: u64, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Column {
+                label: String::new(),
+                style: Box::new(Style::default()),
+            },
+            children,
+        };
+        let heard = Rc::new(RefCell::new(Vec::<(u64, u8, i32, i32)>::new()));
+        let recorded = heard.clone();
+        install_test_dispatcher(move |event_id| {
+            let event = super::CANVAS_EVENT.with(|slot| *slot.borrow()).unwrap();
+            recorded
+                .borrow_mut()
+                .push((event_id, event.phase, event.x, event.y));
+            Patch::NoChange
+        });
+        let (runtime, cx) = cx.add_window_view(|_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1,
+                    nodes: vec![
+                        column(1, vec![2, 3]),
+                        canvas(2, "Sized", true),
+                        canvas(3, "Fixed", false),
+                    ],
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        // The surface inside the one-pixel border.
+        assert_eq!(*heard.borrow(), vec![(2, super::CANVAS_SIZE, 198, 98)]);
+        runtime.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        assert_eq!(heard.borrow().len(), 1);
+        // A rebuild renumbers the canvas but keeps its identity and size.
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1,
+                    root: 11,
+                    nodes: vec![
+                        column(11, vec![12, 13]),
+                        canvas(12, "Sized", true),
+                        canvas(13, "Fixed", false),
+                    ],
+                },
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        assert_eq!(heard.borrow().len(), 1);
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+    }
+
+    /// Hover and wheel reach a canvas only through the window's own pointer,
+    /// only when the owner handles them, and never while a button is held.
+    #[gpui::test]
+    fn live_canvas_hover_and_wheel_follow_the_real_pointer(cx: &mut TestAppContext) {
+        let canvas = Node {
+            id: 1000,
+            kind: NodeKind::Canvas {
+                label: "Chart".into(),
+                primitives: vec![
+                    CanvasPrimitive {
+                        kind: CanvasPrimitiveKind::Rectangle,
+                        key: 7,
+                        label: "Bar".into(),
+                        width: 40,
+                        height: 40,
+                        ..Default::default()
+                    },
+                    CanvasPrimitive {
+                        kind: CanvasPrimitiveKind::Text,
+                        key: 8,
+                        label: "Caption".into(),
+                        width: 40,
+                        text: "over the bar".into(),
+                        text_size: 12,
+                        fill: Some(crate::Paint::Rgb(0)),
+                        ..Default::default()
+                    },
+                ],
+                hover: true,
+                wheel: true,
+                size: false,
+                style: Box::new(Style {
+                    width: Length::Px(200),
+                    height: Length::Px(100),
+                    ..Style::default()
+                }),
+            },
+            children: vec![],
+        };
+        type Seen = (u8, i32, i32, i32, i32, u64);
+        let events: Rc<RefCell<Vec<Seen>>> = Rc::default();
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 999,
+                    nodes: vec![
+                        Node {
+                            id: 999,
+                            kind: NodeKind::Column {
+                                label: "Page".into(),
+                                style: Box::new(Style {
+                                    gap: 0,
+                                    align: super::Align::Start,
+                                    width: Length::Fill,
+                                    height: Length::Fill,
+                                    ..Style::default()
+                                }),
+                            },
+                            children: vec![1000],
+                        },
+                        canvas,
+                    ],
+                }),
+                cx,
+            )
+        });
+        let recorded = events.clone();
+        install_test_dispatcher(move |_| {
+            let event = super::CANVAS_EVENT
+                .with(|slot| *slot.borrow())
+                .expect("canvas dispatch carries its event");
+            recorded.borrow_mut().push((
+                event.phase,
+                event.x,
+                event.y,
+                event.dx,
+                event.dy,
+                event.target,
+            ));
+            Patch::NoChange
+        });
+        cx.simulate_mouse_move(point(px(10.0), px(10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        // The same point again changes nothing.
+        cx.simulate_mouse_move(point(px(10.0), px(10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(100.0), px(10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        // A held button is a gesture, not a hover.
+        cx.simulate_mouse_move(
+            point(px(120.0), px(10.0)),
+            Some(MouseButton::Left),
+            Modifiers::none(),
+        );
+        cx.run_until_parked();
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position: point(px(20.0), px(20.0)),
+            delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-30.0))),
+            modifiers: Modifiers::none(),
+            touch_phase: gpui::TouchPhase::Moved,
+        });
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert_eq!(
+            *events.borrow(),
+            vec![
+                // The text over the bar is not a target; the bar under it is.
+                (super::CANVAS_HOVER_MOVE, 10, 10, 0, 0, 7),
+                (super::CANVAS_HOVER_MOVE, 100, 10, 0, 0, 0),
+                (super::CANVAS_WHEEL, 20, 20, 0, 30, 7),
+                (super::CANVAS_HOVER_LEAVE, 100, 10, 0, 0, 0),
+            ]
+        );
+    }
+
+    /// A canvas whose owner handles neither hover nor wheel dispatches nothing
+    /// for them, so hovering it costs no cycle.
+    #[gpui::test]
+    fn an_unlistened_canvas_dispatches_no_hover(cx: &mut TestAppContext) {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1000,
+                    nodes: vec![Node {
+                        id: 1000,
+                        kind: NodeKind::Canvas {
+                            label: "Chart".into(),
+                            primitives: vec![],
+                            hover: false,
+                            wheel: false,
+                            size: false,
+                            style: Box::new(Style::default()),
+                        },
+                        children: vec![],
+                    }],
+                }),
+                cx,
+            )
+        });
+        let dispatched = recording_dispatcher();
+        cx.simulate_mouse_move(point(px(10.0), px(10.0)), None, Modifiers::none());
+        cx.simulate_event(gpui::ScrollWheelEvent {
+            position: point(px(10.0), px(10.0)),
+            delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-30.0))),
+            modifiers: Modifiers::none(),
+            touch_phase: gpui::TouchPhase::Moved,
+        });
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        assert!(dispatched.borrow().is_empty());
+    }
+
+    /// Open a runtime window whose pointer starts outside it.
+    ///
+    /// The test platform reports the pointer at the window origin, and GPUI
+    /// delivers hover to whatever a stationary pointer rests on once it is
+    /// painted. Tests that count hover edges start from a pointer that has
+    /// left the window; the edges of that setup reach a discarding
+    /// dispatcher, and any dispatcher the test installed is restored after.
+    fn open_with_pointer_outside(
+        cx: &mut TestAppContext,
+        build: impl FnOnce(&mut gpui::Window, &mut gpui::Context<Runtime>) -> Runtime,
+    ) -> (gpui::Entity<Runtime>, &mut VisualTestContext) {
+        let installed = super::TEST_DISPATCHER.with(|slot| slot.borrow_mut().take());
+        install_test_dispatcher(|_| Patch::NoChange);
+        let (runtime, cx) = cx.add_window_view(build);
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        super::TEST_DISPATCHER.with(|slot| *slot.borrow_mut() = installed);
+        (runtime, cx)
     }
 
     fn recording_dispatcher() -> Rc<RefCell<Vec<u64>>> {
@@ -6870,6 +9573,7 @@ mod tests {
         let control = |offset, label: &str| Node {
             id: base + offset,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: label.into(),
                 label: label.into(),
                 enabled: true,
@@ -6925,7 +9629,7 @@ mod tests {
                 nodes: two_hover_buttons(root),
             }
         });
-        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -6977,7 +9681,7 @@ mod tests {
                 nodes,
             }
         });
-        let (_runtime, cx) = cx.add_window_view(|_, cx| {
+        let (_runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
             Runtime::new(
                 initial_mount(Patch::Mount {
                     root: 1000,
@@ -7123,8 +9827,9 @@ mod tests {
     ) {
         let events = recording_dispatcher();
         let (root, nodes) = hover_tree(1000);
-        let (runtime, cx) = cx
-            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx)
+        });
         cx.run_until_parked();
         cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
         cx.simulate_mouse_move(point(px(30.0), px(30.0)), None, Modifiers::none());
@@ -7350,6 +10055,7 @@ mod tests {
                     row_height: 20,
                     row_gap: 0,
                     style: Box::default(),
+                    rows: None,
                 },
                 children: vec![1005],
             },
@@ -7392,6 +10098,130 @@ mod tests {
             assert!(!runtime.virtual_lists.contains_key(&1004));
             assert!(!runtime.virtual_row_owners.contains_key(&1005));
         });
+    }
+
+    /// Three rows, each a button, under one items list.
+    fn three_row_list(base: u64) -> (u64, Vec<Node>) {
+        let (root, mut nodes) = queue_tree(base);
+        let button = nodes.pop().unwrap();
+        let item = nodes.pop().unwrap();
+        nodes[1].children = vec![base + 2, base + 4, base + 6];
+        for (offset, key) in [(2, 7), (4, 8), (6, 9)] {
+            nodes.push(Node {
+                id: base + offset,
+                kind: NodeKind::VirtualItem { key },
+                children: vec![base + offset + 1],
+            });
+            nodes.push(Node {
+                id: base + offset + 1,
+                ..button.clone()
+            });
+        }
+        drop(item);
+        (root, nodes)
+    }
+
+    #[gpui::test]
+    fn the_row_gpui_measures_is_not_evicted_by_the_rows_it_shows(cx: &mut TestAppContext) {
+        recording_dispatcher();
+        let (root, nodes) = three_row_list(1000);
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        runtime.update(cx, |runtime, cx| {
+            // A frame of the production callback: first the measured row, then
+            // the rows the viewport shows. The measured row is not evicted by
+            // the second call, and the frame settles once.
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            drop(runtime.virtual_range(1001, 2..3, 40, 0, cx));
+            runtime.finish_virtual_frame(1001, cx);
+            let cached = |runtime: &Runtime| {
+                let mut rows = runtime.virtual_lists[&1001]
+                    .rows
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>();
+                rows.sort();
+                rows
+            };
+            assert_eq!(cached(runtime), vec![1002, 1006]);
+            // The next identical frame builds nothing.
+            let constructions = runtime.virtual_constructions;
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            drop(runtime.virtual_range(1001, 2..3, 40, 0, cx));
+            runtime.finish_virtual_frame(1001, cx);
+            assert_eq!(runtime.virtual_constructions, constructions);
+            assert_eq!(cached(runtime), vec![1002, 1006]);
+            // A row that leaves the viewport is recycled.
+            drop(runtime.virtual_range(1001, 0..1, 40, 0, cx));
+            runtime.finish_virtual_frame(1001, cx);
+            assert_eq!(cached(runtime), vec![1002]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_provided_list_holds_unbuilt_rows_and_asks_its_route_for_them(cx: &mut TestAppContext) {
+        let heard: Rc<RefCell<Vec<(u64, crate::rows::RowsEvent)>>> = Rc::default();
+        let recorded = heard.clone();
+        install_test_dispatcher(move |event_id| {
+            recorded.borrow_mut().push((event_id, crate::rows::event()));
+            Patch::NoChange
+        });
+        let (root, mut nodes) = queue_tree(1000);
+        // Row 10 of 1,000 is the only row mounted.
+        nodes[1].kind = NodeKind::VirtualList {
+            name: "Tracks".into(),
+            row_height: 40,
+            row_gap: 0,
+            style: Box::default(),
+            rows: Some(crate::bridge::ProvidedRows {
+                instance: 77,
+                count: 1000,
+                first: 10,
+                notify: true,
+            }),
+        };
+        let (runtime, cx) = cx
+            .add_window_view(|_, cx| Runtime::new(initial_mount(Patch::Mount { root, nodes }), cx));
+        cx.run_until_parked();
+        // No viewport has been named for this boundary, so the frames drawn so
+        // far asked nothing of the route.
+        assert!(heard.borrow().is_empty());
+        crate::rows::window(77, 1000, 4, (0, 0, 0));
+        runtime.update(cx, |runtime, cx| {
+            let elements = runtime.virtual_range(1001, 8..12, 40, 0, cx);
+            // Four rows are drawn, one of them built; the others hold their
+            // place until the route builds them.
+            assert_eq!(elements.len(), 4);
+            assert_eq!(
+                runtime.virtual_lists[&1001]
+                    .rows
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>(),
+                vec![1002]
+            );
+            runtime.finish_virtual_frame(1001, cx);
+        });
+        {
+            let heard = heard.borrow();
+            assert_eq!(heard.len(), 1);
+            let (list, event) = heard[0];
+            assert_eq!(list, 1001);
+            assert!(event.refresh && event.report);
+            assert_eq!((event.start, event.end), (8, 12));
+        }
+        // Outside a viewport dispatch the payload asks nothing.
+        assert_eq!(
+            crate::rows::event(),
+            crate::rows::RowsEvent {
+                refresh: false,
+                report: false,
+                start: 0,
+                end: 0
+            }
+        );
+        crate::rows::clear();
     }
 
     #[gpui::test]
@@ -7665,6 +10495,100 @@ mod tests {
         );
     }
 
+    /// Files dropped through GPUI's own file-drop events reach the target's
+    /// route, admitted against its types, and nothing is granted before the
+    /// route asks: the slot the route reads holds what was admitted.
+    #[gpui::test]
+    fn files_dropped_through_gpui_reach_the_targets_route_admitted(cx: &mut TestAppContext) {
+        let folder = std::env::temp_dir().join(format!("roc-gui-gpui-drop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("one.rgstats"), b"one").unwrap();
+        std::fs::write(folder.join("notes.txt"), b"notes").unwrap();
+        type Seen = Rc<RefCell<Vec<(u64, Vec<String>, usize)>>>;
+        let seen: Seen = Rc::new(RefCell::new(Vec::new()));
+        let recorded = seen.clone();
+        install_test_dispatcher(move |event_id| {
+            let (granted, refused) = super::DROP_EVENT.with(|slot| {
+                slot.borrow()
+                    .as_ref()
+                    .map(|dropped| {
+                        (
+                            dropped
+                                .granted
+                                .iter()
+                                .map(|file| file.name.clone())
+                                .collect(),
+                            dropped.refused.len(),
+                        )
+                    })
+                    .unwrap_or_default()
+            });
+            recorded.borrow_mut().push((event_id, granted, refused));
+            Patch::NoChange
+        });
+        let fill = Box::new(Style {
+            width: Length::Fill,
+            height: Length::Fill,
+            ..Style::default()
+        });
+        let types = crate::document::validate(vec![crate::document::FileType {
+            label: "Captures".into(),
+            extensions: vec!["rgstats".into()],
+            mime_types: vec![],
+        }])
+        .unwrap();
+        let nodes = vec![
+            Node {
+                id: 1,
+                kind: NodeKind::DropTarget {
+                    label: "Target".into(),
+                    types,
+                    drop_bg: None,
+                    drop_border: None,
+                    style: fill,
+                },
+                children: vec![2],
+            },
+            Node {
+                id: 2,
+                kind: NodeKind::Text("Drop here".into()),
+                children: vec![],
+            },
+        ];
+        let initial = initial_mount(Patch::Mount { root: 1, nodes });
+        let (_runtime, cx) = cx.add_window_view(|_, cx| Runtime::new(initial, cx));
+        cx.run_until_parked();
+        let position = point(px(40.0), px(40.0));
+        let paths = gpui::ExternalPaths(
+            [folder.join("one.rgstats"), folder.join("notes.txt")]
+                .into_iter()
+                .collect(),
+        );
+        for event in [
+            gpui::FileDropEvent::Entered { position, paths },
+            gpui::FileDropEvent::Pending { position },
+            gpui::FileDropEvent::Submit { position },
+            gpui::FileDropEvent::Exited,
+            gpui::FileDropEvent::Ended,
+        ] {
+            cx.update(|window, cx| {
+                window.dispatch_event(gpui::PlatformInput::FileDrop(event), cx);
+            });
+            cx.run_until_parked();
+        }
+        assert_eq!(
+            seen.borrow().as_slice(),
+            &[(1, vec!["one.rgstats".to_owned()], 1)],
+            "one drop, through the target's own route, of the one capture"
+        );
+        assert!(
+            super::DROP_EVENT.with(|slot| slot.borrow().is_none()),
+            "what the route did not take is discarded, ungranted"
+        );
+        std::fs::remove_dir_all(&folder).unwrap();
+    }
+
     /// The other half of the rule: element identity is semantic, so a press on
     /// a control that leaves the tree is dropped rather than handed to whatever
     /// took its place.
@@ -7695,6 +10619,363 @@ mod tests {
             clicks.borrow().is_empty(),
             "a press on a control that left the tree was handed to its replacement"
         );
+    }
+
+    /// Two fixed controls in a row; the first is the anchor of a popover whose
+    /// surface presents one line of text after `delay_ms`.
+    fn noted_controls(base: u64, delay_ms: u32) -> Vec<Node> {
+        let mut nodes = two_hover_buttons(base);
+        nodes[0].children = vec![base + 3, base + 2];
+        nodes.push(Node {
+            id: base + 3,
+            kind: NodeKind::Popover {
+                label: "Note".into(),
+                placement: crate::bridge::Placement::Below,
+                delay_ms,
+                hover_enter: false,
+                hover_exit: false,
+                shortcuts: vec![],
+                focus_serial: 0,
+                style: Box::default(),
+            },
+            children: vec![base + 1, base + 4],
+        });
+        nodes.push(Node {
+            id: base + 4,
+            kind: NodeKind::Text("A note".into()),
+            children: vec![],
+        });
+        nodes
+    }
+
+    /// Two buttons in a row 1000; 1001 inside a focus region 1021 answering
+    /// `down`, the row inside a window region 1020 answering `ctrl-k` and
+    /// asking for focus with `serial`.
+    fn keyed_controls(serial: u64) -> Vec<Node> {
+        use crate::bridge::{Shortcut, ShortcutScope};
+        let region = |id, child, keys: &str, scope, focus_serial| Node {
+            id,
+            kind: NodeKind::Popover {
+                label: String::new(),
+                placement: crate::bridge::Placement::Below,
+                delay_ms: 0,
+                hover_enter: false,
+                hover_exit: false,
+                shortcuts: vec![Shortcut {
+                    keys: keys.into(),
+                    scope,
+                }],
+                focus_serial,
+                style: Box::default(),
+            },
+            children: vec![child],
+        };
+        let mut nodes = two_hover_buttons(1000);
+        nodes[0].children = vec![1021, 1002];
+        nodes.push(region(1021, 1001, "down", ShortcutScope::Focus, 0));
+        nodes.push(region(1020, 1000, "ctrl-k", ShortcutScope::Window, serial));
+        nodes
+    }
+
+    /// A column 1 holding a dialog 2 around a text input 3; ids from `base`.
+    fn dialog_with_input(base: u64, value: &str) -> Vec<Node> {
+        vec![
+            Node {
+                id: base + 1,
+                kind: NodeKind::Column {
+                    label: "Page".into(),
+                    style: Box::default(),
+                },
+                children: vec![base + 2],
+            },
+            Node {
+                id: base + 2,
+                kind: NodeKind::Dialog {
+                    label: "Palette".into(),
+                    style: Box::default(),
+                },
+                children: vec![base + 3],
+            },
+            Node {
+                id: base + 3,
+                kind: NodeKind::TextInput {
+                    label: "Query".into(),
+                    value: value.into(),
+                    placeholder: String::new(),
+                    enabled: true,
+                    style: Box::default(),
+                },
+                children: vec![],
+            },
+        ]
+    }
+
+    /// A page 1 holding a boundary 9 around a dialog 2, whose region 4 holds a
+    /// column 5 of a text input 3 and buttons 6 and 7.
+    fn palette_like(base: u64, value: &str, first: &str, second: &str) -> Vec<Node> {
+        let button = |id, label: &str| Node {
+            id,
+            kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
+                caption: label.into(),
+                label: label.into(),
+                enabled: true,
+                hover_enter: false,
+                hover_exit: false,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let mut nodes = dialog_with_input(base, value);
+        nodes[0].children = vec![base + 9];
+        nodes[1].children = vec![base + 4];
+        nodes.push(Node {
+            id: base + 9,
+            kind: NodeKind::Boundary { instance: 77 },
+            children: vec![base + 2],
+        });
+        nodes.push(Node {
+            id: base + 4,
+            kind: NodeKind::Popover {
+                label: String::new(),
+                placement: crate::bridge::Placement::Below,
+                delay_ms: 0,
+                hover_enter: false,
+                hover_exit: false,
+                shortcuts: vec![],
+                focus_serial: 0,
+                style: Box::default(),
+            },
+            children: vec![base + 5],
+        });
+        nodes.push(Node {
+            id: base + 5,
+            kind: NodeKind::Column {
+                label: "Palette".into(),
+                style: Box::default(),
+            },
+            children: vec![base + 3, base + 6, base + 7],
+        });
+        nodes.push(button(base + 6, first));
+        nodes.push(button(base + 7, second));
+        nodes
+    }
+
+    #[gpui::test]
+    fn controls_behind_a_dialog_are_inert_but_keep_their_enabled_look(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let button = |id, label: &str, enabled| Node {
+            id,
+            kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
+                caption: label.into(),
+                label: label.into(),
+                enabled,
+                hover_enter: false,
+                hover_exit: false,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let mut nodes = dialog_with_input(1000, "");
+        nodes[0].children = vec![1004, 1005, 1002];
+        nodes.push(button(1004, "Live", true));
+        nodes.push(button(1005, "Off", false));
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1001, nodes }), cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            let live = runtime.views[&1004].read(cx);
+            assert!(!live.input_enabled, "the dialog makes the page inert");
+            assert_eq!(disabled_look(runtime.views[&1004].entity_id()), Some(false));
+            assert_eq!(disabled_look(runtime.views[&1005].entity_id()), Some(true));
+            assert_eq!(disabled_look(runtime.views[&1003].entity_id()), Some(false));
+        });
+    }
+
+    #[gpui::test]
+    fn a_dialog_rebuilt_below_its_boundary_keeps_every_control_enabled(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1001,
+                    nodes: palette_like(1000, "", "Alpha", "Beta"),
+                }),
+                cx,
+            )
+        });
+        let mut nodes = palette_like(2000, "s", "Beta", "Alpha");
+        nodes.retain(|node| ![2001, 2009].contains(&node.id));
+        runtime.update(cx, |runtime, cx| {
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1002,
+                    root: 2002,
+                    nodes,
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            for id in [2003, 2006, 2007] {
+                assert!(runtime.views[&id].read(cx).input_enabled, "node {id}");
+            }
+            assert!(
+                runtime.views[&2003]
+                    .read(cx)
+                    .input
+                    .as_ref()
+                    .unwrap()
+                    .read(cx)
+                    .is_enabled()
+            );
+        });
+    }
+
+    #[gpui::test]
+    fn live_keystrokes_reach_the_shortcut_nearest_focus(cx: &mut TestAppContext) {
+        let recorded = recording_dispatcher();
+        // The buttons also report hover; only the shortcut route is asked.
+        let events = || {
+            recorded
+                .borrow()
+                .iter()
+                .copied()
+                .filter(|event| event & crate::bridge::SHORTCUT_EVENT_BIT != 0)
+                .collect::<Vec<_>>()
+        };
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1020,
+                    nodes: keyed_controls(0),
+                }),
+                cx,
+            )
+        });
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        // With nothing focused the root's listener hears the keystroke.
+        cx.simulate_keystrokes("ctrl-k");
+        cx.run_until_parked();
+        assert_eq!(events(), [1020 | crate::bridge::SHORTCUT_EVENT_BIT]);
+        // A focus shortcut is live only with focus inside its region.
+        cx.simulate_keystrokes("down");
+        cx.run_until_parked();
+        assert_eq!(events().len(), 1);
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1001].focus(window, cx)
+        });
+        cx.run_until_parked();
+        cx.simulate_keystrokes("down");
+        cx.run_until_parked();
+        assert_eq!(
+            events().last(),
+            Some(&(1021 | crate::bridge::SHORTCUT_EVENT_BIT))
+        );
+        runtime.read_with(cx, |runtime, _| {
+            assert_eq!(
+                runtime.graph.keyboard_counters().as_array()[..2],
+                [3, 2],
+                "three keystrokes offered, two answered"
+            );
+        });
+    }
+
+    #[gpui::test]
+    fn a_focus_request_moves_focus_when_its_region_mounts(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1020,
+                    nodes: keyed_controls(3),
+                }),
+                cx,
+            )
+        });
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        runtime.update_in(cx, |runtime, window, _| {
+            assert!(runtime.focus_handles[&1001].is_focused(window));
+            assert_eq!(runtime.graph.keyboard_counters().focused, 1);
+        });
+    }
+
+    #[gpui::test]
+    fn popover_waits_out_its_delay_on_the_window_clock_and_escape_dismisses_it(
+        cx: &mut TestAppContext,
+    ) {
+        let events = recording_dispatcher();
+        let nodes = noted_controls(1000, 400);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        let rendered_before = observatory::native_work_totals().rendered[17];
+        cx.simulate_mouse_move(point(px(50.0), px(50.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        // The anchor's own hover handler fires; the surface waits.
+        assert_eq!(
+            events.borrow().as_slice(),
+            &[1001 | crate::bridge::HOVER_ENTER_EVENT_BIT]
+        );
+        runtime.read_with(cx, |runtime, _| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert_eq!(runtime.graph.popover_delay(1003), Some(400));
+        });
+        cx.executor()
+            .advance_clock(std::time::Duration::from_millis(399));
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| assert!(!runtime.graph.popover_open(1003)));
+        cx.executor()
+            .advance_clock(std::time::Duration::from_millis(1));
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            assert!(runtime.graph.popover_open(1003));
+            assert!(runtime.views[&1003].read(cx).popover_open);
+        });
+        assert!(
+            observatory::native_work_totals().rendered[17] > rendered_before,
+            "presenting renders the popover's own view"
+        );
+        cx.dispatch_action(super::ActivateEscape);
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, cx| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert!(!runtime.views[&1003].read(cx).popover_open);
+            assert_eq!(runtime.graph.popover_counters().as_array(), [1, 0, 1]);
+        });
+    }
+
+    #[gpui::test]
+    fn popover_opens_to_keyboard_focus_and_closes_when_focus_leaves(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let nodes = noted_controls(1000, 400);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        // Focus events reach an active window only. Activation hit-tests the
+        // pointer afresh, so put it back outside before focusing.
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        cx.simulate_mouse_move(point(px(-10.0), px(-10.0)), None, Modifiers::none());
+        cx.run_until_parked();
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1001].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| assert!(runtime.graph.popover_open(1003)));
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1002].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert_eq!(runtime.graph.popover_counters().as_array(), [1, 1, 0]);
+        });
     }
 }
 

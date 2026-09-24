@@ -1,0 +1,35 @@
+;; Drives the real window through a long session's capture: scrolling four
+;; thousand cycles down the cycle list reads the page the viewport reaches, as
+;; the list reports it, and a late cycle's step opens scrolled into view.
+(test "the window scrolls a session of 10000 cycles and opens a late step"
+  (grants
+    (directory "fixture/session"))
+  (steps
+    (click (role button :name "Open folder"))
+    (await-task)
+    (click (role button :name "Capture database-browser-session.rgstats"))
+    (await-task)
+    (click (role button :name "Interactions"))
+    (settle)
+    (expect-rows (role virtual-list :name "Cycles") :count 10000 :first 0)
+    (expect-count (within (role virtual-list :name "Cycles") (text "reading")) 0)
+    (screenshot "session-cycles")
+    (scroll (role virtual-list :name "Cycles") :by 96000)
+    (settle)
+    (expect-count (within (role virtual-list :name "Cycles") (text "reading")) 0)
+    (expect-rows (role virtual-list :name "Cycles") :count 10000 :first 3992)
+    (screenshot "session-cycle-4000")
+    (click (role button :name "Filter input replace"))
+    (await-task)
+    (settle)
+    (click (role button :name "Cycle r1 #9998"))
+    (await-task)
+    (settle)
+    (scroll (role scroll :name "Inspector scroll") :to (role button :name "Show step"))
+    (settle)
+    (click (role button :name "Show step"))
+    (await-task)
+    (settle)
+    (expect-on-screen (role panel :name "Focused step"))
+    (expect-on-screen (text "Step line 10004"))
+    (screenshot "session-step")))

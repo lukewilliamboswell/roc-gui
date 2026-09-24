@@ -1,10 +1,13 @@
-//! Screenshots of the host's own window, taken by the platform's capture tool.
+//! Screenshots of the host's own window.
 //!
-//! GPUI 0.2.2 exposes no framebuffer readback outside `test-support`, so the
-//! host shells out. Because it knows its own window origin and, through
-//! [`crate::probe`], where each node was laid out, it can hand the tool a
-//! screen-coordinate rectangle — which makes cropping to an element free rather
-//! than a post-processing step.
+//! Where the renderer can read back the frame it presents (Linux, through the
+//! vendored GPUI's Blade renderer), the host photographs its own pixels: the
+//! image is the frame that was flown, independent of compositor, desktop, or
+//! screen-capture permission. Windows asks the window to render itself with
+//! `PrintWindow`. Elsewhere the host shells out to the platform's capture tool.
+//! Because it knows its own window origin and, through [`crate::probe`], where
+//! each node was laid out, it can hand the tool a screen-coordinate rectangle,
+//! or crop its own pixels to a content-relative one.
 //!
 //! Capture is best effort and says so. A missing tool or a denied Screen
 //! Recording permission is reported as `unavailable` with a reason, never as a
@@ -55,15 +58,24 @@ impl ShotError {
     pub fn hint(&self) -> String {
         match self {
             Self::UnsupportedPlatform => {
-                "screenshots are available on macOS, Windows, and on Linux under a wlroots compositor with grim"
-                    .to_owned()
+                "screenshots are available on macOS, Windows, and Linux".to_owned()
             }
             Self::DegenerateRegion => {
                 "the requested region has no area on screen; the element may be clipped away"
                     .to_owned()
             }
             Self::ToolMissing(tool) => format!("{tool} is not installed or not on PATH"),
-            Self::ToolFailed { tool, status, detail } => format!(
+            // An in-process capture has no exit status and no permission to grant.
+            Self::ToolFailed {
+                tool,
+                status: None,
+                detail,
+            } => format!("{tool} failed: {detail}"),
+            Self::ToolFailed {
+                tool,
+                status,
+                detail,
+            } => format!(
                 "{tool} exited with {}{}; on macOS screen capture requires Screen Recording \
                  permission for the terminal or CI runner, granted in System Settings > \
                  Privacy & Security > Screen Recording",
@@ -275,7 +287,54 @@ pub fn capture_window(
         });
     }
 
-    // Points to device pixels, rounding outward and clamping to the client area.
+    // GDI rows are BGRA and leave alpha undefined.
+    let rgba: Vec<u8> = pixels
+        .chunks_exact(4)
+        .flat_map(|pixel| [pixel[2], pixel[1], pixel[0], 255])
+        .collect();
+    save_client_region(
+        TOOL,
+        width as u32,
+        height as u32,
+        &rgba,
+        scale,
+        client,
+        destination,
+    )
+}
+
+/// The name reported for a frame the renderer read back itself.
+pub const READBACK: &str = "frame readback";
+
+/// Crop a region of a rendered client area and write it as a PNG.
+///
+/// `rgba` is `width` by `height` device pixels, row-major RGBA. `client` is in
+/// points relative to the client area, scaled by `scale` to device pixels,
+/// rounding outward and clamping to the client area.
+pub fn save_client_region(
+    tool: &'static str,
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+    scale: f32,
+    client: Geometry,
+    destination: &Path,
+) -> Result<u64, ShotError> {
+    if client.width == 0 || client.height == 0 || width == 0 || height == 0 {
+        return Err(ShotError::DegenerateRegion);
+    }
+    let failed = |detail: String| ShotError::ToolFailed {
+        tool,
+        status: None,
+        detail,
+    };
+    if rgba.len() != width as usize * height as usize * 4 {
+        return Err(failed(format!(
+            "{} bytes for a {width}x{height} frame",
+            rgba.len()
+        )));
+    }
+    let (width, height) = (width as i32, height as i32);
     let left = ((client.x as f32 * scale).floor() as i32).clamp(0, width);
     let top = ((client.y as f32 * scale).floor() as i32).clamp(0, height);
     let right = (((client.x as f32 + client.width as f32) * scale).ceil() as i32).clamp(0, width);
@@ -287,8 +346,7 @@ pub fn capture_window(
     let mut image = image::RgbaImage::new((right - left) as u32, (bottom - top) as u32);
     for (x, y, pixel) in image.enumerate_pixels_mut() {
         let at = ((top as usize + y as usize) * width as usize + left as usize + x as usize) * 4;
-        // GDI rows are BGRA and leave alpha undefined.
-        *pixel = image::Rgba([pixels[at + 2], pixels[at + 1], pixels[at], 255]);
+        *pixel = image::Rgba([rgba[at], rgba[at + 1], rgba[at + 2], rgba[at + 3]]);
     }
 
     if let Some(parent) = destination.parent() {
@@ -296,17 +354,9 @@ pub fn capture_window(
     }
     image
         .save_with_format(destination, image::ImageFormat::Png)
-        .map_err(|error| ShotError::ToolFailed {
-            tool: TOOL,
-            status: None,
-            detail: error.to_string(),
-        })?;
+        .map_err(|error| failed(error.to_string()))?;
     let bytes = std::fs::metadata(destination)
-        .map_err(|error| ShotError::ToolFailed {
-            tool: TOOL,
-            status: None,
-            detail: error.to_string(),
-        })?
+        .map_err(|error| failed(error.to_string()))?
         .len();
     Ok(bytes)
 }
@@ -461,6 +511,43 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.reason(), "degenerate_region");
+    }
+
+    #[test]
+    fn a_readback_is_cropped_in_device_pixels() {
+        // A 4x2 device-pixel frame at scale 2 is a 2x1 point client area; each
+        // pixel's red channel is its index.
+        let rgba: Vec<u8> = (0..8u8).flat_map(|index| [index, 0, 0, 255]).collect();
+        let destination =
+            std::env::temp_dir().join(format!("roc-gui-readback-{}.png", std::process::id()));
+        let right_point = Geometry {
+            x: 1,
+            y: 0,
+            width: 1,
+            height: 1,
+        };
+        let bytes =
+            save_client_region(READBACK, 4, 2, &rgba, 2.0, right_point, &destination).unwrap();
+        assert!(bytes > 0);
+        let image = image::open(&destination).unwrap().to_rgba8();
+        let _ = std::fs::remove_file(&destination);
+        assert_eq!(image.dimensions(), (2, 2));
+        let reds: Vec<u8> = image.pixels().map(|pixel| pixel[0]).collect();
+        assert_eq!(reds, [2, 3, 6, 7]);
+    }
+
+    #[test]
+    fn a_readback_of_the_wrong_length_is_refused() {
+        let whole = Geometry {
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+        };
+        let error =
+            save_client_region(READBACK, 2, 2, &[0; 4], 1.0, whole, Path::new("unused.png"))
+                .unwrap_err();
+        assert_eq!(error.reason(), "tool_failed");
     }
 
     #[test]

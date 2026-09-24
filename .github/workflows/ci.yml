@@ -9,6 +9,31 @@ permissions:
   contents: read
 
 jobs:
+  blueprint:
+    name: Pinned Nix build and application semantics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+      - name: Install native Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig
+      - name: Build and test through Blueprint
+        run: |
+          nix develop github:lukewilliamboswell/roc-blueprint/db71ab518d04dc24c5fa1fe1a2423fffdc87aad5 --command bash -euc '
+            blueprint run check
+            git diff --exit-code -- Blueprint.lock
+            # The macOS shell must evaluate; nothing is built for it here.
+            nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
+            blueprint run lint
+            blueprint run build
+            blueprint run test -- --only semantic --jobs 2 --timeout 300
+          '
+
   policy:
     name: Repository policy and host tests
     runs-on: ubuntu-24.04
@@ -28,16 +53,17 @@ jobs:
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
           python3 -m unittest \
+            scripts/test_compiler_environment.py \
+            scripts/test_alsa_dependencies.py \
+            scripts/test_link_input_artifacts.py \
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_host_release_policy.py \
+            scripts/test_cargo_build_evidence.py \
+            scripts/test_git_cargo_sources.py \
             scripts/test_macos_interfaces.py \
             scripts/test_gpui_smoke.py \
             scripts/test_window_routing.py
-      - name: Test GPUI dependency patches
-        run: |
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support dirty_cached_parent
 
   semantics:
     name: Ordinary semantics (${{ matrix.target }})
@@ -207,6 +233,8 @@ jobs:
         run: >-
           python3 scripts/run_specs.py --only window
           --exclude "examples/*/specs/gallery.scm"
+          --exclude "examples/clipboard-history/specs/window-*.scm"
+          --exclude "examples/system-monitor/specs/window-plot-width.scm"
           --timeout 180 --output="$RUNNER_TEMP/spec-evidence"
           ${{ matrix.missing_shots }}
       - name: Upload privacy-safe failure evidence

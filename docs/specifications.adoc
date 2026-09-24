@@ -106,11 +106,35 @@ produced and `access.pick_directory!()` answers `Ok(Canceled)`. Cancelling is no
 failure, so this is its own provisioning rather than an absent grant, and it is
 how a case shows that an application returns to rest instead of accusing the
 person of a denial. It cannot be combined with `(directory "PATH")`.
+`(directory copy "PATH")`:: Read access to a private copy of one directory's
+files, made for the run and discarded after it, in place of
+`(directory "PATH")`. It is the grant a case needs to change what the
+application reads with `replace-file` and `remove-file`, without touching the
+directory it names.
+`(file "PATH")`:: Read access to one file, which `access.pick_file!(types)`
+answers with. The host checks it against the offered types exactly as it checks
+a file chosen in the operating system's chooser.
+`(file canceled)`:: A file chooser the person dismisses without choosing, so
+`access.pick_file!(types)` answers `Ok(Canceled)`. It cannot be combined with
+`(file "PATH")`; either may be combined with a directory grant.
+`(file recording)`:: The capture this run is recording, as the file
+`access.pick_file!(types)` answers with. The production recorder is writing it
+while the application reads it, which is how a case watches a recording grow.
+It is semantic-only, because only the semantic runner records a capture.
 `(http-origin "ORIGIN")`:: HTTP access to exactly one origin. A request to any
 other origin is denied by the host.
 `(process local-shell)` and `(process test-program)`:: One PTY child profile.
 `test-program` is the fixed deterministic child; `local-shell` is the user's
 shell.
+`(recents ITEM...)`:: The application's recent list for the run, in place of
+the person's own, the first item most recent. An item is a file or folder
+relative to the application directory, `(each "DIR")` for every ordinary file
+directly in a folder, in name order, `(each "DIR" "EXT")` for those whose
+extension is `EXT`, or `(copied "NAME")` for a direct child of
+the `(directory copy ...)` grant, which a `remove-file` or `replace-file` step
+can then take away or replace. Each entry is recorded as provisioned, and a
+provisioned list is never written anywhere the next run would read. A case
+without this grant starts with an empty list.
 `(server "PATH" PORT)`:: A loopback service the runner starts before the case
 and stops after it. `PATH` names a script beside the application, and `PORT` is
 the port it reports readiness on. This grants the harness, not the application:
@@ -119,6 +143,10 @@ a case still needs `(http-origin ...)` or `(tcp ...)` to reach it.
 `(system-monitor processes N)`:: A deterministic system sampler delivering its
 snapshots through the same ABI as the physical source.
 `(tcp "IP:PORT")`:: TCP access to exactly one endpoint.
+`(theme light)` and `(theme dark)`:: The system appearance the case sees, in
+place of the desktop's. `(theme dark reduced-motion)` also asks for reduced
+motion. It grants no authority; a case without it sees a light scheme with full
+motion, whatever the machine running it prefers.
 
 == Locators
 
@@ -137,7 +165,8 @@ with `prefix`. This locator supports deterministic primitive counts in scaling
 specifications.
 `(checkbox-prefix "prefix")`:: Checkbox labels beginning with `prefix`.
 `(role button :name "name")`:: A button with the semantic `name` passed to
-`Gui.button`.
+`Gui.button`. A tab of a tab strip is a tab, not a button; its close button is
+a button.
 `(role canvas :name "name")`:: A retained drawing surface identified by its
 stable semantic name.
 `(role canvas-item :name "name")`:: A keyed canvas primitive identified by its
@@ -146,18 +175,31 @@ stable semantic label.
 `(role column :name "name")`:: A column identified by its semantic name.
 `(role dialog :name "label")`:: The active modal dialog identified by its
 semantic label.
+`(role drop-target :name "label")`:: A drop target identified by the label
+`Gui.drop_target` gave it.
 `(role image :name "name")`:: An encoded image identified by its
 application-supplied semantic name. Neither encoded bytes nor source filenames
 are captured.
 `(role panel :name "label")`:: A panel identified by its semantic label.
 `(role row :name "name")`:: A row identified by its semantic name.
 `(role scroll :name "name")`:: A scroll region identified by its semantic name.
+`(role separator :name "label")`:: A split's divider, identified by the label
+its split gave it. Nothing in the pane a collapsed split folds away matches any
+locator.
+`(role tab :name "title")`:: One tab of a tab strip, identified by its title.
+`(role tooltip :name "label")`:: A popover's presenting surface, identified by
+its semantic label. A closed popover presents nothing, so neither it nor
+anything in its content matches.
+`(shortcut "CHORD")`:: Every presented element that declares a shortcut for
+`CHORD`, which is compared in the host's canonical spelling, so
+`"shift-ctrl-k"` finds a shortcut declared as `"ctrl-shift-k"`.
 `(role textarea :name "name")`:: A multiline editor identified by its semantic
 name. Locator matching never records its value.
 `(role textbox :name "label")`:: A controlled text input identified by its
 semantic label.
 `(role virtual-list :name "name")`:: A fixed-row virtual list identified by its
-semantic name.
+semantic name. A list of rows produced on demand mounts only the rows near its
+viewport, so only those rows can be located.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
 missing targets fail instead of choosing one by traversal order. Use unique
@@ -191,6 +233,9 @@ terminal's, is chunked by the platform rather than by the application, so a
 specification that counted `await-task` steps would be asserting how an
 operating system flushed a pipe. This waits for what the application shows
 instead, and fails if the graph has not said it before the task budget expires.
+It is also how a specification waits out a popover's delay: the window runner
+presents frames on the window's own clock, and the semantic runner, which has
+no clock, lets every pending delay elapse before it waits for a task.
 Follow it with `expect-count` to assert the same number exactly. On the window
 runner the step ends on a presented frame carrying those nodes, so a following
 `expect-on-screen` asks about something the window has actually drawn.
@@ -204,19 +249,27 @@ another task requires another `await-task` step.
 +
 On the window runner this claim is weaker, and knowingly so: frames are what
 apply completions, so the task has usually landed before the step runs, and an
-application holding a subscription open — a terminal reading, a timer playing —
-never reaches a moment with nothing in flight. The step therefore waits for the
-window to go quiet rather than for a completion it can attribute. Where the
-distinction matters, say what the application should show with `await-count`
-instead of counting tasks.
+application holding a subscription open — a terminal reading, a timer playing,
+a watch waiting — never reaches a moment with nothing in flight. The step
+therefore counts completions rather than waiting for the next one: it is
+satisfied by one that no earlier `await-task` waited for and that landed after
+the last step that waited for the window, `settle`, `await-count`, or
+`await-ticks`, even if it landed during the step that started it. It cannot
+attribute that completion to a task. Where the distinction matters, say what
+the application should show with `await-count` instead of counting tasks.
 `(await-ticks N)`:: Apply `N` successive timer wait completions through that
 same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
-`(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Deliver a button hover
-transition through the canonical mounted graph and normal Roc route. Duplicate
-transitions and disabled controls dispatch nothing. Both runners use the same
+`(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Rest the pointer on, or
+take it off, the located node. The transition goes through the canonical
+mounted graph to every hover target the pointer then rests on: each popover or
+hover region whose anchor contains the node, outermost first, and the node
+itself when it is a button with a hover handler. Installed handlers are
+delivered through the normal Roc route; a popover's surface presents after its
+delay. A node that is no hover target and lies in no anchor is refused.
+Duplicate transitions and disabled controls dispatch nothing. Both runners use the same
 transition owner. The window runner requires an entering target to be painted
 and visible, then dispatches a GPUI mouse-move event at its centre. Exit moves
 the simulated pointer outside the window; GPUI performs hit testing and delivers
@@ -237,24 +290,78 @@ when that view subsequently reuses its rendered subtree. A missing
 mark or no completed frame fails as unavailable. Choose limits from the
 changed patch frontier and the application's ordinary native controls; these
 assertions belong to controlled interactions without unrelated input or resize.
-`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Send one complete captured pointer
-gesture through a canvas's production event route. Coordinates are integer
-logical pixels in canvas space.
+`(drag LOCATOR FROM-X FROM-Y TO-X TO-Y)`:: Press a canvas or a split's divider
+at one point, move to another with the button held, and release. Coordinates
+are integer logical pixels from the painted canvas's origin, or from the
+divider's. The window runner presses, moves, and releases the window's own
+pointer, and GPUI hit-tests the press; the semantic runner delivers what that
+gesture delivers. A canvas receives its three pointer phases, each a `drag`
+cycle. A divider asks for the size the move measures from the press, one `drag`
+cycle, and nothing when the divider already shows that size.
+`(drop LOCATOR "PATH"...)`:: Drop files on a drop target, each named relative
+to the application directory and staying inside it, in the order a person
+dragged them. The window runner delivers the drop through GPUI's own file-drop
+events — the files enter the window over the target, are held there, and are
+dropped — so GPUI hit-tests the drop and the target's production listener takes
+it. The semantic runner admits the same paths against the target's types and
+takes the same route that listener calls. Either way the drop is one `drop`
+cycle, and the files it grants are grants the application holds.
+`(pointer-move LOCATOR X Y)`:: Move an unpressed pointer to a point of a canvas,
+in canvas coordinates. The window runner moves the window's own pointer to that
+point of the painted surface; the semantic runner delivers the event that
+movement produces. A move to the point already delivered delivers nothing. The
+canvas must handle `on_hover`.
+`(pointer-leave LOCATOR)`:: Take a hovering pointer off a canvas. The canvas
+receives `Leave` at the last point delivered, and nothing when it was not
+hovered.
+`(system-theme light)` and `(system-theme dark)`:: The desktop reports a new
+appearance, as a person changing it would; `reduced-motion` may follow the
+scheme. Adaptive colours resolve by it unless the application has chosen a
+scheme over the system's, and a `Gui.Appearance.next_change!` wait answers it.
+The window runner presents one frame after it, drawn in the new scheme.
+`(wheel LOCATOR X Y DX DY)`:: Scroll a wheel by `DX` and `DY` pixels over a point
+of a canvas that handles `on_wheel`. Positive distances scroll towards the
+content's end.
 `(focus LOCATOR)`:: Give semantic keyboard focus to exactly one enabled button
-or checkbox. Focus remains valid only while that mounted node is live.
+or checkbox. Focus remains valid only while that mounted node is live. Focus
+entering a popover's anchor presents it at once; focus leaving closes it unless
+the pointer rests there. The window runner activates the window first, as a
+person moving focus there would; focus arriving in a region is reported only in
+the active window.
+`(key "CHORD")`:: Press one key chord, such as `"ctrl-k"`, `"down"`, or
+`"shift-f3"`. The window runner sends a real keystroke through the window's
+production keymap, so the host's own keys, a focused control, and a focused
+text field take it exactly as they take a person's. The semantic runner offers
+it to the application's shortcuts through the same resolution the window's root
+uses, from the control `focus` last named, and runs the shortcut that answers as
+a `key` cycle; a chord nothing answers does nothing, as in a window. A chord the
+window would give to the host or to the focused control instead — Tab, Escape,
+Enter on a button, a character typed into a text field — fails the step in the
+semantic runner, which does not imitate what they do; use `focus`,
+`press-key`, `replace-text`, or a window run.
 `(mark-metrics)`:: Separate benchmark setup from the operation being measured.
 `(press-key Enter)`:: Activate the focused button through the normal Roc event
 route.
 `(press-key Escape)`:: Dismiss the active dialog through its `on_dismiss` route.
+With no dialog, close every presenting popover; with neither, the step fails.
 `(press-key Space)`:: Activate the focused button, or toggle the focused enabled
 checkbox, through the normal Roc event route.
+`(remove-file "NAME")`:: Delete the direct child `NAME` of the
+`(directory copy ...)` grant, as a person deleting a file does. It changes only
+the private copy, and a specification without that grant is refused.
+`(replace-file "NAME" "SOURCE")`:: Replace the direct child `NAME` of the
+`(directory copy ...)` grant with a copy of `SOURCE`, a file named relative to
+the application directory. The copy is written beside the folder and renamed
+over the child in one step, as a person moving a new file into place does, so
+the application sees one name bound to a different file. It changes only the
+private copy, and a specification without that grant is refused.
 `(replace-text LOCATOR "value")`:: Replace the complete controlled value of one
 editable text input or textarea through its production Roc input route. A text
-input delivers `Gui.EventTextChange`; a textarea delivers `Gui.EventInput`. A
+input delivers `Gui.Event.TextChange`; a textarea delivers `Gui.Event.Input`. A
 disabled text input consumes no edit and dispatches nothing. A disabled or
 read-only textarea fails as non-editable.
 `(submit LOCATOR)`:: Deliver an enabled text input's current controlled value as
-`Gui.EventTextSubmit` through the normal Roc event route.
+`Gui.Event.TextSubmit` through the normal Roc event route.
 
 == Assertions
 
@@ -278,14 +385,22 @@ did not have its authority taken away.
 `(expect-grants DESCRIPTION...)`:: Require exactly these grants, in registry
 order, each written as `KIND ORIGIN/ENFORCEMENT LINEAGE RIGHTS` with ` revoked`
 appended once its authority has been taken away — for example
-`"directory provisioned/consent-only root read,list,derive"`. `ORIGIN` is
-`trusted-selection`, `provisioned`, or `automatic`; `ENFORCEMENT` is `brokered`
+`"directory provisioned/consent-only root read,list,derive"`. A grant the
+application remembered, and every grant derived from it, carries
+` remembered` before ` revoked`. `ORIGIN` is `trusted-selection`, `drop`,
+`provisioned`, or `automatic`; `ENFORCEMENT` is `brokered`
 when the broker returned authority the process could not obtain for itself and
 `consent-only` when a person chose in a trusted surface but nothing outside the
 process enforces the scope. `LINEAGE` is `root` or `derived`. No step means the
 application holds no authority at all. Identifiers are deliberately not part of
 a description: they are allocation order, which is a fact about the run rather
 than about the authority.
+`(expect-canvas-size LOCATOR WIDTH HEIGHT)`:: Require the size last reported
+to one canvas that handles `on_size` to be `WIDTH` by `HEIGHT` logical pixels.
+A canvas without the handler, or one that has heard no size, fails. The
+window runner reports the size GPUI laid the canvas out at; the semantic runner
+the size it derives from the window the application asked for. Both answer
+from the size the mounted graph recorded.
 `(expect-canvas-primitives LOCATOR N)`:: Require one canvas owner to report
 exactly `N` retained primitives. The expected and observed values are stored as
 deterministic scale evidence.
@@ -305,10 +420,52 @@ that return `Removed`; they exclude arbitrary application reads and background
 worker execution. They measure adapter work separately from boundary renders.
 `(expect-count LOCATOR N)`:: Require exactly `N` matches and record expected and
 observed counts.
+`(expect-rows LIST :count N :first N :mounted N)`:: Require one virtual list to
+hold `:count` rows, to have mounted its rows from index `:first`, and to have
+mounted `:mounted` of them. Supply one or more of the three. A list given its
+items mounts all of them from index zero; a list whose rows are produced on
+demand holds a count and mounts only a window of it, so this is how a
+specification proves a length the graph does not contain. `:count` is recorded
+as expected and observed deterministic scale evidence.
 `(expect-device-connections N)`:: Require exactly `N` host-owned device
 connection handles.
 `(expect-device-transactions N)`:: Require exactly `N` completed host-owned
 device transactions.
+`(expect-document-counters PICKS CHOSEN CANCELED REFUSED READS LIVE)`:: Require
+the document owner's totals for single-file grants: `pick_file!` calls, chosen
+files, cancellations, refused picks of any reason, whole-file reads, and then
+the document handles the application still holds.
+`(expect-drop-counters DROPS GRANTED REFUSED)`:: Require the document owner's
+totals for drops: drops delivered to a drop target's route, files they granted,
+and dropped items they refused. No name or path becomes evidence.
+`(expect-recent-counters REMEMBERED REOPENED REFUSED FORGOTTEN ENTRIES)`::
+Require the recent list's totals: grants remembered, entries reopened, reopens
+and remembers refused, and entries forgotten, then the entries it holds now.
+No name or path becomes evidence.
+`(expect-theme light)` and `(expect-theme dark)`:: The scheme adaptive colours
+now resolve to: the system's, or the one the application chose with
+`Gui.Appearance.prefer!`. An `expect-background` on an adaptive colour compares
+the value it resolves to.
+`(expect-watch-counters STARTED CHANGES CANCELED REVOKED LIVE)`:: Require the
+watch owner's totals: watches started, changes delivered, watches cancelled,
+and watches ended because their grant was withdrawn, then the watches the
+application still holds. `_` leaves one unconstrained, for a count that follows
+another process's writing rather than the application.
+`(expect-task-counters ISSUED COMPLETED DELIVERED SUPERSEDED CANCELLED INTERRUPTED)`::
+Require the task owner's totals: tasks issued, completions their workers
+published, completions delivered to the application, tasks superseded by a
+newer task with the same key, tasks cancelled explicitly or with their
+component, and capability waits interrupted by a task ending. `_` leaves one
+unconstrained, for a count that depends on whether a worker reached its wait
+before it was superseded. A benchmark's `:scale` is verified by a superseded
+count equal to it. Semantic runs only.
+`(await-task-waits N)`:: Wait until exactly `N` running tasks hold a worker
+that only their end, or their capability, can move on: blocked in a wait that
+ending them would interrupt (a timer tick, a watch, or a SQLite statement), or
+ended and still unwinding. It delivers nothing and records no cycle. With a
+positive count it lets a later cancellation find a task that is certainly
+blocked; with zero it waits until every ended task has released what it
+held. Semantic runs only.
 `(expect-file-picks N)`, `(expect-file-lists N)`, `(expect-file-opens N)`, and
 `(expect-file-reads N)`:: Require exact cumulative counts recorded by the Files
 owner.
@@ -317,16 +474,32 @@ matching enabled control. This proves the host's dialog focus policy, not a
 compositor-delivered focus event.
 `(expect-http-counters LIVE ACQUIRE SEND DENIED)`:: Require the owner-recorded
 live client count, operation attempts, and authority denials.
+`(expect-hash-counters HASHED REFUSED BYTES)`:: Require the file hash owner's
+three totals, in that order: files hashed, hashes refused, and bytes hashed. No
+file name, path, or digest becomes evidence.
 `(expect-image-bytes LOCATOR N)`:: Require an image node to own exactly `N`
 encoded bytes, and record expected and observed deterministic counts without
 persisting image content.
+`(expect-keyboard-counters OFFERED MATCHED COMPARED FOCUSED)`:: Require the
+mounted graph's keyboard work since the run began: keystrokes offered to the
+application's shortcuts, keystrokes a shortcut answered, declared shortcuts
+compared against a keystroke, and focus requests that moved focus. Resolving a
+keystroke visits the focused control's ancestors and the elements that declare
+window shortcuts, never the rest of the graph, so `COMPARED` is the cost a
+scaling case bounds. Both runners answer from the same graph.
 `(expect-not-visible LOCATOR)`:: Require no matches.
 `(expect-patch :kind KIND :staged N :removed N)`:: Check the host patch produced
 by the preceding click. `KIND` is `mount`, `replace`, or `no_change`.
+`(expect-popover-counters OPENED CLOSED DISMISSED)`:: Require the mounted
+graph's popover transitions since the run began: surfaces that began
+presenting, surfaces closed because pointer and focus both left, and surfaces
+closed by Escape. Both runners answer from the same graph.
 `(expect-processes N)`:: Require exactly `N` live host-owned PTY child
 processes.
 `(expect-sqlite-counters LIVE OPEN QUERY)`:: Require the owner-recorded live
-connection count and attempted SQLite operations.
+connection count and attempted SQLite operations. `QUERY` counts every
+statement the host was asked to run, whether whole, with parameters, or as
+one page.
 `(expect-subscriptions N)`:: Require exactly `N` active host timer handles. This
 assertion reads the timer registry that owns cancellation state.
 `(expect-system-samplers N)`:: Require exactly `N` active host-owned system
@@ -336,7 +509,12 @@ samples.
 `(expect-tcp-counters LIVE CONNECT READ WRITE CLOSE)`:: Require the complete
 owner-recorded TCP resource and attempted-operation vector.
 `(expect-tcp-streams N)`:: Require exactly `N` live host TCP stream handles.
-`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value.
+`(expect-selected LOCATOR)` and `(expect-not-selected LOCATOR)`:: Require
+exactly one matching tab, and that it is, or is not, its strip's selected tab.
+`(expect-value LOCATOR "value")`:: Require an exact controlled text-input or textarea value, the
+exact line a canvas text primitive sets when the locator names a canvas item,
+or a divider's value, its size in logical pixels or `collapsed`, when the
+locator names a separator.
 The value is compared in memory and is not copied into captures or diagnostics.
 `(expect-value-bytes LOCATOR N)`:: Require the text-input or textarea value to contain exactly
 `N` UTF-8 bytes, and record the expected and observed deterministic counts.
@@ -362,6 +540,12 @@ For a virtual list, text and control locators inspect all logically mounted
 items, including rows outside an interactive viewport. A headless
 `expect-visible` therefore proves logical presence, not viewport intersection.
 Only GPUI records native visible-range and materialisation evidence.
+
+A list of rows produced on demand mounts a window of its rows chosen by the
+viewport. The semantic runner takes the viewport to be as tall as the window the
+application asked for, so it mounts the rows such a viewport shows and one
+viewport below them, and an application's scroll request moves that viewport as
+it would move the real one. Visible-range events come only from GPUI frames.
 
 `focus` and `press-key` model the production controls' accepted activation-key
 matrix and invoke their normal Roc event route. In the semantic runner they
@@ -407,19 +591,22 @@ honest, and each runner refuses the other's steps by name rather than skipping
 them silently:
 
 `semantic-only`:: `mark-metrics`, `expect-patch`, and `benchmark` clauses,
-which depend on the semantic runner's per-iteration mount. Also every step the
-window runner does not implement: `drag`, `replace-text`, `submit`, and the
+which depend on the semantic runner's per-iteration mount, and the
+`(file recording)` grant, since only the semantic runner records a capture. Also every step the
+window runner does not implement: `replace-text`, `submit`, `await-task-waits`,
+`expect-task-counters`, and the
 repository fixture steps the Contributing chapter describes.
 
-`window-only`:: `settle`, `screenshot`, `type`, `key`, `resize`, `scroll`,
+`window-only`:: `settle`, `screenshot`, `type`, `resize`, `scroll`, `drag-files`,
 `expect-on-screen`, `expect-rendered-count`, and `expect-bounds`. None of these
 mean anything without a presented frame: without layout there is no fold for
 content to be below, and no size a window could be resized from.
 
-`both`:: `click`, `focus`, `press-key`, `await-task`, `await-count`, `clipboard-text`,
-`await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
-`expect-count`, `expect-component-work`, and the value and ordering assertions — `expect-value`,
-`expect-value-bytes`, `expect-image-bytes`, `expect-before`, and
+`both`:: `click`, `drag`, `drop`, `pointer-move`, `pointer-leave`, `wheel`, `focus`, `press-key`, `key`, `await-task`, `await-count`, `clipboard-text`,
+`system-theme`, `expect-theme`, `await-ticks`, `expect-visible`, `expect-focused`, `expect-not-visible`,
+`expect-count`, `expect-component-work`, `expect-canvas-size`, and the value and ordering assertions — `expect-value`,
+`expect-selected`, `expect-not-selected`,
+`expect-value-bytes`, `expect-image-bytes`, `expect-before`, `expect-rows`, and
 `expect-canvas-primitives`. The fixture clipboard is one process-wide store, so
 changing the granted source and waiting for the application's own timer to
 observe it mean the same thing under either runner; without them a windowed
@@ -428,7 +615,8 @@ could not photograph one. The value and ordering assertions read the mounted
 graph, which both runners hold, and both call the same code to answer them, so
 one window case can assert a semantic truth and photograph it in the same run.
 
-Also `revoke-file-grants` and the live-resource and capability counter
+Also `revoke-file-grants`, which withdraws every chosen folder and file,
+`replace-file` and `remove-file`, which change what a copied folder holds, and the live-resource and capability counter
 assertions. The host owns one files registry, one clipboard, one audio device
 table; both runners read them through the same shared implementation, and
 revocation acts on that one registry. A windowed case can therefore photograph a
@@ -446,9 +634,10 @@ means two different things.
 
 Input steps first, then waiting, then assertions in alphabetical order.
 
-`(key "CHORD")`:: Send one real chord, such as `"cmd-a"` or `"escape"`, through
-the window's production keymap. The semantic `press-key` covers three
-activation keys and no modifiers.
+`(drag-files LOCATOR "PATH"...)`:: Drag files over a drop target and hold them
+there without dropping, through the same GPUI file-drop events `drop` begins
+with, so a screenshot shows how the target answers files it would take. A
+following `drop` of the same files lets go of them.
 `(type "TEXT")`:: Send each character as a real keystroke into the focused
 element, through GPUI's own keystroke dispatch. The semantic `replace-text`
 sets a value directly and exercises none of the editing path.
@@ -474,9 +663,12 @@ virtual list has no such rectangle — a row below the fold has no element at al
 — so the list is positioned by that row's index among the entries the
 application mounted, and the row materialises as a result. This is what brings
 an off-screen target on screen, and it is the only handle an unrendered row
-offers.
+offers. A list of rows produced on demand counts that index from its first
+mounted row; a row it has not mounted has no locator, and is reached with
+`:by` or by the application's own scroll request.
 `(settle)` / `(settle :frames N :timeout-ms N)`:: Wait for `N` consecutive
-presented frames during which no host task started or finished. Defaults are
+presented frames during which no host task started or finished and no list of
+rows produced on demand was rendered again for its viewport. Defaults are
 `:frames 2 :timeout-ms 2000`. A timeout fails the step; it never proceeds
 quietly, because an assertion against a half-settled frame is not evidence.
 `(expect-bounds LOCATOR :min-width N :max-width N :min-height N :max-height N)`::
@@ -515,11 +707,14 @@ letters, digits, and hyphens. Files are written as `NN-NAME.png`, numbered by
 step, and indexed in the report's `screenshots` array. A `:region` locator that
 does not match exactly one node fails the step, as `click` does.
 
-The host asks the platform's capture tool for a screen rectangle, which it can
-compute because it knows its own window origin and where each node was laid
-out. Cropping is therefore part of the request rather than a post-processing
-step. On macOS this is `screencapture`; under a wlroots compositor it is
-`grim`.
+The host knows where each node was laid out, so it computes the crop itself,
+relative to the content area. On Linux the renderer reads back the next frame it
+presents and the host crops those pixels: the image is the frame the
+application flew, whatever the compositor or desktop, with no capture tool or
+permission involved and nothing drawn over the window in the picture. On
+Windows the window renders itself into a bitmap with `PrintWindow`. On macOS
+the host adds its window origin and asks `screencapture` for that screen
+rectangle, so cropping is part of the request.
 
 Capture is honest about not happening. A missing tool, a denied Screen
 Recording permission, or a region with no area on screen is reported as
@@ -543,7 +738,9 @@ not exercised; those belong to the pointer seam this host does not have.
 Pointer steps are simulated at the production handler, but are refused unless
 the control was laid out, is unclipped, is enabled, and is not behind a modal
 dialog, so a `click` a real user could not have performed fails rather than
-passing quietly. `hover-enter` and `hover-exit` dispatch mouse-move events into
+passing quietly. `drag` presses, moves, and releases the window's pointer
+through GPUI's own event dispatch, so the press is hit-tested and the
+production listeners follow the move. `hover-enter` and `hover-exit` dispatch mouse-move events into
 the live GPUI window, exercising hit testing, production views, and the normal
 event route. They do not move the operating-system pointer. GPUI tests also
 verify replacement continuity and disabled or stale routes. The Testing your

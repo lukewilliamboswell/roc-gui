@@ -24,7 +24,7 @@ State : { access : Gui.Access, filter : Str, next_request : U64, scan : [None, S
 
 pick = |state| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match state.access.pick_directory!() {
 			Ok(Chosen(selection)) => match selection.directory.list!() {
@@ -36,18 +36,18 @@ pick = |state| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				Scanned(scan) => Gui.update({ ..latest, scan: Some(scan), selected: None, status: Ready })
-				ScanCanceled => Gui.update({ ..latest, status: Ready })
+				Scanned(scan) => Gui.Action.update({ ..latest, scan: Some(scan), selected: None, status: Ready })
+				ScanCanceled => Gui.Action.update({ ..latest, status: Ready })
 
 				## A refusal is a state, not an error string. It says what
 				## happened, what it means for what is on screen, and what the
 				## person can do about it — and the one thing they can do is
 				## the button that is already in the header, so the band points
 				## at it rather than growing a second one.
-				ScanDenied => Gui.update({ ..latest, status: Failed({ headline: "No folder was opened", detail: "Access to a folder was not granted, so nothing was read. Nothing already open has changed. Press Open folder to choose again." }) })
-				ScanFailed => Gui.update({ ..latest, status: Failed({ headline: "That folder could not be read", detail: "The folder was granted but could not be listed. Press Open folder to choose another." }) })
+				ScanDenied => Gui.Action.update({ ..latest, status: Failed({ headline: "No folder was opened", detail: "Access to a folder was not granted, so nothing was read. Nothing already open has changed. Press Open folder to choose again." }) })
+				ScanFailed => Gui.Action.update({ ..latest, status: Failed({ headline: "That folder could not be read", detail: "The folder was granted but could not be listed. Press Open folder to choose another." }) })
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }
@@ -118,7 +118,7 @@ item_rows = |items, chosen_name| {
 				{ label: "Image ${asset.name}", gap: Theme.within, padding: 0, align: Center },
 				[
 					Gui.image({ label: "Thumbnail ${asset.name}", bytes: asset.bytes, format: asset.format, fit: Cover, width: Px(Theme.thumbnail), height: Px(Theme.thumbnail), min_width: Px(Theme.thumbnail), min_height: Px(Theme.thumbnail), radius: Theme.media_radius }),
-					Gui.button({ caption: asset.name, label: "View image ${asset.name}", on_press: |current, _| Gui.update({ ..current, selected: Some(asset) }), width: Px(196), height: Px(Theme.thumbnail), padding: 10, font_size: Theme.body, radius: Theme.control_radius, bg: if chosen_name == asset.name Theme.chosen else Theme.quiet, hover_bg: Theme.quiet_hover, active_bg: Theme.quiet_active, fg: Theme.ink, overflow_x: Clip }),
+					Gui.button({ caption: asset.name, label: "View image ${asset.name}", on_press: |current, _| Gui.Action.update({ ..current, selected: Some(asset) }), width: Px(196), height: Px(Theme.thumbnail), padding: 10, font_size: Theme.body, radius: Theme.control_radius, bg: if chosen_name == asset.name Theme.chosen else Theme.quiet, hover_bg: Theme.quiet_hover, active_bg: Theme.quiet_active, fg: Theme.ink, overflow_x: Clip }),
 				],
 			)
 		}
@@ -131,10 +131,10 @@ item_rows = |items, chosen_name| {
 viewer_controls = |state| Gui.row(
 	{ label: "Image transform controls", gap: 12, padding: 0 },
 	[
-		view_button("Fit", "Fit image", state.transform.fit == Contain, |current, _| Gui.update({ ..current, transform: { ..current.transform, fit: Contain } })),
-		view_button("Fill", "Fill image bounds", state.transform.fit == Cover, |current, _| Gui.update({ ..current, transform: { ..current.transform, fit: Cover } })),
-		view_button("Actual", "Show actual image size", state.transform.fit == None, |current, _| Gui.update({ ..current, transform: { ..current.transform, fit: None } })),
-		Gui.checkbox({ label: "Grayscale preview", checked: state.transform.grayscale, padding: 12, gap: 10, font_size: Theme.body, fg: Theme.ink, box_bg: Theme.card, box_checked_bg: Theme.accent, box_border: Theme.quiet_active, mark_color: Theme.on_accent, on_change: |current, event| Gui.update({ ..current, transform: { ..current.transform, grayscale: event.checked } }) }),
+		view_button("Fit", "Fit image", state.transform.fit == Contain, |current, _| Gui.Action.update({ ..current, transform: { ..current.transform, fit: Contain } })),
+		view_button("Fill", "Fill image bounds", state.transform.fit == Cover, |current, _| Gui.Action.update({ ..current, transform: { ..current.transform, fit: Cover } })),
+		view_button("Actual", "Show actual image size", state.transform.fit == None, |current, _| Gui.Action.update({ ..current, transform: { ..current.transform, fit: None } })),
+		Gui.checkbox({ label: "Grayscale preview", checked: state.transform.grayscale, padding: 12, gap: 10, font_size: Theme.body, fg: Theme.ink, box_bg: Theme.card, box_checked_bg: Theme.accent, box_border: Theme.quiet_active, mark_color: Theme.on_accent, on_change: |current, event| Gui.Action.update({ ..current, transform: { ..current.transform, grayscale: event.checked } }) }),
 	],
 )
 
@@ -164,7 +164,7 @@ gallery = |state| match state.scan {
 		Gui.col(
 			{ label: "Gallery", width: Px(320), height: Fill, gap: Theme.within, padding: 0 },
 			[
-				Gui.text_input({ label: "Filter images", value: state.filter, placeholder: "Search this folder", on_change: |current, event| Gui.update({ ..current, filter: event.value }), on_submit: |_, _| Gui.none, width: Fill, height: Px(44), padding: 14, font_size: Theme.body, bg: Theme.card, fg: Theme.ink, border_width: 0, radius: Theme.control_radius }),
+				Gui.text_input({ label: "Filter images", value: state.filter, placeholder: "Search this folder", on_change: |current, event| Gui.Action.update({ ..current, filter: event.value }), on_submit: |_, _| Gui.Action.none, width: Fill, height: Px(44), padding: 14, font_size: Theme.body, bg: Theme.card, fg: Theme.ink, border_width: 0, radius: Theme.control_radius }),
 				quiet_text("Gallery count", "${visible.len().to_str()} of ${scan.items.len().to_str()} entries"),
 				Gui.virtual_list({ label: "Image thumbnails", row_height: Theme.row_height, items: item_rows(visible, chosen_name_of(state)) }),
 			],

@@ -2,7 +2,7 @@ import pf.Gui
 
 ## Presentation helpers for typed SQLite query results.
 Query := [].{
-	value_text : Gui.SqliteValue -> Str
+	value_text : Gui.Sqlite.Value -> Str
 	value_text = |value| match value {
 		Null => "NULL"
 		Integer(number) => number.to_str()
@@ -11,6 +11,16 @@ Query := [].{
 		Bytes(bytes) => "<${bytes.len().to_str()} bytes>"
 	}
 
-	row_text : List(Gui.SqliteValue) -> Str
+	## The SQLite storage class a value was read with.
+	value_type : Gui.Sqlite.Value -> Str
+	value_type = |value| match value {
+		Null => "NULL"
+		Integer(_) => "INTEGER"
+		Real(_) => "REAL"
+		String(_) => "TEXT"
+		Bytes(_) => "BLOB"
+	}
+
+	row_text : List(Gui.Sqlite.Value) -> Str
 	row_text = |row| Str.join_with(row.map(value_text), " | ")
 }

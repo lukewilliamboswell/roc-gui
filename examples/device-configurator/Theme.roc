@@ -10,47 +10,30 @@
 import pf.Gui
 
 Theme := [].{
-	ground : Gui.Color
-	ground = 0x14181b
-	surface : Gui.Color
-	surface = 0x1d2327
-	raised : Gui.Color
-	raised = 0x262e34
-	hairline : Gui.Color
-	hairline = 0x38434a
+	ground = 0x14181b.Gui.Color
+	surface = 0x1d2327.Gui.Color
+	raised = 0x262e34.Gui.Color
+	hairline = 0x38434a.Gui.Color
 
-	ink : Gui.Color
-	ink = 0xe6ebee
-	muted : Gui.Color
-	muted = 0x8e9ba4
-	absent : Gui.Color
-	absent = 0x5c6971
+	ink = 0xe6ebee.Gui.Color
+	muted = 0x8e9ba4.Gui.Color
+	absent = 0x5c6971.Gui.Color
 
 	## Connected, and nothing else.
-	link : Gui.Color
-	link = 0x6fc39a
-	link_tint : Gui.Color
-	link_tint = 0x142620
-	link_deep : Gui.Color
-	link_deep = 0x2f7a5b
-	on_link : Gui.Color
-	on_link = 0x07150f
+	link = 0x6fc39a.Gui.Color
+	link_tint = 0x142620.Gui.Color
+	link_deep = 0x2f7a5b.Gui.Color
+	on_link = 0x07150f.Gui.Color
 
 	## Held here, not on the device.
-	pending : Gui.Color
-	pending = 0xd9a760
-	pending_tint : Gui.Color
-	pending_tint = 0x2a2013
-	pending_deep : Gui.Color
-	pending_deep = 0x8a6428
+	pending = 0xd9a760.Gui.Color
+	pending_tint = 0x2a2013.Gui.Color
+	pending_deep = 0x8a6428.Gui.Color
 
 	## Refused, or lost.
-	alarm : Gui.Color
-	alarm = 0xdd7f6d
-	alarm_tint : Gui.Color
-	alarm_tint = 0x281b18
-	alarm_edge : Gui.Color
-	alarm_edge = 0x5c3b34
+	alarm = 0xdd7f6d.Gui.Color
+	alarm_tint = 0x281b18.Gui.Color
+	alarm_edge = 0x5c3b34.Gui.Color
 
 	caption : Str -> Gui.Elem(a)
 	caption = |text| Gui.row(
@@ -98,7 +81,7 @@ Theme := [].{
 	)
 
 	## The primary control of a surface: one per surface, never two.
-	primary : Str, Str, Bool, (a, Gui.EventPress => Gui.Action(a)) -> Gui.Elem(a)
+	primary : Str, Str, Bool, (a, Gui.Event.Press => Gui.Action(a)) -> Gui.Elem(a)
 	primary = |face, label, enabled, on_press| Gui.button({
 		caption: face,
 		label,
@@ -118,7 +101,7 @@ Theme := [].{
 	})
 
 	## Everything else.
-	secondary : Str, Str, Bool, (a, Gui.EventPress => Gui.Action(a)) -> Gui.Elem(a)
+	secondary : Str, Str, Bool, (a, Gui.Event.Press => Gui.Action(a)) -> Gui.Elem(a)
 	secondary = |face, label, enabled, on_press| Gui.button({
 		caption: face,
 		label,

@@ -4,6 +4,31 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Linux producer toolchain verification
+
+- [ ] **Restore Meson's fortify fixture under the Nix compiler wrapper.** Meson
+  1.12.0's `common/282 -D_FORTIFY_SOURCE=2 and -O0` fixture conflicts with the
+  locked nixpkgs wrapper's injected fortify flags. The Nix override excludes
+  this fixture while retaining the other upstream project tests. Adapt the
+  fixture to the wrapper or adopt an upstream fix, then remove the exclusion.
+
+## Blueprint verification and compiler watching
+
+- [ ] **Support NixOS executable loading.** Linux executables select the native
+  system ELF loader. The Nix development shell supplies build dependencies, but
+  running examples requires compatible native desktop runtime libraries. Do
+  not inject newer Nix glibc-dependent libraries into the system loader through
+  `LD_LIBRARY_PATH`; add and verify a coherent NixOS loader/runtime path.
+
+- [ ] **Roc watching traverses unrelated checkout directories.** The Blueprint
+  bootstrap compiler (`nightly-2026-09-19-d025939`) can exhaust Linux inotify
+  watches in checkouts with large `.claude`, `target`, or `.git` trees.
+  An isolated `roc check --watch` reproduction registers every directory in
+  those trees; upstream issue: https://github.com/roc-lang/roc/issues/11644.
+  Fix upstream watch registration to follow relevant inputs while
+  preserving explicitly imported hidden/generated files and atomic replacement,
+  then update the Blueprint bootstrap compiler and verify a large checkout.
+
 ## Resource broker and confinement foundation
 
 - [ ] **The linked process is not an untrusted-application boundary.** Implement
@@ -68,13 +93,23 @@ the change lands; do not soften the docs to match the gap.
   work above, after which the broker returns a descriptor and the constant
   becomes `Brokered` with no change to the Roc API.
 
-  Add Open
-  Document's smallest single-file grant, persistent grants, revocation, edit
+  Open Document's single-file read grant (`pick_file!`, recorded as a
+  `document` root) shares the same `ConsentOnly` enforcement, as does a dropped
+  file (origin `drop`): the host takes the path GPUI's drag-and-drop reports and
+  opens it with the process's own authority. A remembered grant is reopened the
+  same way, after the recent list compares the file's identity (device and
+  inode) with the one remembered; a file swapped in between that check and the
+  open is reached by name, not by the identity checked. Brokered reopening needs
+  a descriptor or a document-portal identity kept by the broker. Add edit
   grants, and brokered atomic Save As with overwrite, race, disk-full, cleanup,
   cancellation and retry semantics.
 
+  Drag-and-drop is exercised through GPUI's own file-drop events on Linux
+  Wayland, from a specification; certify a person dragging from a file manager
+  on Wayland and macOS, including a drag that leaves the window and returns.
+
 - [ ] **Portal parenting and protected consent need external certification.**
-  GPUI 0.2.2 does not expose an xdg-foreign Wayland surface handle to this host,
+  GPUI does not expose an xdg-foreign Wayland surface handle to this host,
   so the portal request cannot yet name its parent window. Export that handle,
   attribute focus, and certify compositor placement, protected portal identity,
   cancellation and accessibility on a packaged confined application. Headless
@@ -176,12 +211,48 @@ independent of any one application.
   but nothing measures an application reading many assets across many tasks.
   A scaling case belongs with the example that adopts the API.
 
+- [ ] **A very long list scrolls in coarse steps.** GPUI places a uniform
+  list's content with `f32` logical pixels, which are exact only to about
+  16.7 million. A million 28-pixel rows are 28 million pixels tall, where
+  adjacent offsets are 2 pixels apart; ten million rows would be 32 pixels
+  apart, more than a row. Close by positioning a list of rows produced on demand
+  relative to its mounted window rather than by an absolute offset.
+
+- [ ] **Rows produced on demand are exercised on Linux only.** The viewport
+  turns, deferred frame settlement, and scroll requests run through GPUI's
+  uniform list on every platform, but `window-rows.scm` and
+  `window-provide-1m.scm` have run only on Linux. Run them on macOS and
+  Windows.
+
+- [ ] **A directory cannot be watched on macOS.** `directory.watch!()` and
+  `database.watch!()` answer `Unsupported` there. Implement the `sys` seam in
+  `crates/host/src/watch.rs` with FSEvents or kqueue, as Linux does with
+  inotify and Windows with `ReadDirectoryChangesW`, keeping the same coalesced
+  names, settle interval, and derived grant.
+
 ## Element appearance
+
+- [ ] **Windows draw no text on macOS.** Layout, borders and fills draw, but
+  no glyphs do, in every example. Specifications still pass because they read
+  semantic state, not pixels; counter's `screenshots.scm` shows empty buttons
+  and cards. `d6501f5` draws text, and the host after "Migrate host to
+  upstream GPUI HEAD" does not, with either Roc pin. Bisect 6ee3fd6, 874bd2f
+  and e0e8db9, then fix it, and add a screenshot check that fails when a
+  labelled element renders no glyphs.
+
+- [ ] **Three macOS window specifications fail on the migrated GPUI host.**
+  `clipboard-history/specs/window-history.scm` reports "Cancel private next"
+  laid out at x 929–983 but not on screen, locally and on CI.
+  `clipboard-history/specs/window-denied.scm` and
+  `system-monitor/specs/window-plot-width.scm` fail on the hosted arm64 runner
+  (producer run 35943508264) but pass locally. The linker-input producer and
+  the CI window job exclude them. Recheck them once text draws, since text
+  that is not shaped also changes layout widths, then remove the excludes.
 
 - [ ] **No letter spacing.** A small muted caption above a large numeral is
   conventionally tracked out, and tracking is what distinguishes an eyebrow
   label from ordinary body text once family is unavailable. `counter`'s per-card
-  captions are plain small grey text instead. GPUI 0.2.2 has no letter-spacing
+  captions are plain small grey text instead. GPUI has no letter-spacing
   concept at all: neither `TextStyle` nor `TextStyleRefinement` carries one, and
   the shaper takes none, so this needs an upstream field before a
   `Gui.Style` letter-spacing field can mean anything.
@@ -189,14 +260,14 @@ independent of any one application.
 - [ ] **A border is one colour on all four sides.** Per-side widths have
   landed, and `terminal-workspace` now draws one hairline on the edge that faces
   the next region instead of boxing every region and holding the boxes apart
-  with a 1-point seam. Per-side colour is not expressible: GPUI 0.2.2's `Style`
+  with a 1-point seam. Per-side colour is not expressible: GPUI's `Style`
   carries `border_widths` as `Edges` but a single `border_color`, so a side
   cannot have a colour of its own without an upstream change.
 
 - [ ] **A large SVG is rasterized at its own size and then never painted.**
-  `gpui` 0.2.2 decodes an SVG through
-  `SvgRenderer::render_pixmap(&bytes, SvgSize::ScaleFactor(1.0))`
-  (`src/platform.rs`, `ImageFormat::Svg`), so the raster is the file's intrinsic
+  GPUI decodes an image-asset SVG through
+  `SvgRenderer::render_single_frame(&bytes, 1.0)` (`crates/gpui/src/platform.rs`,
+  `ImageFormat::Svg`), a scale-factor raster, so the raster follows the file's intrinsic
   size and the element's box is never an input: `SvgSize::Size(_)` exists but the
   image-asset path never uses it. `image-library`'s 8000x6000 fixtures therefore
   produce a 48-megapixel frame that nothing paints, while the 24x24 glyph in
@@ -207,21 +278,6 @@ independent of any one application.
   needs `SvgSize::Size` at the laid-out box upstream, or a host-side SVG
   rasterizer, and should not be worked around by shrinking the fixtures, which
   are deliberately larger than any box they are put in.
-
-- [ ] **An SVG's red and blue channels are exchanged when it is rendered.** A
-  rasterised image is correct; an SVG is not. In `gpui` 0.2.2,
-  `Image::to_image_data` (`platform.rs`) sends every raster format through a
-  helper that converts the decoded RGBA to the BGRA the renderer wants, but the
-  `ImageFormat::Svg` arm wraps `svg_renderer.render_pixmap`'s buffer directly
-  and performs no such conversion. So `hsl(29,55%,35%)`, the warm brown
-  `image-library`'s `collection-01.svg` is authored with, reaches the screen as
-  a blue, and the fixtures authored as browns and an amber-to-violet sky present
-  as blues and greens. PNG, JPEG, WebP, BMP, TIFF and GIF are unaffected.
-  Decoding is GPUI's to own, and pre-rasterising SVG in this host would
-  duplicate the decoder this platform deliberately does not reimplement, so this
-  closes upstream. The vendored example icons are neutral greys, which are
-  invariant under the exchange and therefore honest either way. Verify with a
-  specification that samples a known pixel of a known fixture once a fix lands.
 
 - [ ] **Image decode status is not represented in the mounted graph.** GPUI's
   image asset decoder owns asynchronous success and failure after mounting, but
@@ -251,6 +307,39 @@ independent of any one application.
   accessibility API. Close with platform accessibility nodes verified by an
   external accessibility client, while retaining the same semantic names used
   by specifications.
+
+- [ ] **Popover content cannot be operated.** A popover's surface presents
+  while the pointer rests on its anchor or focus is inside it, so moving the
+  pointer from the anchor onto the surface closes it. Tooltip-style notes need
+  nothing more, but a popover holding controls needs the surface to count as
+  part of the hover region, with a grace period for the pointer's travel
+  between them, decided by the graph so both runners share it.
+
+- [ ] **Nested hover regions are delivered in the semantic runner's order.** A
+  `hover-enter` step delivers each target the pointer rests on, outermost first,
+  and a target a handler's rebuild retired is skipped because its state moved to
+  its replacement. GPUI orders the same callbacks by its own hitbox traversal.
+  No example nests two handler-bearing regions yet; when one does, pin the
+  order GPUI uses and make the runner follow it.
+
+- [ ] **Popover placement is verified on Linux only.** The surface is a
+  deferred, window-anchored layer that flips to the opposite side when the
+  window lacks room. Verify placement, flipping, and focus-driven opening on
+  macOS and Windows, including a window whose content is scaled.
+
+- [ ] **Shortcuts are verified on Linux only.** Chords are parsed and matched
+  by GPUI, and `secondary` resolves to Ctrl on Linux. Verify on macOS (Cmd as
+  `secondary`, Option producing characters) and Windows (AltGr layouts, where a
+  chord's character arrives with Ctrl and Alt held) that the root listener
+  receives the keystrokes a person means as shortcuts, and that a focused text
+  field still keeps every character it types.
+
+- [ ] **A focus request into rows GPUI has not drawn moves nothing.** The graph
+  chooses the first enabled control inside the requesting region and counts it
+  as focused, but a control inside a virtual list has no native view until GPUI
+  draws its row, so the window cannot focus one mounted just outside the
+  viewport. Close by bringing the row into view before focusing it, as a scroll
+  request does, and count the request only once the window has focused it.
 
 - [ ] **Composite directory navigation has no roving focus.** A user can reach
   and activate every folder with Tab and Enter or Space. Close with a semantic
@@ -312,12 +401,11 @@ built on top of them; none is a defect in what is there.
   general Redis administration tool. Credentials must never enter captures or
   ordinary persisted application state.
 
-- [ ] **SQLite write transactions and parameters.** The database capability is
-  deliberately read-only and executes one statement without bindings. Add a
-  separately granted read-write capability, typed parameters, cancellation,
-  transactions, paging, editable grids, and export with lifecycle and resource
-  counters before presenting the example as a general database administration
-  tool.
+- [ ] **SQLite write transactions.** The database capability is deliberately
+  read-only; it binds parameters and pages results, but cannot write. Add a
+  separately granted read-write capability, cancellation, transactions,
+  editable grids, and export with lifecycle and resource counters before
+  presenting the example as a general database administration tool.
 
 - [ ] **System Monitor charts and export.** The system-monitor slice has a real
   capability-scoped `sysinfo` sampler, explicit unavailable values, bounded
@@ -360,7 +448,7 @@ built on top of them; none is a defect in what is there.
 
 - [ ] **HTTP Workbench advanced document tools.** Add syntax-highlighted JSON
   and text response modes, cURL and collection import/export, and resizable
-  split panes through production editor/layout primitives. Preserve request
+  split panes through `Gui.split` between the request and the response. Preserve request
   meaning and redact authentication material in every persisted or exported
   representation.
 
@@ -415,10 +503,253 @@ built on top of them; none is a defect in what is there.
   clipboard policy, and URL recognition on top of the ordered PTY byte stream.
 
 - [ ] Add tabs, nested split panes, focus navigation, pane zoom, and persisted
-  workspace layouts using the existing mounted graph and event route.
+  workspace layouts using the existing mounted graph and event route. The two
+  workspaces share one resizable, foldable divider (`Gui.split`); `Gui.tabs`
+  and nested splits are the primitives the rest would use.
 
 - [ ] Add user-configurable shell-profile grants without exposing executable or
   environment selection as ambient application authority.
+
+## Observatory example
+
+- [ ] **Confirm `window-keyboard.scm`'s keyboard counters on Linux.** The
+  window runner's `click` activates a button without focusing it, so the
+  palette's opener is the window, and a chord with no focus inside a region is
+  compared with the window's twelve shortcuts first, as `shortcuts.scm`
+  states. Windows counts 36 comparisons, which is the expectation now; Linux
+  recorded 12, as if focus sat inside Interactions when J and I were pressed.
+  Run the specification on Linux and find which is true there and why.
+
+- [ ] **Run the Windows changes on Linux and macOS.** A dialog whose opener is
+  gone now returns focus to the window, SQLite opens files sharing delete on
+  Windows only, the Observatory fixture takes its contended run from the
+  first build's executable, System Monitor's readings shrink rather than
+  widening the page, and the window runner starts its pointer outside the
+  window and restores it after a resize rather than taking the system
+  cursor's position. Run the full suite on Linux and macOS.
+
+- [ ] **Captures from Apple silicon record no CPU model.** `cpu_model` is read
+  from `/proc/cpuinfo` on Linux and from the processor's brand string on other
+  x86-64 hosts; on macOS arm64 it is `unavailable`, so the comparability gate
+  refuses every pair of macOS captures. Read `machdep.cpu.brand_string`.
+
+`examples/observatory/requirements.md` describes a roc-gui application that
+opens `.rgstats` captures and queries their tables directly. It is also the
+pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
+ideal and the repository. P- and E-numbers refer to that document.
+
+- [ ] **A flat scaling result reads as "sub-linear".** When every step ratio of
+  a trigger and metric lies within the A/A noise band of 1, Scaling reports
+  `sub-linear`, which is true but hides the stronger finding that the cost did
+  not grow with the workload (as for Database Browser's on-demand rows). Report
+  `constant within noise` for that case.
+
+- [ ] **The long-capture case stops at 10,000 cycles and records no frames
+  (US-40).** `scale-session.scm` opens one generated 10,000-cycle Database
+  Browser session and jumps through its cycle list, and `window-session.scm`
+  scrolls it in the window, but the session runs on the semantic runner, so
+  its capture has no `gpui_frames` rows, and at about 5 ms a cycle a
+  100,000-cycle session would take eight minutes to generate. A window session
+  is now recorded unattended (`window/database-browser-frames.rgstats`, at
+  least 1,000 frames, which `frames-scale.scm` opens and zooms), but a window
+  session occupies the person's screen while it runs and draws about three
+  frames per scroll at the display's rate, so 100,000 frames would hold the
+  screen for many minutes and exceed the window runner's 600-second watchdog. US-40 asks for 100,000 cycles and 100,000 frames in one
+  capture; it needs a window session split across the watchdog, or a watchdog
+  that measures progress rather than elapsed time.
+
+- [ ] **Two honest-absence paths are reached only by unit expectations.** No
+  fixture capture has a cycle with `roc_work_valid = 0` or
+  `component_work_recorded = 0`, so the inspector's `—` for invalid spans and
+  unobserved component work is proved by `expect` on `Capture.decompose` and
+  `Capture.work_count`, not by a specification. A real application path that
+  produces such a cycle (a rejected turn, or a callback whose span stack does
+  not close) should become a fixture.
+
+- [ ] **A recent capture is listed without its summary (US-3, W0).** The start
+  page lists each remembered capture and folder with whether it can be
+  reopened and why not, from the host's check of what is at its place. W0 also
+  shows each capture's application, specification, backend, and verdict, and a
+  capture of an unsupported schema as unavailable with that reason. That needs
+  each entry reopened and its metadata read, which `on_open` must not do for
+  128 entries on the window thread: read the summaries in a task after the
+  list is shown, as the folder list is read.
+
+- [ ] **A folder cannot be dropped (US-4).** A dropped folder is refused as
+  `NotFile`. W0's "drop .rgstats files anywhere" covers files; dropping a
+  benchmark output folder to list it is the folder counterpart, and needs a
+  drop target that declares it accepts folders and an event that grants a
+  `Gui.FilesDirRead`.
+
+- [ ] **No application reads a chosen file's bytes.** `Files.File.Read.read!`
+  shares its bounded, no-follow read with `Dir.Read.read!` and is covered by
+  host tests, but Observatory opens its file through SQLite only, so
+  `expect-document-counters` has never seen a read. File Explorer's preview is
+  the natural adopter: an "Open file…" that previews one chosen file.
+
+- [ ] **The native file panel does not filter by type on macOS.** GPUI's
+  `PathPromptOptions` has no allowed-types field, so `pick_file!` shows every
+  file there and the host refuses a wrong type after the choice with
+  `PickFileErr(Unsupported)`. Add allowed content types to the vendored
+  `NSOpenPanel` prompt. The Linux portal filter and both `pick_file!` choosers
+  are exercised only through `--host-cap-file`; certify them with a person
+  choosing, as for Open Project.
+
+- [ ] **SQLite cannot join two databases (P7).** Databases
+  open in place, read a live write-ahead log, bind parameters, and page past
+  the row limit. Observatory compares captures through a connection each and
+  joins their rows in Roc, which serves a baseline and a scaling set; a query
+  that must join two captures in one statement still needs a
+  capability-scoped `ATTACH` of a second granted database (plain `ATTACH` is
+  refused, because it names a path). Opening in place derives the directory's path from
+  its descriptor on Linux, macOS, and Windows; only the Linux path has been
+  exercised, so verify macOS and Windows, including a verbatim `\\?\UNC` share,
+  which is refused.
+
+
+- [ ] **Tabs cannot be reordered (P5).** `Gui.tabs` selects and closes tabs
+  by pointer and keyboard, but a tab cannot be dragged to another place in its
+  strip, and there is no keyboard chord to move one. Add a reorder request the
+  application owns, carried by a pointer drag over the strip and a chord,
+  with a specification on both runners.
+
+- [ ] **A split's size is bounded by the application, not by the window
+  (P5).** A divider asks for sizes within the split's `min` and `max`; when the
+  window is narrower than `max` allows, a drag can still ask for a size that
+  leaves the other pane nothing. The host knows the split's own extent when it
+  lays it out; clamp a drag to it as well, and say so in the event.
+
+- [ ] **A capture being recorded is not watched while its tab is parked
+  (P5).** Observatory watches only the capture on screen. A capture still
+  being recorded that is left in another tab is read again, and watched again,
+  when it comes back, so its tab says nothing of the rows written meanwhile.
+  Keep a watch per open capture, bounded in number, and mark a parked tab that
+  has grown.
+
+- [ ] **Copy covers six tables (US-37).** The triggers, cycles, waterfall,
+  allocations by trigger, steps, and measurement families tables copy their
+  rows as Markdown with each value's family, status, and reason. The Overview
+  tiles, the inspector's component work, graph work, and span allocations, the
+  run lifecycle and process resources, the Frames and Timeline tables, and the
+  Compare and Scaling sheets have no Copy button. Give each one, building its
+  Markdown from the rows it draws, with a specification that copies it.
+
+- [ ] **The palette finds no frame or source line (US-35).** `cycle N` and
+  `step N` name a cycle and a step of the selected run; `frame N` and `line N`
+  find nothing. Add both, reading the frame by ordinal and opening its work in
+  Frames, and showing the step at a source line in Spec.
+
+- [ ] **Compare and Scaling draw an absent value as plain text (US-7).** Their
+  `—` cells come from `Widgets.roc` and carry their reason in a neighbouring
+  column, but neither shows it on hover nor opens Health at the family. Draw
+  them with the same pressable, hoverable dash the other views use.
+
+- [ ] **The scaling charts have no metric selector (US-29).**
+  `ScalingView.chart` draws a log-log canvas for every trigger and metric,
+  with a dashed line of linear growth through the smallest scale. W7 asks for
+  one chart per trigger with a metric selector, and for hovering a point to
+  read out its ratio; the charts have neither.
+
+- [ ] **A baseline applies to three views, and no chart overlays it (US-32).**
+  The triggers table, the cycle inspector, and Memory's allocations by trigger
+  gain Δ, ratio, and noise. The Overview tiles, the cycle list's bars, the run
+  lifecycle and process resources, and the Spec step durations show no delta,
+  and no chart draws the baseline in a secondary style. Each needs a baseline
+  value joined to its row (runs and steps have no key shared across captures
+  beyond phase and ordinal) and, for charts, a second series drawn in a
+  secondary style.
+
+- [ ] **An A/A bound is the spread of one pair.** Compare and Scaling bound
+  noise by how far one A/A capture's value lies from its reference's. A single
+  pair understates the spread about half the time; several A/A captures, or
+  the samples within each, would give a bound with a stated coverage. Timing
+  noise marks therefore vary from run to run, and the specifications assert
+  them only for allocations, which repeat exactly.
+
+- [ ] **The Compare and Scaling views draw with `Widgets.roc`, the other views
+  with View.roc's own copies.** `Widgets.roc` holds the cells, rows, headings,
+  and keys the new views need, drawn identically. Fold View.roc's copies onto
+  it once the Frames view that is being added to View.roc has landed, so the
+  two are not edited concurrently.
+
+- [ ] **Canvas text, hover, and wheel have run only on Linux.** Text is shaped
+  through GPUI's text system and hover and wheel arrive through GPUI's mouse
+  events, so nothing in the host is platform-specific, but `window-frames.scm`
+  and the host's live canvas tests have run only on Linux (Wayland). Run them
+  on macOS and Windows, where a trackpad reports pixel deltas and a wheel
+  reports lines.
+
+- [ ] **A generated window session occasionally stalls.** Observatory's
+  fixture scrolls the Database Browser's ten thousand rows a few hundred times
+  in a real window. Twice in development the run stopped drawing and reached
+  the host watchdog with its last milestone `driver-started`, while the same
+  session passed in about thirty seconds on other runs. The generator now caps
+  the run at ninety seconds and retries once. Find the step that waits: the
+  window report of a stalled run names it.
+
+- [ ] **The frame strip draws one run's frames as one sequence.** Frames number
+  in run and ordinal order across every run of a capture, so a capture of
+  several window runs draws them end to end with no mark where one run ends.
+  No fixture has more than one window run; when one does, draw a rule and a
+  caption at each run's first column.
+
+- [ ] **A finalised capture chosen as one file is not watched.** Observatory
+  watches the folder it lists, and a capture still being recorded, but not a
+  finalised capture opened from a single file grant, so replacing that file
+  shows no "Capture changed" until it is opened again. Closing or replacing
+  the capture now cancels its watch without a completion, so watching one
+  opened from a file no longer disturbs a specification awaiting its next task;
+  what remains is the watch itself, and the grant readouts and counters of the
+  specifications that open a single file.
+
+- [ ] **A growing capture's Timeline keeps its last reading.** While a capture
+  being recorded is read again, the capture, its tables, its lists, and its
+  frame strip follow each commit, but the Timeline keeps the span it last read
+  until it is shown again, and the frame strip returns to every frame, losing
+  its zoom. Read the Timeline's span again, and the strip's, with the rest.
+
+- [ ] **The appearance is observed only on Linux.** macOS and Windows hosts
+  report a light scheme with full motion whatever the desktop asks, so adaptive
+  colours never turn dark there unless the application prefers dark. Read
+  GPUI's window appearance, and the platform's reduced-motion setting, through
+  the same `appearance` owner.
+
+- [ ] **The platform's own colours are not adaptive.** The host's window ground
+  and control defaults, the `Elem` control defaults, and the access panel are
+  one dark palette whatever the scheme. Give each an adaptive pair.
+
+- [ ] **Appearance changes are not counted.** No counter records how many times
+  the system's appearance changed or the application chose a scheme, so a
+  specification can assert the resolved scheme but not how it got there. Add
+  them to the `appearance` owner with an assertion step.
+
+- [ ] **No example waits on the system appearance.** `Gui.Appearance.current!`
+  and `next_change!` are exercised by the host's tests alone: Observatory
+  follows the scheme through adaptive colours and never reads it. Give an
+  example a reason to, such as honouring reduced motion, with its specification.
+
+- [ ] **Observatory forgets its theme.** A scheme chosen in the palette lasts
+  until the window closes. Remember it in application data and choose it again
+  at startup.
+
+- [ ] **A timeline mark cannot be followed to what it links.** Pressing a
+  list pass on the Timeline does nothing: the pass names its frame or cycle by
+  ordinal, but the view reads only frames and cycles as marks, so it cannot
+  select the linked frame or open the linked cycle. Read the linked row's key
+  with the pass and route it through `SelectFrame` or `InspectCycle`.
+
+- [ ] **No specification presses a frame on the Timeline itself.** A frame's
+  place on the Timeline follows the capture's own timing, which changes each
+  time the fixture is regenerated, so `timeline-cause.scm` presses the frame in
+  the Frames strip, whose columns are ordinal, and then follows its cause from
+  the Timeline. Only the init cycle, which starts the clock, has a stable place.
+  A specification step that presses a canvas primitive by its semantic label
+  would let a specification press any mark.
+
+- [ ] **Component work is not attributed to components (E5).** Component work
+  is a per-cycle total. Define a stable, non-textual component identity that
+  satisfies the capture privacy rules, as `cycles.target_identity` does for a
+  cycle's target, and record work per component.
 
 ## Trust: measurements that can mislead a decision
 
@@ -438,6 +769,14 @@ built on top of them; none is a defect in what is there.
   construction or rebinding. Add owner-populated counters and then their schema,
   queries, and production-window assertions together, without inferring them
   from graph retention or a timer.
+
+- [ ] **Rows drawn before they are mounted are not counted.** A list of rows
+  produced on demand draws a blank place for a visible row it has not yet
+  mounted, for the frames until its viewport turn lands. `virtual_list_frames`
+  counts those rows among `visible_items` but has no column saying how many of
+  them were blank, so a capture cannot show how often a fast scroll outran the
+  list. Add an owner-populated column at the next schema version, together with
+  the Observatory and `analyze_stats.py`, which gate on schema 25.
 
 - [ ] **Window benchmark warmup and sample orchestration.** Real-window
   hover-grid runs can record schema-14 captures containing native frames and
@@ -497,7 +836,7 @@ names the evidence so a fix can be verified against the same case.
   Roc patches supply the changed and retained frontier, and production native
   counters can check patch-derived expectations in controlled GPUI tests.
   Arbitrary interactive frames also include focus, pointer styling, geometry,
-  inherited styles, and GPUI refreshes. GPUI 0.2.2 keeps its dirty-view set and
+  inherited styles, and GPUI refreshes. GPUI keeps its dirty-view set and
   refreshing flag private, so the host cannot classify every native render
   cause. Expose those causes before treating every render outside a Roc patch
   as a production invariant violation. Keep actual counters always available;
@@ -517,10 +856,10 @@ names the evidence so a fix can be verified against the same case.
 
   Close this gap by retaining native subtree records across frames, not merely
   suppressing `NodeView::render`. The production owners are
-  `vendor/gpui/src/view.rs` (cached subtree lifetime), `window.rs` (frame records,
+  the GPUI fork's `crates/gpui/src/view.rs` (cached subtree lifetime), `window.rs` (frame records,
   replay ranges, transactional prepaint, hitboxes and listener ownership),
   `scene.rs` (primitive insertion, overlap order and batching),
-  `key_dispatch.rs`, `tab_stop.rs`, `text_system/line_layout.rs`, and the Blade,
+  `key_dispatch.rs`, `tab_stop.rs`, `text_system/line_layout.rs`, and the WGPU,
   Metal and DirectX renderers. `crates/host/src/lib.rs` supplies the mounted
   change frontier and descendant notifications; it must not build a second
   scene or event implementation.
@@ -565,8 +904,8 @@ names the evidence so a fix can be verified against the same case.
   4.5% in frame hit testing, and 5% in bounds-tree insertion. This exploratory
   run overlapped other work and had incomplete Rust stack unwinding; these are
   exclusive sample shares, not latency measurements or caller attribution.
-  GPUI 0.2.2 dispatch traverses the frame listener list in capture and bubble
-  order, and hit testing scans hitboxes. A spatial hit-test index alone would
+  GPUI dispatch routes free pointer motion by hit path but delivers every other
+  event to the whole frame listener list, and hit testing scans hitboxes. A spatial hit-test index alone would
   leave listener traversal. Profile native input separately from frame work,
   preserving hover exit, capture, stacking, clipping, drag, and removal semantics
   before changing dispatch further. Use retained ordered interaction segments
@@ -711,6 +1050,80 @@ names the evidence so a fix can be verified against the same case.
 
 ## Compiler and toolchain defects
 
+- [ ] **Roc's build cache miscompiles one application after another.** With
+  the pinned `nightly-2026-09-23-c7852fd`, building `examples/clipboard-history`
+  with the cache enabled panics (`compiler bug: instantiation widened a closed
+  tag union`), and building `examples/http-workbench` in a cache that
+  clipboard-history or animation-studio has populated succeeds but produces a
+  wrong view: its response column is not drawn and its bench row does not
+  shrink to the window, so the Windows gallery fails. `--no-cache` builds of
+  both are correct. The specification runner therefore builds every
+  application with `--no-cache`. Reported as roc-lang/roc#11678 (possibly
+  the cause #11676 fixes for #11673). Move the pin to a fixed nightly, and
+  confirm cached, cold, and warm builds of the suite agree before relying on
+  the cache again.
+
+- [ ] **Move the compiler pin past `cde92d117ac`.** With the pinned
+  `nightly-2026-09-12-220fd47`, the default (`--opt=speed`) build of every
+  application faults at startup on Windows: the LLVM backend marked an erased
+  callable's capture and reuse parameters `noalias` although the capture
+  points into the reuse allocation, so a capture was read from a freed box.
+  Windows fills freed heap memory, so it faults there; the read is wrong on
+  every platform. Roc fixed it in `cde92d117ac` (in every nightly from
+  `nightly-2026-09-18-1d982dc`), and Counter built by
+  `nightly-2026-09-23-c7852fd` runs on Windows. Move every application
+  header, the documentation, and CI to such a nightly and run the suite with
+  `--roc-opt speed` on all three platforms.
+
+- [ ] **A Windows link is not reproducible.** Two `roc build` runs of the same
+  source differ in the PE header's `TimeDateStamp` and in one later field, so
+  `executable_hash` differs between builds of one application, and an A/A
+  pair must share one build rather than one source. Linux and macOS links are
+  byte-identical. The Roc compiler's COFF link needs a deterministic
+  timestamp (`/Brepro` or a fixed `/timestamp`).
+
+- [ ] **Observatory's arm64 dev build overruns ld64.lld's thunk range.** On
+  macOS 15 (arm64), `roc build --opt=dev examples/observatory/main.roc` fails in
+  the final link with `ld64.lld: error: finalize: FIXME: thunk range overrun`
+  (linker-input producer run 35925205033). The Linux dev build shows why: its
+  `.text` is 201 MB, against about 80 MB for a whole Database Browser binary,
+  and arm64 branches reach only ±128 MB. The LLVM backend cannot be used
+  instead on the pinned nightly (see the speed-backend entry), so until this is
+  fixed the arm64 producer and CI cannot run Observatory.
+
+  Root cause, reported as roc-lang/roc#11642: the dev backend copies aggregates
+  one 8-byte word at a time, fully unrolled, and on arm64 each word costs eight
+  instructions once the frame offset exceeds the `ldur`/`stur` immediate range.
+  It also reuses no stack slots, so the largest procs have frames of about
+  1.1 MB. Observatory's `State` is one wide record that holds its optional
+  fields inline, and every lens, update and handler copies all of it. In the
+  pinned app object, the ten largest procs are about 4.5 MB each and make up
+  21% of its 217 MB of `__text`. A counter app with 8 `Gui.translate` lenses
+  and an 8 KB `State` reproduces the overrun: 173 MB with `--opt=dev` against
+  13 MB with `--opt=speed`. `origin/main` (c7de7cf9b1) reduces the growth from
+  about 13 KB to about 5 KB of code per byte of `State`, but code size still
+  grows linearly with it.
+
+  - [ ] TODO roc-lang/roc#11642: once a nightly bounds the dev backend's
+    aggregate copies, rebuild Observatory for arm64 and restore it to the
+    producer and CI.
+  - [ ] TODO roc-lang/roc#11641: `origin/main` overflows the compiler's stack
+    in `lambda_mono` `Store.writeTypeDigest` on Observatory, with both
+    backends, apparently on a cyclic closure capture type. This also blocks
+    the nightly upgrade (PR #30). Bisect `220fd47..c7de7cf9b1` and add the
+    result to the issue.
+    On `nightly-2026-09-23-c7852fd` `roc build --opt=dev` overflows the stack
+    on Observatory on arm64 macOS, so `scripts/run_specs.py` lists it in
+    `COMPILER_BLOCKED` and skips its specifications on every target. Remove
+    the entry once a nightly builds it.
+
+- [ ] **Redis Explorer does not compile on `nightly-2026-09-23-c7852fd`.**
+  Both `roc check` and `roc build --opt=dev examples/redis-explorer/main.roc`
+  run at 100% CPU with no output for over five minutes. `scripts/run_specs.py`
+  lists it in `COMPILER_BLOCKED`, which skips its specifications and its
+  README gallery GIF. Reduce it with a local compiler build, file the
+  upstream issue, and remove the entry once a nightly compiles it.
+
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.
 
@@ -737,6 +1150,61 @@ names the reproduction so the workaround can be removed when the fix lands.
   select callback is 197.4 ms against 721.5 ms for the same source on the
   same compiler with `--opt=dev`. Move the pin and remove the driver override
   once that remaining regression is fixed upstream.
+
+  The released nightlies agree: `examples/observatory` built with
+  `--opt=speed` renders its first frame from zeroed state (empty strings,
+  every tag at its first variant) on `nightly-2026-09-11-793f9d8`, the pin,
+  and `nightly-2026-09-15-fe09c42`, and renders correctly on
+  `nightly-2026-09-18-1d982dc` and later. The fix landed between `fe09c42`
+  and `1d982dc`.
+
+- [ ] **A value used twice in one record literal loses a reference when one
+  use is an argument to a looping effectful call.** On
+  `nightly-2026-09-22-e494788`, and not on `nightly-2026-09-19-d025939` or
+  earlier, this prints `dir=[9, 2, 3]` from `roc build --opt=dev`, because
+  `consume!` receives `selection.dir` as unique and updates it in place;
+  `--opt=speed` prints the correct `dir=[1, 2, 3]`:
+
+  ```roc
+  consume! : List(U8), List(U8) => List(U8)
+  consume! = |bytes, xs| {
+  	var $out = bytes
+  	for x in xs {
+  		$out = match $out.set(0, x) {
+  			Ok(updated) => updated
+  			Err(_) => []
+  		}
+  	}
+  	$out
+  }
+
+  pick! : {} => [Picked({ name : Str, dir : List(U8) }), Nothing]
+  pick! = |{}| Picked({ name: "n", dir: [1, 2, 3] })
+
+  main! = |_args| {
+  	result = match pick!({}) {
+  		Picked(selection) => Some({ name: selection.name, dir: selection.dir, listed: consume!(selection.dir, [9]) })
+  		Nothing => None
+  	}
+  	match result {
+  		Some(r) => echo!("dir=${Str.inspect(r.dir)} listed=${Str.inspect(r.listed)}")
+  		None => {}
+  	}
+  	Ok({})
+  }
+  ```
+
+  Without the loop in `consume!`, or with `selection` bound directly rather
+  than matched out of a tag, both backends are correct. The same shape in
+  Observatory's folder task,
+  `ChosenFolder({ directory: selection.directory, captures: list_captures!(selection.directory, entries) })`,
+  miscompiles in the other backend: under `--opt=speed` on `e494788` the
+  directory capability is released during the listing loop, so every later
+  `open_read!` on the folder fails with "invalid directory capability" and ten
+  of the thirteen Observatory specifications fail, while `--opt=dev` passes.
+  Observatory binds the listing to a name before building the record, which
+  both backends compile correctly. Report upstream with the repro above;
+  inline the listing again once a pinned compiler carries the fix.
 
 - [ ] **The Windows development backend drops relocations past a 16-bit count.**
   A compile-time-evaluated top-level value is emitted as initialized data with
@@ -844,7 +1312,73 @@ names the reproduction so the workaround can be removed when the fix lands.
   remaining path to the closed roc-lang/roc#10871; remove this entry when a
   pinned compiler carries the fix.
 
+- [ ] **A lambda that calls a modifier on a curried call's result overflows
+  the compiler's stack.** In Observatory's `View.roc`, passing
+  `|current| section(inspector)(current).request_focus(current.inspector_focus)`
+  as the draw function of the annotated `part_boundary` checks cleanly, and
+  then `roc build` exits with "The Roc compiler overflowed its stack memory" on
+  the pin and on `nightly-2026-09-22-e494788`. The same body as the annotated
+  top-level `inspector_part` builds. A small application with the same shape
+  (a curried section helper, a memoized boundary with a delegating policy, a
+  window shortcut, and the same modifier) builds, so the trigger is not yet
+  reduced; restore the lambda in place of `inspector_part` to reproduce it.
+  Reduce it, report it upstream, and remove this entry when a pinned compiler
+  builds the lambda.
+
+- [ ] **`roc test` segfaults on a module whose alias shares its type's name.**
+  Observatory's `History.roc` with its `Trail(place)` alias renamed to
+  `History(place)`, the name of the module's own type, is reported by
+  `roc check` as "The type History is being redeclared", but `roc test` on the
+  same file crashes the compiler with a segmentation fault on the pin once an
+  `expect` calls one of the module's functions; without the expectations it
+  reports the error. A module declaring only the conflicting alias reports it
+  too. Reduce it, report it upstream, and remove this entry when `roc test`
+  reports the error.
+
 ## Runner: test what we fly
+
+- [ ] **Text in a produced row reports the next row's bounds.** In the Database
+  Browser's result list, `(text "Book 00003")` in result row 2 records the
+  rectangle of row 3's text, one row height lower, while the enclosing cell row
+  records its own. A `screenshot :region` of that text photographs the wrong
+  row, and a `hover-enter` at its centre rests on the next row's cell, so the
+  popover specifications there locate cells by their rows. Find why a text
+  node's probe marker inside a virtual-list row lags or leads its row, and add
+  a window specification that crops a produced row's text.
+
+- [ ] **Two hover-grid window specifications failed intermittently and no
+  longer reproduce.** `benchmarks/nested-hover-grid/specs/window-trail.scm`
+  line 20 once observed 8 button renders in one completed frame against its
+  bound of 7, and `benchmarks/hover-grid/specs/window-trail.scm` line 22 once
+  observed the trailing colour (0xd58aff) for 0x66e0ff under `--jobs 4`. Both
+  passed 50 of 50 loops, 30 of them beside 32 busy CPU workers, once
+  `hover-enter`, `click`, and `scroll` waited for the window to draw the graph
+  before locating their target; one loaded run before that change had failed
+  line 30 of the flat grid as a stale generation. What remains unexplained is
+  a cell leaving hover while the runner's pointer rests on it, which only a
+  pointer event the runner did not send — a compositor `wl_pointer` motion or
+  leave for the real cursor, or the GPUI fork re-routing hover to a stationary
+  pointer after paint — could cause. If either recurs, record the step's
+  `native_work_since_mark` per frame with the node ids rendered, and log every
+  `MouseMove` GPUI dispatches with its origin, to say which button rendered
+  the eighth time and whose pointer event exited the cell.
+
+- [ ] **A canvas node's probe bounds disagree with its painted surface.** In
+  Observatory's scrolled Frames view, `probe::Frame::bounds` for a canvas node
+  reported a rectangle one canvas-height below where the canvas painted, so a
+  `:region (role canvas ...)` screenshot photographed the table beneath it.
+  Canvas regions now use the painted surface (`canvas_surfaces`), as canvas
+  items and pointer steps already did, but `expect-on-screen` and
+  `expect-bounds` on a canvas still read the probe. Find why the probe's
+  prepaint rectangle for a canvas differs and make one rectangle serve all.
+
+- [ ] **The window runner cannot drag or press a canvas.** `drag` is
+  semantic-only (`crates/host/src/spec.rs`), so no window specification
+  exercises the interactive canvas pointer path or its recorded `drag` cycles
+  end to end, and Observatory's press on a frame or a bucket is proved only on
+  the semantic runner. `pointer-move`, `pointer-leave`, and `wheel` already
+  move the window's own pointer; drive pointer begin, move, and end the same
+  way.
 
 - [ ] **Native frame focus work still scans unaffected controls.**
   `Runtime::render` walks focus handles and computes the graph's focus order on
@@ -957,7 +1491,10 @@ names the reproduction so the workaround can be removed when the fix lands.
   window captures already measure native work. Preserve the explicit backend
   distinction until the sampled native matrix replaces it.
 
-- [ ] **Capture the window, not the screen region.** `screencapture -R` takes a
+- [ ] **Capture the window, not the screen region, on macOS.** Linux reads back
+  the presented frame from the WGPU renderer and Windows uses `PrintWindow`;
+  the equivalent on macOS is a readback from the Metal renderer's drawable,
+  which GPUI does not yet offer. `screencapture -R` takes a
   screen rectangle, so anything drawn over the window lands in the evidence; a
   1280x800 window on a display with the dock visible photographs the dock. A
   window-targeted capture (`screencapture -l<windowid>`, which reads the
@@ -968,23 +1505,47 @@ names the reproduction so the workaround can be removed when the fix lands.
   avoids needing.
 
 - [ ] **Wayland window specifications in continuous integration.** The window
-  runner is platform-neutral and `grim` is wired for wlroots, but no Linux
-  runner has a compositor. This needs the headless lane (`sway --headless`,
+  runner is platform-neutral and screenshots read back the host's own frame,
+  but no Linux runner has a compositor. This needs the headless lane (`sway --headless`,
   `WLR_BACKENDS=headless`, software rendering) described above.
 
 - [ ] **Golden-image comparison.** Window specifications photograph state but
   never compare images. Comparison needs a storage, review, and update story of
   its own, and should not be bolted onto the capture step.
 
-- [ ] **Multi-display screenshots.** `gpui` 0.2.2 hard-zeroes the macOS display
+- [ ] **Multi-display screenshots.** GPUI hard-zeroes the macOS display
   origin (`platform/mac/display.rs`) and computes window bounds relative to the
   window's own `NSScreen`, so a window on a secondary display has no recoverable
   global coordinates. Capture reports `unavailable` rather than guessing.
 
 ## Release infrastructure
 
-- [ ] **Bootstrap the first unified linker-input lock.** After the infrastructure
-  publisher reaches the default branch, open the adoption pull request and
-  dispatch it by number. Its GitHub-signed lock-only commit supplies
-  `link-inputs.lock.json`; remove the superseded component lock, migration
-  fallback, and legacy publication helpers after that commit lands.
+- [ ] **Validate Windows GUI-host release packaging.** The unified linker-input
+  release supplies the GNU runtime and `roc-gui.res`; the host derives its own
+  `windows-imports.lib` with a schema 2 normalization receipt. The Windows GUI
+  host release (`prepare_host_build.py`, `host_notice_payload.py`) has been
+  changed but not yet run; run it on a Windows runner before the next host release.
+
+- [ ] **Keep Metal shader debug paths free of build-machine identity.**
+  The host pins the GPUI fork at
+  `252b436e332f68c9ac2d6c785dd075fd19b69785`, based on Zed commit
+  `7fecbb2c4b0cb296e8bb91dc6ff654c4a076c8ff`. Its `gpui_apple` build script
+  compiles a copy of `shaders.metal` staged in Cargo's `OUT_DIR` with
+  `-gline-tables-only`, so the shader library records a path under the build's
+  target directory, which is normally beneath a home directory. The former
+  vendored build remapped the source root to `/workspace` with
+  `-fdebug-prefix-map`. Remap `OUT_DIR` to a neutral prefix in the fork, then
+  verify on macOS that the produced `shaders.metallib` contains no build path.
+
+- [ ] **Read back presented frames on macOS and Windows.**
+  `Window::request_frame_capture` reads back the presented frame through the
+  WGPU renderer on Wayland and X11. The Metal and DirectX windows report no
+  support, so window-specification screenshots on those platforms use their
+  existing fallback. Implement the same presented-frame readback in the fork's
+  Metal and DirectX renderers and verify it on each platform.
+
+- [ ] **Remove superseded linker-input migration machinery.** The unified
+  `link-inputs.lock.json` is published and adopted. Remove the superseded
+  component lock, migration fallback, and legacy publication helpers after
+  migrating every remaining build-time consumer; retain the independently
+  required host and notice inputs.

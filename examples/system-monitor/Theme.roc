@@ -13,42 +13,29 @@ Theme := [].{
 	## The ground the window is painted on, and the two surfaces that sit on it.
 	## Two steps is enough to separate a panel from the page and a row from its
 	## panel; a third would start to look like depth for its own sake.
-	ground : Gui.Color
-	ground = 0x0d161b
-	surface : Gui.Color
-	surface = 0x142229
-	raised : Gui.Color
-	raised = 0x1b2f38
-	hairline : Gui.Color
-	hairline = 0x2a444f
+	ground = 0x0d161b.Gui.Color
+	surface = 0x142229.Gui.Color
+	raised = 0x1b2f38.Gui.Color
+	hairline = 0x2a444f.Gui.Color
 
 	## Reading text, supporting text, and the grey reserved for a value the
 	## operating system declined to report. `absent` is deliberately darker than
 	## `muted`: an unreported figure has to look less present than a caption.
-	ink : Gui.Color
-	ink = 0xdfe9ee
-	muted : Gui.Color
-	muted = 0x8ba0aa
-	absent : Gui.Color
-	absent = 0x516670
+	ink = 0xdfe9ee.Gui.Color
+	muted = 0x8ba0aa.Gui.Color
+	absent = 0x516670.Gui.Color
 
 	## The single accent. It means live -- sampling is running, this row is
 	## selected, this sort is in force -- and it is used for nothing else.
-	accent : Gui.Color
-	accent = 0x63c0cf
-	accent_tint : Gui.Color
-	accent_tint = 0x11333c
-	accent_deep : Gui.Color
-	accent_deep = 0x2b7180
-	on_accent : Gui.Color
-	on_accent = 0x07171c
+	accent = 0x63c0cf.Gui.Color
+	accent_tint = 0x11333c.Gui.Color
+	accent_deep = 0x2b7180.Gui.Color
+	on_accent = 0x07171c.Gui.Color
 
 	## The two thresholds. Nothing else in the application is warm, so a warm
 	## figure is always a figure worth looking at.
-	warn : Gui.Color
-	warn = 0xd9a05b
-	alert : Gui.Color
-	alert = 0xde7f6d
+	warn = 0xd9a05b.Gui.Color
+	alert = 0xde7f6d.Gui.Color
 
 	## A small caption over the thing it names. Set in the proportional face,
 	## because a caption is a word rather than a measurement.

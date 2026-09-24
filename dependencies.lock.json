@@ -118,19 +118,6 @@
       "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/windows-dependencies.yml",
       "input_fingerprint": "088b68138ec8166fb25c583d5f021cf1d0e3c62cf107d9c4eecf46feb53da917"
     },
-    "windows-system-imports-x64mingw": {
-      "name": "windows-system-imports",
-      "target": "x64mingw",
-      "repository": "lukewilliamboswell/roc-gui",
-      "release": "deps-windows-system-imports-0.16.0-20260915.2",
-      "asset": "windows-system-imports-x64mingw.tar",
-      "sha256": "e75db0fc2a1fdf64255f279dcd11887fbb8a1e73e06535e63679f6f0bff4bb5e",
-      "size": 19619840,
-      "source_sha": "142121a56da5c1c9c4a5a41e2195a3c05f6ff4bd",
-      "source_ref": "refs/heads/main",
-      "signer_workflow": "lukewilliamboswell/roc-gui/.github/workflows/windows-system-imports.yml",
-      "input_fingerprint": "79a47e3f4c4d9be3be8fb9a73f89f99cd66e3be9bb29cd80e7cdf9661f71627b"
-    },
     "xkbcommon-x64glibc": {
       "name": "xkbcommon",
       "target": "x64glibc",

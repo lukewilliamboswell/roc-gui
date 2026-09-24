@@ -7,7 +7,8 @@
 /platform/targets/*/*.res
 /platform/targets/*/*.tbd
 /platform/targets/*/*.json
-/platform/targets/macos-sysroot/
+/platform/targets/*/*.def
+/platform/targets/*/macos-sysroot/
 /counter
 /main
 /.test-out
@@ -21,7 +22,10 @@ __pycache__
 /.release-out/
 /examples/music-player/fixture/*.wav
 /examples/database-browser/fixture/bookstore.db
+/examples/observatory/fixture/
 .DS_Store
 
 # Agent worktrees
 .claude/worktrees/
+
+.blueprint/

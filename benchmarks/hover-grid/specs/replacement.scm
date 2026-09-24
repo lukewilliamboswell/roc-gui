@@ -6,7 +6,9 @@
     (click (role button :name "Reset grid"))
     (expect-component-work :mounted 100 :retired 100)
     (hover-enter (role button :name "Cell 1"))
-    (await-task)
+    ; The removed cell's reset was cancelled with it: it never completes, and
+    ; once its worker has unwound, nothing it started is left running.
+    (await-task-waits 0)
+    (expect-task-counters 1 _ 0 0 1 _)
     (expect-background (role button :name "Cell 1") 0x66E0FF)
-    (expect-component-work :rendered 0 :compared 0)
     (expect-subscriptions 0)))

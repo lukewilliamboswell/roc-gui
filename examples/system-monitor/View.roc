@@ -2,8 +2,8 @@
 ##
 ## The layout is built around one rule: a figure that changes must never move
 ## anything. Every tile is a fixed height, the status strip is a fixed height,
-## the state pill has a floor on its width, the plot is a fixed surface, and
-## every number is set in the fixed-pitch face. What is left free to change is
+## the state pill has a floor on its width, the plot is a fixed height and is
+## drawn for the width it is given, and every number is set in the fixed-pitch face. What is left free to change is
 ## the numbers themselves, which is the only thing a person is watching.
 import pf.Gui
 import Chart
@@ -213,6 +213,11 @@ tile = |reading| {
 			label: "${reading.caption} reading",
 			width: Fill,
 			grow: True,
+			# A reading gives up width before the page does: its figures are
+			# clipped at the tile's edge rather than widening the window's
+			# content past the window.
+			min_width: Px(0),
+			overflow_x: Clip,
 			height: Px(tile_height),
 			min_height: Px(tile_height),
 			padding: 0,
@@ -258,6 +263,7 @@ axis = Gui.col(
 	{
 		label: "Load axis",
 		width: Px(34),
+		min_width: Px(34),
 		height: Px(Chart.height),
 		padding: 0,
 		gap: 0,
@@ -277,7 +283,15 @@ plot = |state| Theme.panel(
 		),
 		Gui.row(
 			{ label: "Plot", width: Fill, padding: 0, gap: 8, align: Start },
-			[axis, Chart.render(Chart.loads(state.history), Monitor.capacity)],
+			[
+				axis,
+				Chart.render({
+					history: Chart.loads(state.history),
+					capacity: Monitor.capacity,
+					width: state.plot_width,
+					on_size: |current, laid_out| if laid_out.width == current.plot_width Gui.Action.none else Gui.Action.update({ ..current, plot_width: laid_out.width }),
+				}),
+			],
 		),
 	],
 )
@@ -340,8 +354,8 @@ sort_controls = |state| Gui.row(
 	{ label: "Process sorting", padding: 0, gap: 8, align: Center },
 	[
 		Theme.caption("SORT"),
-		sort_button("CPU", "Sort processes by CPU", state.sort == ByCpu, |current, _| Gui.update({ ..current, sort: ByCpu })),
-		sort_button("Memory", "Sort processes by memory", state.sort == ByMemory, |current, _| Gui.update({ ..current, sort: ByMemory })),
+		sort_button("CPU", "Sort processes by CPU", state.sort == ByCpu, |current, _| Gui.Action.update({ ..current, sort: ByCpu })),
+		sort_button("Memory", "Sort processes by memory", state.sort == ByMemory, |current, _| Gui.Action.update({ ..current, sort: ByMemory })),
 	],
 )
 
@@ -349,8 +363,8 @@ filter_field = |state| Gui.text_input({
 	label: "Filter processes",
 	value: state.filter,
 	placeholder: "Filter by name",
-	on_change: |current, event| Gui.update({ ..current, filter: event.value }),
-	on_submit: |current, _| Gui.update(current),
+	on_change: |current, event| Gui.Action.update({ ..current, filter: event.value }),
+	on_submit: |current, _| Gui.Action.update(current),
 	width: Fill,
 	height: Px(34),
 	font_size: 13,
@@ -394,7 +408,7 @@ process_row = |state, process| {
 	Gui.button({
 		caption: Processes.row_text(process),
 		label: "Inspect process ${process.name}",
-		on_press: |current, _| Gui.update({ ..current, selected: Some(process.pid) }),
+		on_press: |current, _| Gui.Action.update({ ..current, selected: Some(process.pid) }),
 		width: Fill,
 		height: Px(26),
 		padding: 8,
@@ -486,7 +500,7 @@ render = |state| Gui.col(
 			{ label: "Body", width: Fill, height: Fill, grow: True, padding: 0, gap: 16, align: Stretch },
 			[
 				Gui.col(
-					{ label: "Instruments", width: Fill, height: Fill, grow: True, padding: 0, gap: 12 },
+					{ label: "Instruments", width: Fill, height: Fill, grow: True, min_width: Px(0), padding: 0, gap: 12 },
 					[readings(state), plot(state), log(state)],
 				),
 				process_panel(state),

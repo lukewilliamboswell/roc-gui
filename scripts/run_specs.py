@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_SCHEMA = 19
+SUPPORTED_SCHEMA = 25
 
 
 @dataclass(frozen=True)
@@ -160,6 +160,11 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
             for spec in specs
             if not any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in excludes)
         ]
+    blocked = [spec for spec in specs if spec.parent.parent.relative_to(ROOT).as_posix() in COMPILER_BLOCKED]
+    for directory in sorted({spec.parent.parent.relative_to(ROOT).as_posix() for spec in blocked}):
+        count = sum(spec.parent.parent.relative_to(ROOT).as_posix() == directory for spec in blocked)
+        print(f"SKIP {directory}: {count} specs ({COMPILER_BLOCKED[directory]})", flush=True)
+    specs = [spec for spec in specs if spec not in blocked]
     cases = []
     for spec in specs:
         app = spec.parent.parent / "main.roc"
@@ -181,22 +186,62 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # selected compiler's LLVM callback/state corruption is tracked in the backlog;
 # --roc-opt allows intentional compiler diagnostics without an automatic retry
 # or fallback. The Rust host's build profile is independent of this option.
+SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
+SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
+# Applications the pinned compiler cannot build. Their specifications are
+# skipped and named on every run; each is tracked in wip/issues-backlog.md
+# under "Compiler and toolchain defects" and removed when its fix lands.
+COMPILER_BLOCKED = {
+    "examples/observatory": "roc-lang/roc#11641 compiler stack overflow",
+    "examples/redis-explorer": "roc build does not terminate",
+}
+
+
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
+    from toolchain import validate_roots, verify_compiler
+    verify_compiler(roc, validate_roots(ROOT))
     print(f"Roc application build mode: {roc_opt}", flush=True)
-    subprocess.run([sys.executable, str(ROOT / "scripts/bootstrap.py")], cwd=ROOT, check=True)
     if not skip_host_build:
         sys.path.insert(0, str(ROOT / "scripts"))
         from install_released_host import install
         if not install():
             subprocess.run([sys.executable, str(ROOT / "build.py")], cwd=ROOT, check=True)
+    # A generator that runs specifications itself builds with this compiler,
+    # against the host just built, so its nested runs never build it again.
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/bootstrap.py")],
+        cwd=ROOT,
+        check=True,
+        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1",
+             SELECTED_APPS: os.pathsep.join(sorted({case.app.parent.relative_to(ROOT).as_posix() for case in cases}))},
+    )
     by_app = {case.app: case.executable for case in cases}
     for app, executable in sorted(by_app.items()):
         executable.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            [roc, "build", f"--opt={roc_opt}", f"--output={executable}", str(app)],
+        executable.unlink(missing_ok=True)
+        # Every application is compiled from source, never from Roc's shared
+        # build cache: a result must describe the program the sources define,
+        # not whatever an earlier build left cached (see the backlog).
+        result = subprocess.run(
+            [roc, "build", "--no-cache", f"--opt={roc_opt}", f"--output={executable}", str(app)],
             cwd=ROOT,
-            check=True,
+            capture_output=True,
+            text=True,
         )
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        # Roc currently exits with code 2 for warnings even when it writes a
+        # successful executable. Keep the diagnostic visible and require both
+        # the explicit success report and the new artifact before running it.
+        report = result.stdout + result.stderr
+        warnings_only = (
+            result.returncode == 2
+            and executable.is_file()
+            and "0 errors and" in report
+            and "while successfully building:" in report
+        )
+        if result.returncode != 0 and not warnings_only:
+            raise subprocess.CalledProcessError(result.returncode, result.args)
 
 
 def validate_capture(path: Path) -> None:
@@ -403,13 +448,23 @@ def run_case(
             f"--host-stats-detail={detail}",
         ]
     command.extend(grants["flags"])
-    with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="roc-gui-app-data-") as temporary, \
+            tempfile.TemporaryDirectory(prefix="roc-gui-copy-") as scratch:
         storage = Path(temporary)
         # Application data is granted as a fresh private copy, so a case writes
         # through the production capability without mutating checked-in data.
         if seed := grants["app_data_seed"]:
             shutil.copytree(seed, storage, dirs_exist_ok=True)
             command.extend(["--host-cap-app-data", str(storage)])
+        # A directory a case may change is granted as a disposable copy of its
+        # files, beside which the host stages every replacement it makes.
+        if source := grants.get("directory_copy"):
+            copy = Path(scratch) / Path(source).name
+            copy.mkdir()
+            for entry in Path(source).iterdir():
+                if entry.is_file() and not entry.is_symlink():
+                    shutil.copy2(entry, copy / entry.name)
+            command.extend(["--host-cap-dir-copy", str(copy)])
         try:
             completed = subprocess.run(
                 command,
@@ -479,7 +534,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--skip-host-build", action="store_true")
+    parser.add_argument("--skip-host-build", action="store_true",
+                        default=os.environ.get(SKIP_HOST_BUILD) == "1")
     parser.add_argument("--only", choices=("all", "semantic", "window"), default="all",
                         help="run only the specifications a given runner handles")
     parser.add_argument("--allow-missing-shots", action="store_true",
@@ -509,7 +565,7 @@ def main() -> int:
         return 2
     try:
         build(cases, args.roc, args.skip_host_build, args.roc_opt)
-    except (OSError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"error: build failed: {error}", file=sys.stderr)
         return 1
 

@@ -13,19 +13,31 @@ import Query
 ## call for three different next steps.
 Grant : [Ungranted, Declined, Granted(Str), Refused]
 
-Folder : { name : Str, directory : Gui.FilesDirRead, entries : List(Gui.FilesEntry) }
+Folder : { name : Str, directory : Gui.Files.Dir.Read, entries : List(Gui.Files.Entry) }
 
-Status : [Busy(U64), Failed({ message : Str, remedy : Str }), Ready]
+## `Querying` is a statement or page read in flight, which a person may
+## cancel; `Canceled` is the note that they did.
+Status : [Busy(U64), Canceled, Failed({ message : Str, remedy : Str }), Querying(U64), Ready]
+
+## One page of a query's result, and where it sits in the whole: the statement
+## that produced it (not the editor's current text, which may since have
+## changed), the zero-based row the page starts at, and the page itself.
+Shown : { sql : Str, offset : U64, page : Gui.Sqlite.Page }
 
 State : {
 	access : Gui.Access,
-	database : [None, Some(Gui.SqliteDb)],
+	database : [None, Some(Gui.Sqlite.Db)],
 	folder : [None, Some(Folder)],
 	grant : Grant,
 	next_request : U64,
 	open_name : Str,
 	query : Str,
-	result : [None, Some(Gui.SqliteResult)],
+	result : [None, Some(Shown)],
+	## Where the result rows were last asked to move. A new page returns to
+	## its first row; the first- and last-row keys move within a page.
+	rows_scroll : [None, Some(Gui.ScrollRequest)],
+	## The result rows the viewport shows, as the list last reported them.
+	on_screen : [None, Some(Gui.Event.VisibleRows)],
 	schema : List(Str),
 	status : Status,
 }
@@ -33,8 +45,13 @@ State : {
 Browser := [].{
 	Folder : Folder
 	Grant : Grant
+	Shown : Shown
 	State : State
 	Status : Status
+
+	## Rows in one page of a result: the host's page limit.
+	page_rows : U64
+	page_rows = 10_000
 
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
@@ -48,17 +65,42 @@ Browser := [].{
 		open_name: "",
 		query: "SELECT id, title, price FROM books ORDER BY id LIMIT 100",
 		result: None,
+		rows_scroll: None,
+		on_screen: None,
 		schema: [],
 		status: Ready,
 	}
 	choose : State -> Gui.Action(State)
 	choose = choose
-	open_database : State, Gui.FilesDirRead, Str -> Gui.Action(State)
+	open_database : State, Gui.Files.Dir.Read, Str -> Gui.Action(State)
 	open_database = open_database
-	run_query : State, Gui.SqliteDb, Str -> Gui.Action(State)
-	run_query = run_query
+	run_query : State, Gui.Sqlite.Db, Str -> Gui.Action(State)
+	run_query = |state, database, sql| run_page(state, database, sql, 0)
+	## Fetch the page of the shown result that starts at `offset`.
+	turn_page : State, Gui.Sqlite.Db, Shown, U64 -> Gui.Action(State)
+	turn_page = |state, database, shown, offset| run_page(state, database, shown.sql, offset)
+	## Stop the statement in flight. The host interrupts it where it runs, and
+	## its result, if one was already on its way, is never delivered.
+	cancel_query : State -> Gui.Action(State)
+	cancel_query = |state| match state.status {
+		Querying(_) => Gui.Action.cancel({ ..state, status: Canceled }, query_key)
+		_ => Gui.Action.none
+	}
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
+
+	## Bring one row of the shown page into view. Each request takes a fresh
+	## serial, so asking for the same row again moves the list again.
+	scroll_rows : State, U64, Gui.RowAlign -> State
+	scroll_rows = |state, row, align| {
+		..state,
+		next_request: state.next_request + 1,
+		rows_scroll: Some({ row, align, serial: state.next_request }),
+	}
+
+	## Record the rows the viewport shows.
+	show_rows : State, Gui.Event.VisibleRows -> State
+	show_rows = |state, rows| { ..state, on_screen: Some(rows) }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -75,7 +117,7 @@ still_held_or_declined = |grant| match grant {
 ## host that refused to open one at all.
 choose = |state| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match state.access.pick_directory!() {
 			Ok(Chosen(selection)) => match selection.directory.list!() {
@@ -87,9 +129,9 @@ choose = |state| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
-				ChosenFolder(folder) => Gui.update({ ..latest, folder: Some(folder), grant: Granted(folder.name), status: Ready })
-				ChooseCanceled => Gui.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
-				ChooseFailed => Gui.update({
+				ChosenFolder(folder) => Gui.Action.update({ ..latest, folder: Some(folder), grant: Granted(folder.name), status: Ready })
+				ChooseCanceled => Gui.Action.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
+				ChooseFailed => Gui.Action.update({
 					..latest,
 					grant: Refused,
 					status: failure(
@@ -98,14 +140,14 @@ choose = |state| {
 					),
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }
 
 open_database = |state, directory, name| {
 	id = state.next_request
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
 		run: || match Gui.Sqlite.open_read!(directory, name) {
 			Err(error) => Err(OpenFailed("Could not open SQLite database: ${Gui.Sqlite.detail(error)}"))
@@ -116,11 +158,11 @@ open_database = |state, directory, name| {
 		},
 		resolve: |latest, outcome| match latest.status {
 			Busy(active) if active == id => match outcome {
-				Err(OpenFailed(message)) => Gui.update({
+				Err(OpenFailed(message)) => Gui.Action.update({
 					..latest,
 					status: failure(message, "The grant covers this folder, but this file is not a database this browser can read."),
 				})
-				Ok(opened) => Gui.update({
+				Ok(opened) => Gui.Action.update({
 					..latest,
 					database: Some(opened.database),
 					open_name: name,
@@ -134,20 +176,37 @@ open_database = |state, directory, name| {
 					status: Ready,
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }
 
-run_query = |state, database, sql| {
+## The first page is the statement exactly as written, so any read-only
+## statement runs. A later page wraps it and binds the offset as a parameter;
+## the host cuts the page and reports whether rows follow it.
+page_request : Str, U64 -> { sql : Str, params : List(Gui.Sqlite.Value), rows : U64 }
+page_request = |sql, offset| if offset == 0 {
+	{ sql, params: [], rows: Browser.page_rows }
+} else {
+	body = sql.trim().drop_suffix(";")
+	{ sql: "SELECT * FROM (${body}) LIMIT -1 OFFSET ?", params: [Integer(offset.to_i64_wrap())], rows: Browser.page_rows }
+}
+
+## Every statement and page read shares one key, so a newer one supersedes
+## the one in flight: the host interrupts it, and its result never arrives.
+query_key = "query"
+
+run_page : State, Gui.Sqlite.Db, Str, U64 -> Gui.Action(State)
+run_page = |state, database, sql, offset| {
 	id = state.next_request
-	Gui.task({
-		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || database.query!(sql),
+	Gui.Action.keyed_task({
+		key: query_key,
+		pending: { ..state, next_request: id + 1, status: Querying(id) },
+		run: || database.page!(page_request(sql, offset)),
 		resolve: |latest, outcome| match latest.status {
-			Busy(active) if active == id => match outcome {
-				Ok(result) => Gui.update({ ..latest, result: Some(result), status: Ready })
-				Err(error) => Gui.update({
+			Querying(active) if active == id => match outcome {
+				Ok(page) => Gui.Action.update({ ..latest, result: Some({ sql, offset, page }), rows_scroll: Some({ row: 0, align: Start, serial: id }), on_screen: None, status: Ready })
+				Err(error) => Gui.Action.update({
 					..latest,
 					status: failure(
 						Gui.Sqlite.detail(error),
@@ -155,7 +214,7 @@ run_query = |state, database, sql| {
 					),
 				})
 			}
-			_ => Gui.none
+			_ => Gui.Action.none
 		},
 	})
 }

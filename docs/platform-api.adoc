@@ -22,7 +22,7 @@ render = |curr_state| Gui.col({}, [
         caption: "Add one",
         label: "Increment count",
         on_press: |prev_state, _event|
-            Gui.update({ count: prev_state.count + 1.I64 }),
+            Gui.Action.update({ count: prev_state.count + 1.I64 }),
     }),
 ])
 
@@ -39,7 +39,7 @@ because the task that acquires runs after `init` has returned. The Resource
 access chapter explains why the platform is built this way.
 
 Every acquisition is a question asked of that value, from inside a task:
-`access.pick_directory!()`, `access.app_data!()`, `access.assets!(config)`,
+`access.pick_directory!()`, `access.pick_file!(types)`, `access.app_data!()`, `access.assets!(config)`,
 `access.audio!()`, `access.clipboard!()`, `access.device!()`, `access.http!()`,
 `access.process!()`, `access.system_monitor!()`, and `access.tcp_connect!()`.
 Each answers with a handle only for what the host has granted, and the handle
@@ -47,12 +47,12 @@ carries its own operations. Code that was never handed the authority has
 nothing to ask.
 
 `render` is pure: it reads state and returns a `Gui.Elem(State)`. A button handler
-receives the state associated with its render boundary and an `Gui.EventPress`.
+receives the state associated with its render boundary and an `Gui.Event.Press`.
 It returns an action:
 
-`Gui.update(next_state)`:: Propose the next state and update the required
+`Gui.Action.update(next_state)`:: Propose the next state and update the required
 render scope, subject to the component's memoization policy.
-`Gui.none`:: Keep the existing state and element tree unchanged.
+`Gui.Action.none`:: Keep the existing state and element tree unchanged.
 
 The names in the example distinguish two moments. `curr_state` describes the
 UI being rendered. The handler's `prev_state` is the state immediately before
@@ -70,9 +70,9 @@ Using the handler argument also matters when handlers are retained across
 updates: it supplies the latest state, whereas a captured render snapshot
 still describes the earlier render.
 
-Use `Gui.none` when an event is valid but has no effect, such as pressing a
+Use `Gui.Action.none` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
-returning an unchanged state with `Gui.update`.
+returning an unchanged state with `Gui.Action.update`.
 
 An action is a value describing a transition, not a transition performed.
 Constructing one changes nothing; returning it from a handler is what asks the
@@ -87,6 +87,23 @@ architecture chapter records that origin and the reasoning behind it.
 initial state and a pure renderer. `window` is optional. Resource acquisition
 and window-dependent interactions belong in actions.
 
+`on_open: Some(opened!)` is what the application does as its window opens.
+The platform calls `opened!(state)` once, after the first state is shown and
+before any input, exactly as it calls an event handler: it may act, and the
+action it returns is applied. It is how a first screen shows something only an
+effect can learn, such as the files the application remembered, without
+waiting for a person to ask. Its turn is one cycle with the trigger `open`,
+which no element caused. An application without `on_open` has no such turn.
+
+[source,roc]
+----
+main = Gui.run({
+    init: Observatory.init,
+    render: View.render,
+    on_open: Some(|state| Gui.Action.update({ ..state, recent: state.access.recent!() })),
+})
+----
+
 Reusable modules export ordinary render functions such as
 `Workspace.render : Workspace.State -> Gui.Elem(Workspace.State)`. A parent
 composes them through `Gui.translate` or `Gui.translate_with`; no setup-time
@@ -95,7 +112,7 @@ The module does not call `Gui.run` or choose the application's window.
 
 == Asynchronous actions
 
-Use `Gui.task({ pending, run, resolve })` when an event needs to wait for
+Use `Gui.Action.task({ pending, run, resolve })` when an event needs to wait for
 external work. `pending` describes the UI while that work runs, such as a loading
 indicator. After accepting that state, the platform runs `run` on its bounded
 worker pool and passes the result to `resolve` on the UI thread.
@@ -107,15 +124,45 @@ resolver's argument. Resource operations require the grants described in the
 resource access chapter.
 
 Tasks belong to the component that accepts them. Removing that component
-suppresses completion delivery, but does not necessarily cancel the external
-operation. The local-state section explains how a parent can own work that must
-survive a child closing.
+cancels its tasks. The local-state section explains how a parent can own work
+that must survive a child closing.
+
+=== Superseding and cancelling tasks
+
+`Gui.Action.keyed_task({ key, pending, run, resolve })` is a task that supersedes the
+component's previous task with the same `key`. A person moving a selection,
+paging a list, or running a statement again wants the newest answer only; the
+older task is cancelled, and its `resolve` is never called.
+`Gui.Action.cancel(state, key)` installs `state` and cancels the component's task with
+`key`, for an explicit Cancel control or for closing what a task watches.
+
+A cancelled task that has not started never runs. One that is running is
+interrupted where the capability allows: a `Gui.Timer` or `Gui.Files.Watch` wait
+returns `Canceled`, and a SQLite statement stops with `Interrupted`. The timer
+or watch itself keeps running, so a later task may wait on it again. Other work,
+such as an HTTP request, runs to its end, and its result is dropped.
+
+[source,roc]
+----
+run_query = |state, database, sql| Gui.Action.keyed_task({
+	key: "query",
+	pending: { ..state, status: Querying },
+	run: || database.query!(sql),
+	resolve: |latest, outcome| Gui.Action.update(show(latest, outcome)),
+})
+
+cancel_query = |state| Gui.Action.cancel({ ..state, status: Canceled }, "query")
+----
+
+Keys are scoped to the component that accepts the task, so two instances of
+one component never supersede each other. Cancelling a key with nothing in
+flight only installs the state.
 
 === Timers and subscriptions
 
-`Gui.Timer.start!({ interval_ms })` creates an opaque `Gui.TimerHandle` for intervals
+`Gui.Timer.start!({ interval_ms })` creates an opaque `Gui.Timer.Handle` for intervals
 from 1 through 60,000 milliseconds. `handle.next!()` waits for one tick
-and belongs inside `Gui.task`; the next wait is started only after the
+and belongs inside `Gui.Action.task`; the next wait is started only after the
 previous completion has been applied. This pull contract bounds backpressure
 at one in-flight wait and does not accumulate missed ticks.
 
@@ -138,12 +185,16 @@ Props include padding, sizing, growth, foreground and interaction colours,
 border, radius, font size, font weight, and overflow. A call that gives only
 `caption`, `label`, and `on_press` is the concise text button.
 A button accepts `on_hover_enter` and `on_hover_exit` as optional
-`Some(|prev_state, event| Gui.update(...))` callbacks. Their defaults are `None`:
-unconfigured buttons allocate no hover routes. `Gui.EventHover` carries no fields.
+`Some(|prev_state, event| Gui.Action.update(...))` callbacks. Their defaults are `None`:
+unconfigured buttons allocate no hover routes. `Gui.Event.Hover` carries no fields.
 Hover callbacks receive current state and return ordinary actions, including
 cell-owned tasks. Native hover transitions follow GPUI pointer movement with no
 mouse button held; repeated movement inside a button emits no additional enter.
 Disabled buttons emit neither hover callback. Removal does not synthesize exit.
+Any other element takes the same two modifiers, `on_hover_enter` and
+`on_hover_exit`: the element is wrapped in a hover region that reports the
+pointer entering and leaving it and presents nothing. The region takes its
+element's share of the parent's space, so wrapping changes no layout.
 
 Keep button labels and keyed projections stable. Rebuilding a hovered cell to
 change its color preserves its native identity and inside state; it does not
@@ -156,14 +207,14 @@ color, as in `benchmarks/hover-grid`.
 Gui.button({
     caption: "Preview",
     label: "Preview item",
-    on_press: |_, _| Gui.none,
-    on_hover_enter: Some(|prev_state, _| Gui.update({ ..prev_state, preview: True })),
-    on_hover_exit: Some(|prev_state, _| Gui.update({ ..prev_state, preview: False })),
+    on_press: |_, _| Gui.Action.none,
+    on_hover_enter: Some(|prev_state, _| Gui.Action.update({ ..prev_state, preview: True })),
+    on_hover_exit: Some(|prev_state, _| Gui.Action.update({ ..prev_state, preview: False })),
 })
 ----
 
 `Gui.checkbox({ ... })`:: Display a semantic checkbox and
-handle `Gui.EventCheck`. `box_bg`, `box_checked_bg`, `box_border`, and
+handle `Gui.Event.Check`. `box_bg`, `box_checked_bg`, `box_border`, and
 `mark_color` colour the indicator itself, which `fg` does not reach; each
 defaults to the host's own value. Props include enabled state, gap, padding, sizing, growth,
 foreground and interaction colours, border, radius, font size, font weight,
@@ -171,7 +222,7 @@ and overflow.
 Enabled checkboxes participate in keyboard tab order and toggle with Space;
 disabled checkboxes do not accept focus or activation.
 `Gui.textarea({ ... })`:: Display a controlled multiline
-text editor and handle `Gui.EventInput`, which carries the complete requested
+text editor and handle `Gui.Event.Input`, which carries the complete requested
 value.
 `label` is the stable semantic name; `placeholder`, `enabled`, and `read_only`
 control editing behaviour. A read-only textarea retains multiline layout and
@@ -189,8 +240,8 @@ stable semantic name.
 `Gui.text_input({ ... })`:: Display a controlled,
 single-line native editor. `label` is its stable semantic name, `value` is the
 authoritative application value, and `placeholder` is shown only while empty.
-Committed edits deliver the complete value in `Gui.EventTextChange`; Enter delivers
-`Gui.EventTextSubmit`. The host retains focus, caret, selection, and an active IME
+Committed edits deliver the complete value in `Gui.Event.TextChange`; Enter delivers
+`Gui.Event.TextSubmit`. The host retains focus, caret, selection, and an active IME
 composition across controlled rerenders. Disabled fields accept neither edits
 nor submission. Text values are bounded to one MiB of UTF-8.
 Text-input labels are non-empty and unique within their component instance
@@ -201,6 +252,15 @@ Display a string in its own colour, size, weight, and face. Plain `Gui.text`
 inherits all four from its container, so every typographic step otherwise costs a
 one-child row or column that exists for no other reason; a wordmark, an eyebrow
 label, and a status line are each a string, not a layout.
+`Gui.rich_text({ spans, fg, font_size, font_weight, font_face })`:: Display
+several styled runs as one text element, such as a line of highlighted source.
+Each run is built with `Gui.span({ text, fg, bg, font_weight, underline,
+monospace })`; only `text` is required, and a run that sets nothing keeps the
+element's own colour, weight, and face, which it inherits from its container
+unless the element sets them. The runs lay out, wrap, and clip as one string
+under their container's `text_overflow`, and a locator matches the whole text,
+the runs' texts in order. A rich text element is one native text node however
+many runs it has, and its native work is counted as styled text.
 `Gui.scroll({ label, content, axis, ... })`:: Constrain content
 to available space and scroll it vertically, horizontally, or in both directions.
 The axis defaults to `Vertical`; `label` is the stable semantic identity. A
@@ -218,6 +278,12 @@ rows read as separate surfaces while the list's scrolling arithmetic stays
 exactly one `row_height` per row. Without them a list has no ground, inset,
 corner, or spacing of its own, and each row has to repaint the surface the list
 is sitting on.
+`Gui.virtual_rows({ label, row_height, count, render_row })`:: Present `count`
+rows at one fixed logical height, building each with `render_row` only while it
+is near the viewport, so the cost of a render follows the rows on screen rather
+than `count`. It brings a row into view from state with `scroll_to` and reports
+the rows on screen through `on_range`. It shares the style fields and `row_gap`
+of `Gui.virtual_list`. See <<rows-produced-on-demand>>.
 `Gui.row({ ... }, children)`:: Lay out children horizontally.
 `Gui.col({ ... }, children)`:: Lay out children vertically.
 `Gui.keyed_col(render_item, { ... }, { key, get, set, on_delegate })`::
@@ -245,14 +311,115 @@ keeps the panel's own type. It is distinct from `label`, which remains the
 semantic locator and is never painted, so a panel named for what a
 specification calls it can still say something else to a reader. An empty
 heading, the default, paints none.
+`Gui.popover({ label, ... }, anchor, content)`:: Annotate `anchor`, any
+element, with a non-modal surface presenting `content` beside it. The surface
+opens `delay_ms` (default 500, at most 60000) after the pointer comes to rest
+on the anchor, and at once when keyboard focus enters the anchor. It closes
+when both the pointer and focus have left, and Escape that no dialog takes
+closes every presenting popover until the pointer or focus enters it again.
+`placement` is `Below` (the default), `Above`, `Start`, or `End`; a surface the
+window has no room for moves to the opposite side and stays inside the
+window. The surface floats above the rest of the window, outside any scroll
+region's clipping, and blocks nothing: its content is read, not operated.
+`label` names the surface as a `tooltip` for specifications and assistive
+technology; a closed surface is not presented, so nothing in it can be found.
+The style fields dress the surface, and a modifier applied to a popover applies
+to its anchor. The surface's text wraps within the surface, whatever
+truncation its anchor's container applies, unless the surface's own
+`text_overflow` says otherwise. `on_hover_enter` and `on_hover_exit` are optional handlers for
+the anchor's pointer edges. The host owns when a surface presents, so opening
+and closing one runs no application code.
+`Gui.tooltip(anchor, text)`:: Annotate an element with a popover presenting
+one line of text, named by that text.
+
+[source,roc]
+----
+Gui.popover(
+    { label: "title in result row 0", delay_ms: 400 },
+    cell,
+    [Gui.text("title · TEXT"), Gui.text(value)],
+)
+----
+
+`Gui.split({ label, size, on_resize, ... }, start, end)`:: Lay two panes out
+side by side (`axis: Horizontal`, the default) or one above the other
+(`Vertical`), with a divider between them. `size` is the extent in logical
+pixels of the pane on `side`, `Start` (the default) or `End`; the other pane
+takes whatever space is left, however wide its content would like to be. The
+size is the application's: dragging the divider, or the keys below while the
+divider holds keyboard focus, ask for one through `on_resize` with a
+`Gui.Event.Resize`, `{ size, collapsed }`, and the split shows whatever `size`
+it is given next, kept within `min` (default 0) and `max` (default 16384).
+A drag is measured from where the pointer pressed, and asks only for a size the
+divider does not already show, so each size it asks for is one `drag` cycle.
+The divider takes part in keyboard tab order; Left and Right (Up and Down for a
+vertical split) move it by `step` (default 16) pixels, and Home and End move it
+to the start or end of its range. These are the divider's own shortcuts: they
+answer only while the divider holds focus, never while focus is in a pane, and
+each is a `key` cycle. A `collapsible` pane is folded away while `collapsed`:
+Enter on the divider asks to toggle it, and a drag that would leave the pane
+less than half of `min` asks to fold it, keeping `size` to return to. A folded
+pane stays mounted, with its component state and tasks, but it is neither
+drawn nor presented, so no locator finds anything in it. `label` names the
+divider as a `separator` for specifications and assistive technology, and its
+value is the size, or `collapsed`. `thickness` (default 6), `color`,
+`hover_color`, `active_color`, and `focus_color` dress the divider; `width`,
+`height`, and `grow` size the split, which fills its container by default.
+`Gui.tabs({ label, tabs, selected, on_select, on_close, ... })`:: A strip of
+tabs, one of them selected. Each `Gui.TabItem` is `{ key, title, closable }`:
+the tab shows `title`, which also names it as a `tab` for specifications, and a
+closable tab has a close button named `Close` and its title. Pressing a tab
+asks for it through `on_select`, and its close button through `on_close`, each
+with a `Gui.Event.Tab` carrying the tab's `key`; the application owns the list
+and the selection, and the strip shows the tab whose key is `selected` as
+chosen. While keyboard focus is in the strip, Left and Right choose the tab
+before and after the selected one, Home and End the first and last, and Delete
+asks to close the selected tab when it is closable. The strip's colours,
+`font_size`, `font_face`, and `max_tab_width` dress it.
+`Gui.drop_target({ label, types, on_drop, ... }, children)`:: Lay children
+out as `Gui.col` does, in a column that accepts files a person drags from
+outside the application and drops on it. `types` are the kinds of file it
+accepts, written as `access.pick_file!` offers them; an empty list accepts
+every file. A drop is delivered to `on_drop` with a `Gui.Event.Drop`,
+`{ files, refused }`: `files` holds each dropped file of an accepted type, in
+the order dropped, each a `{ name, file }` granted to the application exactly
+as a chosen file is, and `refused` names every other item dropped with its
+reason, `NotFile` for a folder or anything that is not an ordinary file,
+`Unsupported` for a file of another type, `AccessDenied`, or `Unavailable`.
+While files it would accept are dragged over it the target shows `drop_bg`
+and `drop_border`; files it would refuse change nothing, so it never invites a
+drop it will not take. A drop behind a modal dialog is not delivered. `label`
+names it as a `drop-target` for specifications, and each drop is one `drop`
+cycle, whatever it held. The section on dropped files says what the grant is.
+
+[source,roc]
+----
+Gui.split(
+    {
+        label: "Inspector divider",
+        side: End,
+        size: state.inspector.size,
+        min: 240,
+        max: 1100,
+        collapsible: True,
+        collapsed: state.inspector.collapsed,
+        on_resize: |current, event| Gui.Action.update({ ..current, inspector: { ..current.inspector, size: event.size, collapsed: event.collapsed } }),
+    },
+    main_view,
+    inspector,
+)
+----
+
 `Gui.dialog({ label, on_dismiss, ... }, children)`:: Present
 one modal surface above an input-blocking scrim. The first enabled control gains
 focus, Tab and Shift+Tab stay within the dialog, Escape calls `on_dismiss`, and
-closing the dialog restores its opener by stable semantic identity. Render at
+closing the dialog restores its opener by stable semantic identity. Controls
+behind the scrim stop answering input but keep their own enabled or disabled
+appearance; the dialog does not restyle them as disabled. Render at
 most one dialog at a time.
 
-Row, column, panel, dialog, scroll, virtual-list, and button props share
-the native
+Row, column, panel, dialog, popover, drop-target, scroll, virtual-list, and
+button props share the native
 `Gui.Style` fields: gap, padding, width, height, growth, colours, borders,
 radius, shadow, font size, font weight, per-axis overflow, and the two axis
 placements.
@@ -263,6 +430,42 @@ as in `bg: 0x24404b`, and a value above `0xffffff` is rejected when the
 application is compiled. A colour held in a name is annotated, `ink : Gui.Color`
 then `ink = 0x1f1c17`, and one computed at run time is `Rgb(value)`. `Default`
 keeps the control's native colour.
+
+`Gui.adaptive(light, dark)` is a colour for each appearance, both `0xRRGGBB`.
+The host keeps the pair and chooses one each time it paints: `light` while the
+window's scheme is light and `dark` while it is dark. An application that
+writes its palette as adaptive pairs follows the system's scheme with no code
+of its own, and a change of scheme repaints the window without rendering the
+application again. The window's scheme is the system's unless the application
+has chosen one with `Gui.Appearance.prefer!`.
+
+=== Appearance
+
+`Gui.Appearance.current!()` answers the system's appearance as
+`{ scheme : [Light, Dark], motion : [Full, Reduced] }`: whether the desktop asks
+for a light or a dark scheme, and whether it asks for non-essential motion to
+be reduced. A desktop that states no preference is `Light` and `Full`. On Linux
+the host reads the XDG desktop portal's `org.freedesktop.appearance` settings,
+and GNOME's `enable-animations` for reduced motion where the portal does not
+publish its own key.
+
+`Gui.Appearance.next_change!(known)` waits until the system's appearance
+differs from `known` and answers the new one. It belongs inside a keyed
+`Gui.Action.task`, so a newer wait supersedes it; cancelling the task interrupts the
+wait, which then answers `known`. An application that decides something by
+the appearance, such as whether to animate, starts the next wait from the
+completion of the last.
+
+`Gui.Appearance.prefer!(preference)` chooses the scheme adaptive colours
+resolve to: `System`, `Light`, or `Dark`. It is a task's work, not a render's,
+and it lasts until the next `prefer!`; the system's appearance, as `current!`
+answers it, does not change. An application that keeps a person's choice
+across launches stores it and chooses it again at startup.
+
+Reading the appearance takes no authority. A specification provisions the
+system's appearance with a `(theme ...)` grant and changes it with
+`system-theme`, so a case never depends on the desktop it runs on; see
+Specifications.
 
 `padding` is the shorthand for all four sides. `padding_top`, `padding_right`,
 `padding_bottom`, and `padding_left` each override one side with `Px(n)` and
@@ -349,6 +552,113 @@ including its rounded corners and the edge above the root element, which a
 grown root element cannot cover. Both default to the host's own ground, so an
 application that says nothing keeps it.
 
+[[rows-produced-on-demand]]
+=== Rows produced on demand
+
+`Gui.virtual_list` receives every row as an item. GPUI draws only the rows in
+view, but every row is still built, lowered, and mounted, so its cost follows the
+list's length. `Gui.virtual_rows` receives a row count and a row function
+instead:
+
+[source,roc]
+----
+Gui.virtual_rows({
+    label: "Query rows",
+    row_height: 24,
+    count: result.rows.len(),
+    render_row: |index| result_row(result, index),
+    scroll_to: state.rows_scroll,
+    on_range: Some(|prev_state, visible| Gui.Action.update({ ..prev_state, on_screen: Some(visible) })),
+})
+----
+
+The host owns the viewport, so the host names the rows to build: those the
+viewport shows and one viewport's worth either side of them. Only those rows are
+rendered, lowered, and mounted. When scrolling brings the viewport within half a
+viewport of the edge of the mounted rows, the platform renders the list again
+for the new range. The list is its own render boundary: that render calls the
+`render_row` of the owner's most recent render and lowers the list alone,
+without rendering its owner. A row the viewport reaches before the list has
+been rendered for it holds its place, blank, for the frames in between.
+
+The boundary is transparent. An action raised by a row, or by `on_range`,
+belongs to the list's owner exactly as if the rows had been built there, and a
+task it starts is owned by that owner too. A row may contain translations,
+buttons, editors, and nested lists like any other element.
+
+`row_key : U64 -> U64`:: The stable identity of the row at an index; it
+defaults to the index. Keys are unique among the rows mounted together. A key
+drawn from the data keeps a row's native state — a pending press, focus, an
+editor — with its data when rows are inserted above it.
+`scroll_to : [None, Some(Gui.ScrollRequest)]`:: Bring a row into view from
+state. A `Gui.ScrollRequest` is `{ row, align, serial }`, and `align` is a
+`Gui.RowAlign`: `Start`, `Center`, `End`, or `Nearest`, which moves the list the
+least distance and not at all when the row is already in view. The list moves
+once for each distinct `serial`. Holding a request in state across later
+renders leaves a person's own scrolling alone; jumping again, even to the same
+row, or restoring a remembered position takes a new serial. The rows around the
+requested one are built in the render that asks for them, so a jump lands on
+built rows without building any row in between.
+`on_range : [None, Some((a, Gui.Event.VisibleRows => Gui.Action(a)))]`:: Receive
+`{ start, end }`, the half-open range of rows the viewport intersects, whenever
+it changes. This is the hook for paging: an application that holds only part of
+its data reads the rest as the viewport approaches it. An action that changes
+nothing still lets a pending rebuild of the list happen.
+
+Visible rows are a fact about a presented frame, so `on_range` is delivered by
+GPUI frames alone. Without a window, the semantic runner takes the viewport to
+be as tall as the window the application asked for: a list mounts the rows such
+a viewport shows and one viewport below them, and a scroll request moves that
+viewport by the same arithmetic the window uses.
+
+[[keyboard]]
+=== Keyboard shortcuts and focus
+
+A shortcut is a key chord and a handler, declared by the element it belongs
+to rather than registered with the window:
+
+`elem.shortcuts([{ keys, on_press }, ...])`:: Answer each chord anywhere in the
+window while `elem` is mounted and presented.
+`elem.focus_shortcuts([{ keys, on_press }, ...])`:: Answer each chord only
+while keyboard focus is inside `elem`.
+`elem.request_focus(serial)`:: Move keyboard focus to the first enabled
+control inside `elem` once for each distinct `serial`. Holding a serial across
+renders leaves focus wherever a person has since moved it; a new serial moves
+it again, and 0 asks for nothing.
+
+`keys` names modifiers and a key joined by `-`: `ctrl-k`, `shift-down`, `f2`,
+`[`. `secondary` is Ctrl on Linux and Windows and Cmd on macOS. The handler
+receives an `Event.Key` whose `keys` is the chord in the host's canonical
+spelling, modifiers in a fixed order, whatever spelling was declared.
+
+[source,roc]
+----
+navigation = [
+    { keys: "down", on_press: |state, _| Gui.Action.update(select_next(state)) },
+    { keys: "up", on_press: |state, _| Gui.Action.update(select_previous(state)) },
+]
+
+Gui.col({ width: Fill }, rows).shortcuts(navigation)
+----
+
+A keystroke reaches at most one shortcut. The host's own keys come first:
+Tab and Shift+Tab move focus, Escape dismisses, a focused button takes Enter
+and Space, a focused checkbox Space, and a focused text field its editing keys
+and every character it types. Declaring Tab, Shift+Tab, Escape, or the App
+access chord is refused, because none of them could ever arrive. Otherwise the
+elements enclosing the focused control are asked first, innermost first, with
+both their window and focus shortcuts; then every other presented element's
+window shortcuts, where the element later in the window's order wins a chord
+two declare. While a dialog is open only the shortcuts declared inside it are
+live. A shortcut's handler runs like any other handler, as a `key` cycle,
+owned by the component that declared it.
+
+Shortcuts and focus requests are carried by the element they are declared on:
+an element that is not a popover is wrapped in a region that takes its share of
+the parent's layout and presents nothing, and a popover or tooltip takes them
+itself. Always wrap the same element the same way, so that the region, and
+the controls inside it, keep their identity across renders.
+
 === Modifiers
 
 A property record is how an element is written. The code that builds an
@@ -363,7 +673,8 @@ field, together with `label`. Control-specific fields such as `enabled`,
 `placeholder`, `read_only`, `axis`, `row_gap`, `fit`, `grayscale`, and `heading`
 follow the same rule, as do the handlers `on_press`, `on_hover_enter`,
 `on_hover_exit`, `on_check`, `on_change`, `on_submit`, `on_input`,
-`on_dismiss`, and `on_pointer`. A modifier that does not apply to an element
+`on_dismiss`, and `on_pointer`, and the keyboard's `shortcuts`,
+`focus_shortcuts`, and `request_focus`. A modifier that does not apply to an element
 leaves it unchanged. A typographic modifier on `Gui.text` styles that string,
 and a modifier on a translated component applies to the root that component
 renders.
@@ -433,7 +744,7 @@ Gui.translate_with(
 ----
 
 The required configuration fields are `key`, `get`, and `set`.
-`on_delegate : parent -> Gui.Action(parent)` defaults to `Gui.update`.
+`on_delegate : parent -> Gui.Action(parent)` defaults to `Gui.Action.update`.
 `memo` defaults to `None`; `Some(|prev_state, curr_state| prev_state == curr_state)` opts into
 comparison of child inputs.
 
@@ -494,7 +805,7 @@ Sometimes a child change also affects its parent: a counter may contribute to
 a page total, or a review decision may need approval from the queue. Choose
 delegation when the parent must participate in the change.
 
-`Gui.update(next_child)` commits through the adapters and renders only its
+`Gui.Action.update(next_child)` commits through the adapters and renders only its
 originating boundary. Parent and sibling renderers and comparators are not
 visited. A parent summary responds through explicit delegation or composition
 inside the same render boundary; reading child state does not establish a
@@ -504,14 +815,14 @@ tracked dependency.
 boundary, lifetime, or memoization. It does not consume delegation. Its
 non-fallible adapters must remain valid for the existing owner's lifetime.
 
-`Gui.delegate(next_child)` constructs a candidate parent through the nearest
+`Gui.Action.delegate(next_child)` constructs a candidate parent through the nearest
 translation, then calls `on_delegate(candidate)`. That handler may:
 
-* return `Gui.update(candidate)` to accept;
+* return `Gui.Action.update(candidate)` to accept;
 * return an update with revised parent data;
-* return `Gui.none` to veto the entire candidate;
-* return `Gui.task` to start parent-owned work; or
-* return `Gui.delegate` to continue to the next parent policy.
+* return `Gui.Action.none` to veto the entire candidate;
+* return `Gui.Action.task` to start parent-owned work; or
+* return `Gui.Action.delegate` to continue to the next parent policy.
 
 Delegation reaching the root becomes a root update. Handlers receive current
 state. Veto commits none of the candidate, including its child changes.
@@ -568,7 +879,7 @@ for keyed resource-bearing panes.
 selection.
 The selected project grants read authority, while cancellation is a normal
 `Canceled` result and denial is `PickDirectoryErr(AccessDenied)`. The returned
-`Gui.FilesDirRead` is an opaque, reference-counted handle: it may be stored in
+`Gui.Files.Dir.Read` is an opaque, reference-counted handle: it may be stored in
 state or captured by tasks, but applications cannot forge it or recover an
 ambient path. Internally it uses the platform-wide typed `Resource.Handle`
 representation, leaving the same ABI shape available to future resource APIs.
@@ -590,7 +901,8 @@ provisioned development grant never prompts and is not affected by that
 cooldown.
 
 Every root grant records whether its source was trusted chooser selection or
-development provisioning and has session lifetime. Derived child handles carry
+development provisioning, and has session lifetime until the application
+remembers it. Derived child handles carry
 their immediate parent and inherited source. This metadata is host-private; no
 path or grant identity enters captures. `--host-cap-dir` remains development
 and automation provisioning and never represents consent.
@@ -602,13 +914,53 @@ directory without following the final symlink; names containing traversal or
 multiple path components are rejected. `directory.read!(name)` reads
 one direct ordinary file as a bounded `List(U8)` without following links. The
 64 MiB bound returns `ResourceLimit` instead of constructing an unbounded
-application value. Run filesystem operations inside `Gui.task`, as
+application value. `directory.sha256!(name)` answers the SHA-256 digest of one
+direct ordinary file as 64 lowercase hexadecimal digits. The host streams the
+file in fixed chunks without following links, so none of its bytes becomes an
+application value; a file over 1 GiB answers `ResourceLimit`, and every other
+failure is the same `ReadFileErr` a read of that file would give. An
+application compares a file with a recorded identity this way, such as a
+specification with the `spec_hash` of its capture, without reading it. The
+host counts files hashed, hashes refused, and bytes hashed, which
+`expect-hash-counters` asserts; no name, path, or digest is evidence. Run filesystem operations inside `Gui.Action.task`, as
 `examples/folder-browser/main.roc` shows.
 
-Filesystem failures use the `Gui.FilesFileErr` tag union. Its
-`ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, and
-`ReadFileErr` tags identify the failed operation directly; each carries a
-portable `Gui.FilesReason` value.
+== Single-file capabilities
+
+`access.pick_file!(types)` asks the person for one file in the same trusted
+surface Open Project uses, and grants read authority for exactly that file.
+Each `Gui.Files.FileType` is a `label`, a list of `extensions` written without
+a leading dot, and a list of `mime_types`; an empty list offers every file. On
+Linux Wayland the XDG Desktop Portal is asked for one file with one filter per
+type. On macOS the window's native panel is asked for one file. Whatever
+presented the choice, the host then checks the chosen name against every
+offered extension and answers `PickFileErr(Unsupported)` for any other file, so
+the filter is a guarantee rather than advice. A type offered only by MIME type
+is left to the chooser, because the host does not sniff content. An extension
+that is a pattern rather than a name, or a type that offers nothing, is
+`PickFileErr(InvalidName)`.
+
+Cancellation is `Ok(Canceled)`, and the chooser follows the same one-at-a-time
+rule and refusal cooldown as Open Project. A chosen file is
+`Chosen({ name, file })`, where `file` is an opaque, reference-counted
+`Gui.Files.File.Read`. It names the file and not its folder, so it reveals no
+sibling and takes no name from the application. `file.read!()` reads the whole
+file under the same 64 MiB bound and without following a link, `file.sha256!()`
+hashes it as `directory.sha256!(name)` hashes a child, and
+`Gui.Sqlite.open_file_read!(file)` opens it in place as a read-only database.
+
+The grant is recorded as a `document` root with `read` and `derive`, with its
+origin and its lifetime, and a database opened from it is derived from it.
+Withdrawing the file withdraws the database, even after the application has
+released the file handle and kept only the connection. `--host-cap-file PATH`
+provisions the file the chooser answers with, and `--host-cap-file-canceled`
+answers it with a cancellation; both are development and automation
+provisioning and never represent consent.
+
+Filesystem failures use the `Gui.Files.FileErr` tag union. Its
+`ListDirectoryErr`, `OpenReadDirectoryErr`, `PickDirectoryErr`, `PickFileErr`,
+`ReadFileErr`, and `WatchDirectoryErr` tags identify the failed operation directly; each carries a
+portable `Gui.Files.Reason` value.
 
 `Revoked` is distinct from an invalid handle. Each directory operation resolves
 the opaque handle and its immutable root lineage while holding the broker
@@ -627,6 +979,125 @@ Retain a root-to-current list of directory handles to implement Back and
 clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
+
+== Dropped files
+
+A file a person drags onto the window and drops on a `Gui.drop_target` is
+granted exactly as a file chosen with `access.pick_file!` is: one
+`Gui.Files.File.Read` that reads that file and nothing beside it. The drop is the
+choice, made in a gesture the operating system's drag-and-drop delivers rather
+than the application, so no further question is asked. The host admits each
+dropped item against the target's `types` with the check a chosen file passes
+— an ordinary file, resolved so the handle never follows a link, whose name
+carries an accepted extension — and grants only what passes. Grants are made
+as the target's route asks for them, so a drop that reaches no live route
+grants nothing.
+
+Each granted file is a `document` root whose origin is `drop`, recorded apart
+from a chooser's `trusted-selection` so evidence says which it was, and with
+the same consent-only enforcement. It is listed, withdrawn, and described
+exactly as a chosen file is. The document owner counts drops delivered, files
+they granted, and items they refused, which `expect-drop-counters` asserts; no
+name or path is evidence.
+
+== Recent files and folders
+
+An application may remember a file or folder a person gave it, so a later run
+can reopen it without asking again. `access.remember_file!(file)` and
+`access.remember_directory!(directory)` remember a root the person chose,
+dropped, or was provisioned; a handle derived from another, such as a
+subfolder, names no place a person chose and answers `Err(Unsupported)`, and
+a withdrawn one `Err(Revoked)`. Remembering takes the application's `Access`,
+not only the handle, so a library handed a file can read it but cannot keep
+it. The grant and everything derived from it are then recorded with a
+`remembered` lifetime.
+
+`access.recent!()` lists what was remembered, most recent first, as
+`Gui.Files.Recent` entries `{ key, name, kind, status }`. The host keeps the
+list, outside the application's own storage and outside every capture; the
+application sees an entry's `key`, which stays the same across restarts, its
+`name`, whether it is a `File` or a `Directory`, and whether it can be
+reopened now. No path is ever part of an entry. The list holds at most 128
+entries; remembering an entry again moves it first, and one more than the
+bound forgets the oldest.
+
+The host checks every entry against what is at its place as it lists it, and
+again before it reopens one. `status` is `Available`, or `Unavailable(reason)`
+with a `Gui.Files.Unavailable`: `Missing` when nothing is at its place,
+`Replaced` when something else is — another file renamed over it, or a folder
+where a file was — `AccessDenied` when the application may no longer read it,
+and `Unreadable` for any other failure. A replaced file has the remembered
+name and is still refused, because it is not the file the person chose.
+
+`access.reopen_file!(key)` and `access.reopen_directory!(key)` grant what an
+entry names again, as a new root with its original origin and a `remembered`
+lifetime, or answer why not; an entry that is not in the list is `Forgotten`,
+and one of the other kind is `Unsupported`. `access.forget_recent!(key)`
+removes an entry; the grants it produced this session are not withdrawn.
+Withdrawing a remembered grant in the trusted App access surface forgets its
+entry too, and the surface lists every remembered entry with a control that
+forgets it, so a person can forget without the application's help.
+
+Listing checks each entry, so it is bounded work rather than free: an
+application reads it where blocking briefly is acceptable, such as its
+`on_open`, or in a task. The recent-list owner counts grants remembered,
+entries reopened, reopens and remembers refused, entries forgotten, and the
+entries it holds, which `expect-recent-counters` asserts.
+
+An interactive run keeps the list in the user's state folder, beneath
+`roc-gui` and the application's name. `--host-recent PATH`,
+`--host-recent-each DIR EXT`, and `--host-recent-copied NAME` provision a list for
+the run instead, most recent first, recorded as provisioned; a provisioned
+list is never written back. A specification or smoke run without them starts
+with an empty list of its own.
+
+== Watching granted files
+
+`directory.watch!()` subscribes to changes of a granted directory's direct
+children, and `database.watch!()` to changes of an open database: its file and
+its write-ahead log. Both return an opaque `Gui.Files.Watch` with the pull
+contract of a timer. `watch.next!()` waits for the next change and belongs
+inside `Gui.Action.task`; exactly one wait may be outstanding, and the next is started
+only after the previous completion has been applied.
+
+A wait answers a `Gui.Files.Change`. `Changed({ names, replaced, overflowed })`
+names what changed since the previous wait returned, each name once: the
+children of a watched directory that were created, removed, renamed, or
+written, or a watched database's own name when a writer committed to it or it
+was replaced. `replaced` is set when a name may now refer to a different file,
+because a file was renamed over it or it was removed or created; an open
+database still reads the file it opened, so a replaced database is read by
+opening it again. Nothing beneath a child directory is reported.
+
+Changes are coalesced rather than queued. However fast a file is written, a
+watch holds only the set of names that changed, at most 256; beyond that, or
+when the operating system's own queue overflowed, `overflowed` is set and
+`names` is incomplete, so reread everything the watch covers. A wait returns
+once writing has paused for 10 milliseconds, or 100 milliseconds after the
+first change it reports, so a reader woken by a commit reads that commit and a
+writer that never pauses is still reported. A database reader opening the log
+and index SQLite keeps beside a database is not a change to it.
+
+A watch is derived from the grant it watches and recorded as a `watch` grant
+beneath it. Withdrawing that grant ends the watch with `Revoked`, and releasing
+the directory or database it watches ends it with `Canceled`, as does
+`watch.cancel!()`, which is idempotent, and dropping the last handle. `Gone`
+ends a watch whose directory was itself removed or moved away. Every later
+wait of an ended watch answers the same. A process holds at most 64 watches;
+starting another, or exceeding the operating system's limit, is
+`WatchDirectoryErr(ResourceLimit)` or `WatchDatabaseErr(ResourceLimit(_))`.
+
+[source,roc]
+----
+wait = |state, watch| Gui.Action.task({
+    pending: state,
+    run: || watch.next!(),
+    resolve: |latest, change| match change {
+        Changed(changes) => reread(latest, changes)
+        _ => Gui.Action.update({ ..latest, watching: None })
+    },
+})
+----
 
 == Encoded image data
 
@@ -681,22 +1152,22 @@ checkout wants.
 this application. The application names no path here, so an asset store is
 never a route to a directory the host did not hand it.
 
-`access.assets!(config)` returns an opaque `Gui.AssetsStore`; `store.read!(path)`
+`access.assets!(config)` returns an opaque `Gui.Assets.Store`; `store.read!(path)`
 returns the bytes of one asset beneath it. Both touch the disk, so both belong
-inside `Gui.task`, which runs them on the bounded worker pool and resolves on
+inside `Gui.Action.task`, which runs them on the bounded worker pool and resolves on
 the UI thread:
 
 [source,roc]
 ----
-Gui.task({
+Gui.Action.task({
     pending: { ..state, banner: Loading },
     run: || {
         store = state.access.assets!(Gui.Assets.beside_executable("assets"))?
         store.read!("banners/hero.png")
     },
     resolve: |latest, result| match result {
-        Ok(bytes) => Gui.update({ ..latest, banner: Loaded(bytes) })
-        Err(_) => Gui.update({ ..latest, banner: Failed })
+        Ok(bytes) => Gui.Action.update({ ..latest, banner: Loaded(bytes) })
+        Err(_) => Gui.Action.update({ ..latest, banner: Failed })
     },
 })
 ----
@@ -760,9 +1231,9 @@ variables, or command lines to the host.
 
 `Grant.spawn!` creates a real pseudo-terminal with an explicitly bounded row
 and column size. `read!`, `write!`, `resize!`, and
-`cancel!` are methods on its typed `Gui.ProcessPty` handle. Reads and writes are
+`cancel!` are methods on its typed `Gui.Process.Pty` handle. Reads and writes are
 capped at 65,536 bytes per call, one read may wait on a PTY, and cancellation
-wakes that wait. Blocking operations belong in `Gui.task`, whose completion
+wakes that wait. Blocking operations belong in `Gui.Action.task`, whose completion
 is reconciled with the latest state on the ordinary event route.
 
 Failures carry their operation in the tag, such as
@@ -782,7 +1253,7 @@ Connections are typed `Box(U64)` resources. `connection.transact!` exchanges one
 bounded byte request and response; device-specific framing and values belong in
 an application or protocol package rather than the platform. Physical HID and
 deterministic virtual transports enter this same operation. Blocking discovery,
-connection, and transactions run through `Gui.task`.
+connection, and transactions run through `Gui.Action.task`.
 
 Failures retain their operation in tags such as
 `DiscoverDeviceErr(NotFound)` and `TransactDeviceErr(Protocol)`. Connection and
@@ -811,16 +1282,16 @@ environment, hostname, and machine identity do not.
 
 `access.app_data!()` acquires the application's private read-write directory
 granted by `--host-cap-app-data PATH`. The result is an opaque typed
-`Gui.FilesDirReadWrite` handle; applications cannot recover the host path.
+`Gui.Files.Dir.ReadWrite` handle; applications cannot recover the host path.
 
 `directory.read_utf8!(name)` distinguishes `Missing` from
 `Value(Str)`. `directory.write_utf8_atomic!(name, value)`
 synchronises a private temporary file before replacing the direct child in the
 same directory. Names are flat ASCII identifiers of at most 128 bytes, values
-are UTF-8 of at most one MiB, and the ordinary operation-tagged `Gui.FilesFileErr`
+are UTF-8 of at most one MiB, and the ordinary operation-tagged `Gui.Files.FileErr`
 surface reports acquisition, read, and write failures.
 
-Run these blocking operations inside `Gui.task`, with a monotonic request
+Run these blocking operations inside `Gui.Action.task`, with a monotonic request
 identity when an edit can supersede pending work. The Settings Center uses this
 route and retains a newer draft when an older load completes.
 
@@ -832,14 +1303,14 @@ Playing sound through the shared system mixer is an automatically provisioned
 service with no prompt, and the handle lasts for the session; exclusive access
 or unusual routing would be separate scope. Acquisition fails when the machine
 has no usable output device. `Gui.Audio.load!(output, directory, name)` loads
-one direct file through an existing `Gui.FilesDirRead` grant; names with traversal
+one direct file through an existing `Gui.Files.Dir.Read` grant; names with traversal
 or multiple components are rejected and encoded input is bounded to 64 MiB.
 The host delegates media decoding and playback to Rodio and Symphonia.
 
-`Gui.AudioTrack` is an opaque host resource. `Gui.Audio.play!`, `Gui.Audio.pause!`,
+`Gui.Audio.Track` is an opaque host resource. `Gui.Audio.play!`, `Gui.Audio.pause!`,
 `Gui.Audio.seek!`, `Gui.Audio.status!`, and `Gui.Audio.stop!` are bounded operations intended
-for `Gui.task`. Status reports the decoder-owned duration, playback position,
-and `Playing`, `Paused`, or `Stopped` state. `Gui.AudioAudioErr` identifies
+for `Gui.Action.task`. Status reports the decoder-owned duration, playback position,
+and `Playing`, `Paused`, or `Stopped` state. `Gui.Audio.AudioErr` identifies
 the failed operation and carries a portable reason such as `DecodeFailed`,
 `OutputUnavailable`, or `InvalidCapability`.
 
@@ -850,7 +1321,7 @@ it changes only the final device sink.
 == Clipboard capabilities
 
 `access.clipboard!()` acquires text clipboard authority only when the host
-was launched with `--host-cap-clipboard`. Its opaque `Gui.ClipboardHandle` uses
+was launched with `--host-cap-clipboard`. Its opaque `Gui.Clipboard.Handle` uses
 the common typed `Box(U64)` representation and cannot be manufactured or
 confused with another resource family.
 
@@ -858,10 +1329,10 @@ confused with another resource family.
 monotonic sequence. Applications compare sequences to suppress stale reads and
 deduplicate repeated content. `handle.write_text!(text)` schedules
 replacement on GPUI's owning UI context. Both directions reject values larger
-than 64 KiB. `Gui.ClipboardClipboardErr` identifies acquisition, reading, and
+than 64 KiB. `Gui.Clipboard.ClipboardErr` identifies acquisition, reading, and
 writing with distinct operation tags carrying a portable reason.
 
-Observe changes with one pull-based `Gui.Timer` subscription inside `Gui.task`.
+Observe changes with one pull-based `Gui.Timer` subscription inside `Gui.Action.task`.
 Pause by cancelling that timer; sensitive values are discarded before they
 enter state. Clipboard content is application data and never enters host
 diagnostics or observatory captures.
@@ -869,7 +1340,7 @@ diagnostics or observatory captures.
 == HTTP requests
 
 Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
-values. `access.http!()` returns an opaque `Gui.HttpClient` only when the host
+values. `access.http!()` returns an opaque `Gui.Http.Client` only when the host
 was launched with `--host-cap-http-origin ORIGIN`. The grant names one exact
 scheme, host, and effective port; requests and redirects cannot leave it.
 Acquire failures are `AcquireHttpErr(reason)` and exchange failures are
@@ -883,12 +1354,12 @@ Literal loopback or private addresses remain usable only when named explicitly
 by the provisioned origin.
 
 `client.send!(config, request)` performs one bounded exchange and returns
-the package's canonical `Response`. Call it from `Gui.task` so connection,
+the package's canonical `Response`. Call it from `Gui.Action.task` so connection,
 TLS, and response work runs on the native worker pool and its reducer returns
 through the ordinary UI-thread completion dispatcher.
 
 Requests and config make policy explicit: method, URI, headers, body, timeout,
-`max_response_bytes`, and `max_redirects`. `Gui.HttpConfig` carries a default for
+`max_response_bytes`, and `max_redirects`. `Gui.Http.Config` carries a default for
 each limit -- a 30 second timeout, a 1 MiB response, and three redirects -- so
 `{ timeout_ms: 2_000 }` states only the limit it moves. URLs must
 use `http` or `https`.
@@ -901,7 +1372,7 @@ capabilities, unsupported schemes, connection and timeout failures, and
 redirect and body limits.
 
 Give each submitted request a monotonically increasing identity. In the task
-resolver, compare that identity with the latest state and return `Gui.none`
+resolver, compare that identity with the latest state and return `Gui.Action.none`
 for an obsolete result. This prevents a slow earlier response from replacing a
 newer response without creating a second completion route.
 
@@ -909,24 +1380,66 @@ newer response without creating a second completion route.
 
 `Gui.Sqlite.open_read!(directory, name)` opens one direct ordinary child of a
 granted directory as a read-only database capability. The operation rejects
-path traversal and symlinks and never exposes an ambient path. Database bytes
-are bounded to 64 MiB and the returned `Gui.SqliteDb` is an opaque, reference-
-counted `Box(U64)` handle whose final release closes the native connection.
+path traversal and symlinks and never exposes an ambient path. The database is
+read in place, so its size is not bounded by memory, and the file SQLite opens
+is checked to be the one the directory grant names. The returned
+`Gui.Sqlite.Db` is an opaque, reference-counted `Box(U64)` handle whose final
+release closes the native connection. The connection is derived from the
+directory grant, so withdrawing the folder withdraws the database with it.
+`Gui.Sqlite.open_file_read!(file)` opens a granted file the same way, derived
+from the file grant.
+
+The connection is read-only and cannot attach another database. It is not
+opened as immutable: a database in write-ahead-log mode is read through its log,
+so every query sees the writes another process has committed, including a
+writer that is still running. SQLite keeps a write-ahead-logged database's
+shared index files beside it; the database file itself is never written.
+An open database never stops another program deleting it or moving another
+file over its name, on any operating system; a watch of the database reports
+the replacement.
 
 `database.query!(sql)` prepares and executes one read-only statement.
+`database.query_with!(sql, params)` binds a `List(Gui.Sqlite.Value)` to the
+statement's `?` placeholders in order. Values are bound, never spliced into the
+statement text, and the number of values must match the placeholders.
 Results preserve SQLite's `Null`, `Integer`, `Real`, `String`, and `Bytes`
-value kinds. Queries are bounded to 64 KiB of SQL, 256 columns, 10,000 rows,
-and 16 MiB of returned text and blob bytes. Limit violations and invalid,
+value kinds. Queries are bounded to 64 KiB of SQL, 256 columns, 256
+parameters, 10,000 rows, and 16 MiB of returned text and blob bytes; the same
+16 MiB bounds the bytes of the parameters. Limit violations and invalid,
 corrupt, busy, inaccessible, or non-database resources are typed errors.
-Failures use `OpenDatabaseErr(reason)` and `QueryDatabaseErr(reason)`, so callers
+Failures use `OpenDatabaseErr(reason)`, `QueryDatabaseErr(reason)`, and
+`WatchDatabaseErr(reason)`, so callers
 can distinguish the failed operation before matching the portable reason.
 Every reason retains SQLite's bounded diagnostic string; `Gui.Sqlite.detail`
 extracts it for user-facing status without flattening the public error type.
 
+A result longer than the row limit is read in pages.
+`database.page!({ sql, params, rows })` returns a `Gui.Sqlite.Page` holding at
+most `rows` rows, from one to the row limit, and `more`, which is `True`
+when the result continues past the page. The next page is a further call whose
+parameters carry the position: a keyset such as `WHERE id > ? ORDER BY id`
+bound to the last key seen, or `LIMIT -1 OFFSET ?` bound to the rows already
+read. A keyset page costs the same at any depth; an offset page costs more the
+deeper it lies. Each page is one statement, so no read transaction is held
+between pages and a writer is never blocked by a reader turning pages.
+
+[source,roc]
+----
+next = database.page!({
+    sql: "SELECT id, title FROM books WHERE id > ? ORDER BY id",
+    params: [Integer(last_id)],
+    rows: 1000,
+})
+----
+
 Open and query calls are blocking capability operations. Run them inside
-`Gui.task`, retain the last successful view while work is pending, and use a
+`Gui.Action.task`, retain the last successful view while work is pending, and use a
 monotonic request identity in the resolver so an older completion cannot
 replace a newer result. `examples/database-browser` demonstrates this pattern.
+
+`database.watch!()` reports each commit a writer makes to the database, and its
+replacement, as the watching section describes. `examples/observatory` watches
+a capture while its recorder is still writing it.
 
 == TCP endpoint capabilities
 
@@ -941,7 +1454,7 @@ one-MiB requested maximum; an empty list means orderly end of stream.
 `stream.write_all!(bytes)` writes the complete value or fails and
 accepts at most 16 MiB. `stream.close!()` is idempotent. Connections,
 reads, and writes have finite native timeouts, and failures use the
-operation-tagged `Gui.TcpTcpErr` union: `ConnectTcpErr`, `ReadTcpErr`,
+operation-tagged `Gui.Tcp.TcpErr` union: `ConnectTcpErr`, `ReadTcpErr`,
 `WriteTcpErr`, or `CloseTcpErr` wraps a portable reason.
 
 The numeric endpoint has no DNS resolution or ambient destination selection.
@@ -949,7 +1462,7 @@ The command-line grant provisions development and automation authority; a
 user-facing client obtains trusted connection authority through a named,
 revocable destination broker rather than treating that flag as user consent.
 
-TCP operations block and belong inside `Gui.task`. Protocol packages build
+TCP operations block and belong inside `Gui.Action.task`. Protocol packages build
 on the byte transport rather than being reimplemented by the platform. The
 Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
 command encoding, bounded RESP2 decoding, typed commands, and exchange policy
@@ -958,7 +1471,8 @@ remain the responsibility of the established platform-independent package.
 == Retained canvas
 
 `Gui.canvas` paints an ordered list of keyed primitives in native GPUI, built
-with `Gui.rectangle({ ... })`, `Gui.ellipse({ ... })`, and `Gui.line({ ... })`. A canvas and every primitive have stable
+with `Gui.rectangle({ ... })`, `Gui.ellipse({ ... })`, `Gui.line({ ... })`, and
+`Gui.canvas_text({ ... })`. A canvas and every primitive have stable
 semantic labels. Primitive keys are non-zero and unique within the canvas;
 they preserve direct-manipulation identity independently of list position.
 
@@ -966,3 +1480,75 @@ The controlled `on_pointer` handler receives `Begin`, `Move`, and `End` in
 integer canvas coordinates. The topmost hit-tested primitive is captured on
 `Begin`, and that same optional target key accompanies the complete gesture,
 including when a state update replaces the canvas subtree.
+
+A text primitive sets one line of `value` in the canvas's inherited font, at
+`size` logical pixels and in `color`, within the box from `x` to `x + width`
+with its top at `y`. `align` places it at the box's `Start`, `Center`, or
+`End`. Its semantic rectangle is that box, one line tall: `size` and a quarter
+again. Text labels the shapes beneath it and is never a pointer target, so a
+caption drawn over a bar leaves the bar as the target.
+
+`on_hover` receives pointer movement with no button pressed. `Move` carries the
+point and the topmost keyed primitive under it, and is delivered once for each
+new point; `Leave` is delivered once when the pointer leaves the canvas, with
+the last point delivered. A pressed pointer is always an `on_pointer` gesture,
+so hovering never interrupts a drag. `on_wheel` receives wheel and trackpad
+scrolling as `dx` and `dy` logical pixels, positive towards the content's end,
+with the pointer's point and target; a wheel that reports lines is converted at
+the window's line height. A canvas that handles the wheel consumes it, so an
+enclosing scroll region does not also move. Both handlers are optional. A
+canvas without one is not listened to for it, and moving the pointer across it
+records nothing.
+
+Each delivered hover records one `hover` cycle and each wheel scroll one
+`wheel` cycle, through the same recorded dispatch as a `drag` phase, whether a
+person or a specification moves the pointer.
+
+=== A canvas drawn for its size
+
+A canvas is laid out like any other element: its `width` and `height` are
+lengths, and `Fill` with `grow` lets it take the space its container gives it.
+Its primitives are placed in integer logical pixels and are not scaled, so a
+canvas that fills a column learns the column's width through `on_size` and is
+drawn for it:
+
+[source,roc]
+----
+Gui.canvas({
+    label: "CPU history plot",
+    primitives: bars(state.history, state.plot_width),
+    on_pointer: |_, _| Gui.Action.none,
+    on_size: Some(|current, laid_out| if laid_out.width == current.plot_width Gui.Action.none else Gui.Action.update({ ..current, plot_width: laid_out.width })),
+    width: Fill,
+    grow: True,
+    height: Px(112),
+    min_width: Px(240),
+})
+----
+
+`on_size : [None, Some((a, Gui.Event.CanvasSize => Gui.Action(a)))]`:: Receive
+`{ width, height }`, the size in logical pixels of the surface the primitives
+are drawn on, inside any border. A size is a fact about a drawn frame, so it is
+delivered after the frame that lays the canvas out at a size it has not yet
+reported, once for each size. A later frame at the same size delivers nothing;
+nor does a render that rebuilds the canvas under the same identity, which keeps
+the size already reported. A canvas mounted again, under a new lifetime, hears
+its size again. Without a handler the host reports nothing.
+
+Each delivered size records one `resize` cycle, whose target is the canvas.
+The handler draws for the size it hears; a handler that also changes the
+canvas's own dimensions must reach a size it keeps, or each frame would ask for
+another. A canvas that answers the width it was already drawn for with
+`Gui.Action.none` makes that turn change nothing.
+
+Only a canvas reports its size. Every other element lays its content out
+natively, so text wraps, rows share their width, and a scroll region clips
+without the application knowing the numbers; only a canvas's content is placed
+by the application in pixels of its own.
+
+Without a window, the semantic runner lays a canvas out at the one extent it
+knows, the window the application asked for: a fixed dimension is its own
+size, a flexible one is the window's, each within the canvas's fixed minimum
+and maximum, less its border. It delivers each presented canvas's size after
+every step, by the same rule, so a specification sees the application draw for
+the size a window of that size would give a canvas that fills it.

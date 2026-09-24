@@ -9,6 +9,9 @@ from pathlib import Path
 import platform
 import shutil
 import shlex
+import zipfile
+
+import nix_link_inputs
 import subprocess
 import tarfile
 import tempfile
@@ -21,9 +24,9 @@ from windows_runtime_validation import ucrt_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / 'dependencies/windows-gnu-runtime.json'
-BUILDER = ROOT / 'dependencies/windows-gnu-runtime/Dockerfile'
 REPRODUCTION = (
-    'dependencies/windows-gnu-runtime.json', 'dependencies/windows-gnu-runtime/Dockerfile',
+    'dependencies/windows-gnu-runtime.json', 'dependencies/windows-gnu-runtime/default.nix',
+    'Blueprint.lock', 'scripts/nix_link_inputs.py',
     'dependencies/windows-gnu-runtime/DISCLAIMER.PD', 'dependencies/windows-gnu-runtime/ucrt-inventory.json',
     'scripts/build_windows_gnu_runtime.py', 'scripts/windows_runtime_validation.py',
     'scripts/audit_windows_archive.py', 'scripts/build_glibc.py', 'scripts/dependency_archive.py',
@@ -52,45 +55,49 @@ def corresponding_source(distribution, recipe):
     return stream.getvalue()
 
 
-def inside(output, toolchain, image_id):
+def produce(output, toolchain, work, *, native=False):
     recipe_bytes = RECIPE.read_bytes()
     recipe = json.loads(recipe_bytes)
-    if sha256(toolchain) != recipe['toolchain']['sha256'] or toolchain.stat().st_size != recipe['toolchain']['size']:
+    pin = recipe['native_toolchain'] if native else recipe['toolchain']
+    if sha256(toolchain) != pin['sha256'] or toolchain.stat().st_size != pin['size']:
         raise ValueError('unverified Zig toolchain')
-    work = Path('/work')
-    with tarfile.open(toolchain) as archive:
-        archive.extractall(work / 'toolchain', filter='data')
-    distribution = work / 'toolchain' / recipe['toolchain']['directory']
-    zig = str(distribution / 'zig')
+    if native:
+        with zipfile.ZipFile(toolchain) as archive:
+            archive.extractall(work / 'toolchain')
+    else:
+        with tarfile.open(toolchain) as archive:
+            archive.extractall(work / 'toolchain', filter='data')
+    distribution = work / 'toolchain' / pin['directory']
+    zig = str(distribution / ('zig.exe' if native else 'zig'))
     if subprocess.check_output([zig, 'version'], text=True).strip() != recipe['zig_version']:
         raise ValueError('unexpected Zig version')
-    environment = dict(os.environ, ZIG_GLOBAL_CACHE_DIR='/work/global', ZIG_LOCAL_CACHE_DIR='/work/local')
+    environment = dict(os.environ, ZIG_GLOBAL_CACHE_DIR=str(work / 'global'), ZIG_LOCAL_CACHE_DIR=str(work / 'local'))
     for name in ('ZIG_LIB_DIR', 'ZIG_LIBC', 'CPATH', 'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'LIBRARY_PATH', 'LD_LIBRARY_PATH', 'LD_PRELOAD'):
         environment.pop(name, None)
     verified_header_search([zig, 'cc', *recipe['cc_args']], distribution,
-                          recipe['headers'], dict(environment, ZIG_GLOBAL_CACHE_DIR='/work/header-global', ZIG_LOCAL_CACHE_DIR='/work/header-local'), work)
+                          recipe['headers'], dict(environment, ZIG_GLOBAL_CACHE_DIR=str(work / 'header-global'), ZIG_LOCAL_CACHE_DIR=str(work / 'header-local')), work)
     seed = work / 'seed.cpp'
     seed.write_text('#include <stdexcept>\nint main() { try { throw 42; } catch (int n) { return n == 42 ? 0 : 1; } }\n')
-    bootstrap = subprocess.run([zig, 'c++', *recipe['cc_args'], str(seed), '-v', '-o', '/work/seed.exe'],
+    bootstrap = subprocess.run([zig, 'c++', *recipe['cc_args'], str(seed), '-v', '-o', str(work / 'seed.exe')],
                                cwd=work, env=environment, capture_output=True, text=True, timeout=600)
     if bootstrap.returncode:
         print(bootstrap.stdout + bootstrap.stderr)
         bootstrap.check_returncode()
-    links = [shlex.split(line) for line in (bootstrap.stdout + bootstrap.stderr).splitlines()
-             if line.startswith('lld-link ') and '-OUT:/work/seed.exe' in line]
+    links = [link_arguments(line) for line in (bootstrap.stdout + bootstrap.stderr).splitlines()
+             if line.startswith('lld-link ')]
     if len(links) != 1:
         raise ValueError('expected one explicit Zig bootstrap final-link command')
     link_inputs = {}
     for argument in links[0]:
-        path = (work / argument).resolve()
-        if path.name in recipe['files']:
-            if not path.is_relative_to(work / 'global/o') or not path.is_file() or path.name in link_inputs:
-                raise ValueError('unexpected bootstrap runtime input: ' + argument)
+        if Path(argument).name in recipe['files']:
+            path = runtime_input(work, argument)
+            if path.name in link_inputs:
+                raise ValueError('duplicate bootstrap runtime input: ' + argument)
             link_inputs[path.name] = path
     ubsan = work / 'ubsan_rt.lib'
     subprocess.run([zig, 'build-lib', str(distribution / 'lib/ubsan_rt.zig'),
                     '-target', 'x86_64-windows-gnu', '-mcpu=baseline', '-O', 'ReleaseSafe',
-                    '-fno-compiler-rt', '-fstrip', '-femit-bin=' + str(ubsan)], cwd=work, env=dict(environment, ZIG_GLOBAL_CACHE_DIR='/work/ubsan-global', ZIG_LOCAL_CACHE_DIR='/work/ubsan-local'), check=True, timeout=600)
+                    '-fno-compiler-rt', '-fstrip', '-femit-bin=' + str(ubsan)], cwd=work, env=dict(environment, ZIG_GLOBAL_CACHE_DIR=str(work / 'ubsan-global'), ZIG_LOCAL_CACHE_DIR=str(work / 'ubsan-local')), check=True, timeout=600)
     # Zig's standalone build-lib uses a random temporary archive member path.
     # Re-index its one complete implementation object under a stable filename.
     objects = [(name, body) for name, body in members(ubsan.read_bytes()) if name not in ('/', '//')]
@@ -121,9 +128,11 @@ def inside(output, toolchain, image_id):
     files['sources/windows-gnu-runtime/source.tar.xz'] = corresponding_source(distribution, recipe)
     for name in REPRODUCTION:
         files['sources/windows-gnu-runtime/' + name] = (ROOT / name).read_bytes()
+    build = ({'builder_kind': 'native-windows-zig', 'toolchain_sha256': pin['sha256']} if native
+             else nix_link_inputs.provenance('dependencies/windows-gnu-runtime/default.nix'))
     archive = write_archive(output / 'windows-gnu-runtime-x64mingw.tar', {
-        'schema_version': 1, 'name': recipe['name'], 'version': recipe['version'], 'target': recipe['target'],
-        'source': recipe, 'build': {'builder_image': image_id, 'builder_sha256': sha256(BUILDER),
+        'schema_version': 3 if native else 2, 'name': recipe['name'], 'version': recipe['version'], 'target': recipe['target'],
+        'source': recipe, 'build': {**build,
                                   'recipe_sha256': digest(recipe_bytes),
                                   'reproduction_sha256': {name: sha256(ROOT / name) for name in REPRODUCTION}}}, files)
     # The Windows job executes an independently extracted candidate before attestation.
@@ -132,32 +141,50 @@ def inside(output, toolchain, image_id):
     return archive
 
 
-def build(output, cache):
-    if (platform.system(), platform.machine()) != ('Linux', 'x86_64'):
-        raise ValueError('runtime producer requires Linux x86-64 and Docker')
-    recipe = json.loads(RECIPE.read_text())
-    toolchain = verified_toolchain(recipe['toolchain'], cache)
+def link_arguments(line):
+    # Zig's verbose COFF command preserves Windows backslashes. Its paths
+    # must be whitespace-free, just like the independent runtime probe.
+    return line.split() if os.name == 'nt' else shlex.split(line)
+
+
+def runtime_input(work, argument):
+    # Windows runner temporary directories can resolve through junctions.
+    # Compare both sides in the same canonical namespace, while continuing
+    # to reject inputs that escape the private compiler cache.
+    path = (work / argument).resolve()
+    if not path.is_relative_to((work / 'global/o').resolve()):
+        raise ValueError('bootstrap runtime input escapes private cache: ' + argument)
+    if not path.is_file():
+        raise ValueError('missing bootstrap runtime input: ' + argument)
+    return path
+
+
+def build(output, cache, *, rebuild=False):
+    if platform.system() == 'Linux' and platform.machine() == 'x86_64':
+        return nix_link_inputs.build('runtime', output, rebuild=rebuild,
+                                    recipe='dependencies/windows-gnu-runtime/default.nix',
+                                    filename='windows-gnu-runtime-x64mingw.tar')
+    if platform.system() != 'Windows' or platform.machine().lower() not in ('amd64', 'x86_64'):
+        raise ValueError('runtime producer requires Linux x86-64 with Nix or native Windows x86-64')
+    if rebuild:
+        raise ValueError('--rebuild is a Nix option; native builds always use fresh caches')
+    recipe = json.loads(RECIPE.read_bytes())
     destination = output / 'windows-gnu-runtime-x64mingw.tar'
     if destination.exists():
         raise FileExistsError(destination)
-    tag = 'roc-gui-windows-gnu-runtime:' + sha256(BUILDER)[:24]
-    subprocess.run(['docker', 'build', '--platform=linux/amd64', '--tag', tag, str(BUILDER.parent)], check=True, timeout=1800)
-    image_id = subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Id}}', tag], text=True).strip()
+    toolchain = verified_toolchain(recipe['native_toolchain'], cache)
     output.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=output, prefix='.runtime-') as temporary:
-        stage = Path(temporary)
-        subprocess.run([
-            'docker', 'run', '--platform=linux/amd64', '--rm', '--network=none', '--read-only',
-            '--cap-drop=ALL', '--security-opt=no-new-privileges', '--user', f'{os.getuid()}:{os.getgid()}',
-            '--tmpfs', '/work:exec,mode=1777', '--tmpfs', '/tmp:exec,mode=1777',
-            '--env', 'PYTHONDONTWRITEBYTECODE=1', '--workdir', '/work',
-            '--volume', str(ROOT / 'scripts') + ':/repo/scripts:ro',
-            '--volume', str(ROOT / 'dependencies') + ':/repo/dependencies:ro',
-            '--volume', str(ROOT / 'test/dependencies') + ':/repo/test/dependencies:ro',
-            '--volume', str(toolchain) + ':/source.tar.xz:ro', '--volume', str(stage) + ':/output',
-            image_id, 'python3', '/repo/scripts/build_windows_gnu_runtime.py', '--inside', '--image-id', image_id,
-            '--output', '/output'], check=True, timeout=1200)
-        os.link(stage / destination.name, destination)
+    with tempfile.TemporaryDirectory(prefix='roc-gui-runtime-') as temporary:
+        work = Path(temporary)
+        if any(c.isspace() for c in str(work)):
+            raise ValueError('set TEMP to a whitespace-free directory for Zig verbose-link diagnostics')
+        stage = work / 'output'
+        stage.mkdir()
+        archive = produce(stage, toolchain, work, native=True)
+        with tempfile.TemporaryDirectory(dir=output, prefix='.runtime-') as pending:
+            candidate = Path(pending) / destination.name
+            shutil.copyfile(archive, candidate)
+            os.link(candidate, destination)
     return destination
 
 
@@ -165,10 +192,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--cache', type=Path, default=Path.home() / '.cache/roc-gui/sources')
+    parser.add_argument('--rebuild', action='store_true')
     parser.add_argument('--inside', action='store_true', help=argparse.SUPPRESS)
-    parser.add_argument('--image-id', help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.inside:
-        inside(args.output, Path('/source.tar.xz'), args.image_id)
+        produce(args.output.resolve(), Path(os.environ['NIX_COMPONENT_SOURCE']), Path.cwd())
     else:
-        print(build(args.output.resolve(), args.cache.resolve()))
+        print(build(args.output.resolve(), args.cache.resolve(), rebuild=args.rebuild))

@@ -24,7 +24,7 @@ Terminal := [].{
 	render = render
 }
 
-Phase : [Idle, Live({ pty : Gui.ProcessPty, reading : Bool }), Starting, Stopped]
+Phase : [Idle, Live({ pty : Gui.Process.Pty, reading : Bool }), Starting, Stopped]
 
 ## A status line carries a tone as well as a sentence. Amber says the panel is
 ## attached to a child; red says an operation was refused or failed; dim says
@@ -87,16 +87,16 @@ append_bytes = |state, bytes| match Str.from_utf8(plain_text(bytes)) {
 	Ok(text) => { ..state, lines: state.lines.concat(Str.split_on(text, "\n")), status: "Session active", tone: Attached }
 }
 
-read_next = |state, pty, generation| Gui.task({
+read_next = |state, pty, generation| Gui.Action.task({
 	pending: { ..state, phase: Live({ pty, reading: True }) },
 	run: || pty.read!({ max_bytes: 65536 }),
 	resolve: |latest, result| if latest.generation != generation {
-		Gui.none
+		Gui.Action.none
 	} else {
 		match result {
-			Err(err) => Gui.update({ ..latest, phase: Stopped, status: err_message(err), tone: Refused })
-			Ok(Canceled) => Gui.update({ ..latest, phase: Stopped, status: "Session canceled", tone: Rest })
-			Ok(EndOfFile) => Gui.update({ ..latest, phase: Stopped, status: "Process exited", tone: Rest })
+			Err(err) => Gui.Action.update({ ..latest, phase: Stopped, status: err_message(err), tone: Refused })
+			Ok(Canceled) => Gui.Action.update({ ..latest, phase: Stopped, status: "Session canceled", tone: Rest })
+			Ok(EndOfFile) => Gui.Action.update({ ..latest, phase: Stopped, status: "Process exited", tone: Rest })
 			Ok(Data(bytes)) => read_next(append_bytes(latest, bytes), pty, generation)
 		}
 	},
@@ -105,7 +105,7 @@ read_next = |state, pty, generation| Gui.task({
 start : State -> Gui.Action(State)
 start = |state| {
 	next_generation = state.generation + 1
-	Gui.task({
+	Gui.Action.task({
 		pending: { ..state, generation: next_generation, lines: [], phase: Starting, status: "Starting session", tone: Attached },
 		run: || match state.access.process!() {
 			Err(err) => StartFailed(err)
@@ -115,10 +115,10 @@ start = |state| {
 			}
 		},
 		resolve: |latest, result| if latest.generation != next_generation {
-			Gui.none
+			Gui.Action.none
 		} else {
 			match result {
-				StartFailed(err) => Gui.update({ ..latest, phase: Idle, status: err_message(err), tone: Refused })
+				StartFailed(err) => Gui.Action.update({ ..latest, phase: Idle, status: err_message(err), tone: Refused })
 				Started(pty) => read_next({ ..latest, phase: Live({ pty, reading: False }), status: "Session active", tone: Attached }, pty, next_generation)
 			}
 		},
@@ -127,31 +127,31 @@ start = |state| {
 
 submit : State, Str -> Gui.Action(State)
 submit = |state, command| match state.phase {
-	Live(session) => Gui.task({
+	Live(session) => Gui.Action.task({
 		pending: { ..state, command: "", status: "Sending command", tone: Attached },
 		run: || session.pty.write!("${command}\n".to_utf8()),
 		resolve: |latest, result| match result {
-			Err(err) => Gui.update({ ..latest, status: err_message(err), tone: Refused })
-			Ok(_) => Gui.update({ ..latest, status: "Command sent", tone: Attached })
+			Err(err) => Gui.Action.update({ ..latest, status: err_message(err), tone: Refused })
+			Ok(_) => Gui.Action.update({ ..latest, status: "Command sent", tone: Attached })
 		},
 	})
-	_ => Gui.update({ ..state, status: "Start a session first", tone: Refused })
+	_ => Gui.Action.update({ ..state, status: "Start a session first", tone: Refused })
 }
 
 cancel : State -> Gui.Action(State)
 cancel = |state| match state.phase {
 	Live(session) => {
 		next_generation = state.generation + 1
-		Gui.task({
+		Gui.Action.task({
 			pending: { ..state, generation: next_generation, status: "Stopping session", tone: Attached },
 			run: || session.pty.cancel!(),
 			resolve: |latest, result| match result {
-				Err(err) => Gui.update({ ..latest, phase: Stopped, status: err_message(err), tone: Refused })
-				Ok(_) => Gui.update({ ..latest, phase: Stopped, status: "Session canceled", tone: Rest })
+				Err(err) => Gui.Action.update({ ..latest, phase: Stopped, status: err_message(err), tone: Refused })
+				Ok(_) => Gui.Action.update({ ..latest, phase: Stopped, status: "Session canceled", tone: Rest })
 			},
 		})
 	}
-	_ => Gui.update({ ..state, status: "No live session", tone: Refused })
+	_ => Gui.Action.update({ ..state, status: "No live session", tone: Refused })
 }
 
 ## One scrollback row holds exactly what the child wrote. An earlier version
@@ -283,7 +283,7 @@ render = |state| {
 					Gui.row({ label: "Session status", padding: 4, gap: 0, grow: True, justify: End, fg: status_fg, font_size: Theme.meta }, [Gui.text(state.status)]),
 				],
 			),
-			field_row("Command bar", gutter_mark(prompt_icon, "Command prompt"), Gui.text_input({ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Gui.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
+			field_row("Command bar", gutter_mark(prompt_icon, "Command prompt"), Gui.text_input({ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Gui.Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
 
 			## The command bar and the filter bar are not peers. One sends text to a
 			## child; the other only narrows what is already on screen. Making the
@@ -296,7 +296,7 @@ render = |state| {
 						{ label: "Filter bar", width: Fill, padding: Theme.inset, gap: Theme.inset, align: Center, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 						[
 							gutter_mark(search_icon, "Filter scrollback"),
-							Gui.text_input({ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Gui.update(set_query(current, event.value)), on_submit: |current, _| Gui.update(current), grow: True, width: Fill, height: Px(22), padding: 4, font_size: Theme.meta, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius }),
+							Gui.text_input({ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Gui.Action.update(set_query(current, event.value)), on_submit: |current, _| Gui.Action.update(current), grow: True, width: Fill, height: Px(22), padding: 4, font_size: Theme.meta, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius }),
 						],
 					),
 					if shown.len() == 0 {

@@ -1,6 +1,9 @@
 use crate::{
     SUBMIT_EVENT_BIT, await_task_completion,
-    bridge::{ApplyFacts, CanvasPrimitive, ControlKey, MountedGraph, NodeKind, Patch},
+    bridge::{
+        ApplyFacts, ButtonRole, CanvasPrimitive, CanvasPrimitiveKind, ControlKey, MountedGraph,
+        NodeKind, Patch,
+    },
     clear_bridge, complete, dispatch,
     observatory::{self, Cycle, StepResult},
     roc_platform_abi::roc_gui_init,
@@ -41,6 +44,78 @@ fn apply_transaction(graph: &mut MountedGraph, patch: Patch) -> Result<ApplyFact
     }
 }
 
+/// Report each presented canvas's size to an owner that handles it, as the
+/// window does after a drawn frame: once for each size, recorded by the
+/// mounted graph, each a `resize` cycle. The size is the one the semantic
+/// runner derives from the window the application asked for. A handler that
+/// keeps changing its own canvas's size is stopped rather than followed
+/// forever: a canvas hears at most a few sizes in one settling.
+fn settle_canvas_sizes(
+    graph: &mut MountedGraph,
+    run_id: i64,
+    cycle_ordinal: &mut u64,
+    step_ordinal: Option<usize>,
+    measurement_phase: &'static str,
+) -> Result<Vec<Cycle>, String> {
+    const MOST_SIZES: u32 = 8;
+    let mut cycles = Vec::new();
+    let mut heard = std::collections::HashMap::<crate::bridge::ElementIdentity, u32>::new();
+    loop {
+        let pending = graph
+            .presented_preorder()
+            .into_iter()
+            .filter_map(|node| match &node.kind {
+                NodeKind::Canvas {
+                    size: true, style, ..
+                } => {
+                    let size = crate::semantic_canvas_size(style);
+                    (graph.reported_canvas_size(node.id) != Some(size)).then_some((node.id, size))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if pending.is_empty() {
+            return Ok(cycles);
+        }
+        for (id, (width, height)) in pending {
+            // An earlier report may have rebuilt this canvas; the next pass
+            // finds it under its new id.
+            if !graph.report_canvas_size(id, (width, height)) {
+                continue;
+            }
+            let times = heard.entry(graph.identity(id)).or_default();
+            *times += 1;
+            if *times > MOST_SIZES {
+                return Err(format!(
+                    "canvas sizes did not settle: an on_size handler changed its canvas's size {MOST_SIZES} times"
+                ));
+            }
+            let target = graph.cycle_target(id);
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = crate::dispatch_canvas(id, crate::canvas_size_event(width, height));
+            let roc_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            let facts = apply_transaction(graph, patch)?;
+            cycles.push(make_cycle(
+                run_id,
+                *cycle_ordinal,
+                step_ordinal,
+                measurement_phase,
+                "resize",
+                target,
+                cycle_started,
+                roc_ns,
+                roc_work,
+                &facts,
+                roc_work_valid,
+            ));
+            *cycle_ordinal += 1;
+        }
+    }
+}
+
 /// Both runners read the same completed owner observation, never reconstruct it.
 pub(crate) fn component_work_claim(
     expected: &[Option<u64>; observatory::COMPONENT_WORK_NAMES.len()],
@@ -52,21 +127,27 @@ pub(crate) fn component_work_claim(
             None,
         );
     };
-    for (index, expected) in expected.iter().enumerate() {
-        if let Some(expected) = expected {
-            if *expected != work.0[index] {
-                return (
-                    Err(format!(
+    // Every differing count at once, so one run tells the whole story.
+    let differences = expected
+        .iter()
+        .enumerate()
+        .filter_map(|(index, expected)| {
+            expected
+                .filter(|expected| *expected != work.0[index])
+                .map(|expected| {
+                    format!(
                         "expected component {} count {expected}, observed {}",
                         observatory::COMPONENT_WORK_NAMES[index],
                         work.0[index]
-                    )),
-                    observed,
-                );
-            }
-        }
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+    if differences.is_empty() {
+        (Ok(()), observed)
+    } else {
+        (Err(differences.join("; ")), observed)
     }
-    (Ok(()), observed)
 }
 
 /// The one primitive a canvas-item locator names, and the canvas that owns it.
@@ -104,6 +185,9 @@ pub(crate) fn canvas_item<'a>(
     found.next().is_none().then_some(first)
 }
 
+type ClaimResult = (Result<(), String>, Option<(u64, u64)>);
+type ResourceClaimResult = (Result<(), String>, Option<(u64, u64)>, CounterEvidence);
+
 /// A claim answered entirely from the mounted graph, and its count evidence.
 ///
 /// These claims are true or false of the same graph on either runner, so they
@@ -112,10 +196,7 @@ pub(crate) fn canvas_item<'a>(
 /// without the two runners drifting into two slightly different meanings of the
 /// same word. The message carries no line number: the caller is what knows
 /// where the step was written.
-pub(crate) fn graph_claim(
-    graph: &MountedGraph,
-    command: &Command,
-) -> Option<(Result<(), String>, Option<(u64, u64)>)> {
+pub(crate) fn graph_claim(graph: &MountedGraph, command: &Command) -> Option<ClaimResult> {
     /// The single node a locator names, or how many it named instead.
     fn only(graph: &MountedGraph, locator: &Locator) -> Result<u64, usize> {
         let found = matches(graph, locator);
@@ -143,12 +224,14 @@ pub(crate) fn graph_claim(
                         | NodeKind::Column { style, .. }
                         | NodeKind::KeyedColumn { style, .. }
                         | NodeKind::Dialog { style, .. }
+                        | NodeKind::Popover { style, .. }
                         | NodeKind::Panel { style, .. }
                         | NodeKind::Row { style, .. }
                         | NodeKind::Scroll { style, .. }
                         | NodeKind::VirtualList { style, .. },
                     ) => style
                         .bg
+                        .map(crate::Paint::resolve)
                         .ok_or_else(|| "explicit background is unavailable".to_owned()),
                     _ => Err("locator has no application background".to_owned()),
                 });
@@ -162,6 +245,34 @@ pub(crate) fn graph_claim(
                         ))
                     }
                 }),
+                None,
+            )
+        }
+
+        Command::ExpectKeyboardCounters(expected) => {
+            let observed = graph.keyboard_counters().as_array();
+            (
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected keyboard counters offered/matched/compared/focused {expected:?}; observed {observed:?}"
+                    ))
+                },
+                None,
+            )
+        }
+
+        Command::ExpectPopoverCounters(expected) => {
+            let observed = graph.popover_counters().as_array();
+            (
+                if observed == *expected {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected popover counters opened/closed/dismissed {expected:?}; observed {observed:?}"
+                    ))
+                },
                 None,
             )
         }
@@ -185,6 +296,102 @@ pub(crate) fn graph_claim(
                 Some((*expected as u64, actual as u64)),
             )
         }
+        Command::ExpectCanvasSize(locator, width, height) => (
+            match only(graph, locator) {
+                Err(found) => Err(format!(
+                    "expect-canvas-size locator matched {found} nodes; expected exactly one"
+                )),
+                Ok(id) => match graph.node(id).map(|node| &node.kind) {
+                    Some(NodeKind::Canvas { size: false, .. }) => {
+                        Err("the canvas has no on_size handler, so the host reports no size".into())
+                    }
+                    Some(NodeKind::Canvas { .. }) => match graph.reported_canvas_size(id) {
+                        Some(observed) if observed == (*width, *height) => Ok(()),
+                        Some((observed_width, observed_height)) => Err(format!(
+                            "expected canvas size {width}x{height}; reported {observed_width}x{observed_height}"
+                        )),
+                        None => Err("no size has been reported to the canvas".into()),
+                    },
+                    _ => Err("expect-canvas-size locator is not a canvas".into()),
+                },
+            },
+            None,
+        ),
+        // A canvas text primitive's value is the line it sets.
+        Command::ExpectValue(locator, expected)
+            if matches!(
+                locator.target(),
+                Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+            ) =>
+        {
+            (
+                match canvas_item(graph, locator) {
+                    None => Err(
+                        "expect-value canvas-item locator must match exactly one primitive"
+                            .to_owned(),
+                    ),
+                    Some((_, item)) if item.kind != CanvasPrimitiveKind::Text => {
+                        Err("expect-value on a canvas item requires a text primitive".to_owned())
+                    }
+                    Some((_, item)) if item.text == *expected => Ok(()),
+                    // Application text never enters a diagnostic.
+                    Some(_) => Err("canvas text differed".to_owned()),
+                },
+                None,
+            )
+        }
+        // A divider's value is the size it carries, or `collapsed`.
+        Command::ExpectValue(locator, expected)
+            if matches!(locator.target(), Locator::SeparatorName(_)) =>
+        {
+            (
+                match only(graph, locator)
+                    .map(|id| graph.node(id).and_then(|node| node.kind.splitter_value()))
+                {
+                    Err(count) => Err(format!(
+                        "expect-value locator matched {count} nodes; expected exactly one"
+                    )),
+                    Ok(None) => Err("expect-value on a separator requires a divider".to_owned()),
+                    Ok(Some(value)) => {
+                        let shown = if value.collapsed {
+                            "collapsed".to_owned()
+                        } else {
+                            value.size.to_string()
+                        };
+                        if shown == *expected {
+                            Ok(())
+                        } else {
+                            Err(format!(
+                                "expected divider value {expected}; observed {shown}"
+                            ))
+                        }
+                    }
+                },
+                None,
+            )
+        }
+        Command::ExpectSelected(locator, wanted) => (
+            match only(graph, locator).map(|id| graph.node(id).map(|node| &node.kind)) {
+                Err(count) => Err(format!(
+                    "{} locator matched {count} nodes; expected exactly one",
+                    command.kind()
+                )),
+                Ok(Some(NodeKind::Button {
+                    role: ButtonRole::Tab { selected },
+                    ..
+                })) => {
+                    if selected == wanted {
+                        Ok(())
+                    } else if *wanted {
+                        Err("the tab is not selected".to_owned())
+                    } else {
+                        Err("the tab is selected".to_owned())
+                    }
+                }
+                Ok(_) => Err(format!("{} requires a tab", command.kind())),
+            },
+            None,
+        ),
         Command::ExpectValue(locator, expected) => (
             match only(graph, locator) {
                 Err(count) => Err(format!(
@@ -246,6 +453,51 @@ pub(crate) fn graph_claim(
                 },
                 Some((*expected as u64, actual as u64)),
             )
+        }
+        Command::ExpectRows(locator, expected) => {
+            let observed = only(graph, locator)
+                .map_err(|count| {
+                    format!("expect-rows locator matched {count} nodes; expected exactly one")
+                })
+                .and_then(|id| {
+                    let node = graph.node(id).expect("matched node is mounted");
+                    match &node.kind {
+                        NodeKind::VirtualList { rows, .. } => {
+                            let mounted = node.children.len() as u64;
+                            Ok(match rows {
+                                Some(rows) => (rows.count, rows.first, mounted),
+                                None => (mounted, 0, mounted),
+                            })
+                        }
+                        _ => Err("expect-rows requires a virtual list".to_owned()),
+                    }
+                });
+            match observed {
+                Err(message) => (Err(message), None),
+                Ok((count, first, mounted)) => {
+                    let mut differences = Vec::new();
+                    for (name, wanted, actual) in [
+                        ("rows", expected.count, count),
+                        ("first mounted row", expected.first, first),
+                        ("mounted rows", expected.mounted, mounted),
+                    ] {
+                        if let Some(wanted) = wanted
+                            && wanted != actual
+                        {
+                            differences
+                                .push(format!("expected {wanted} {name}; observed {actual}"));
+                        }
+                    }
+                    (
+                        if differences.is_empty() {
+                            Ok(())
+                        } else {
+                            Err(differences.join("; "))
+                        },
+                        expected.count.map(|wanted| (wanted, count)),
+                    )
+                }
+            }
         }
         Command::ExpectBefore(first, second) => {
             let ordered = graph.nodes_preorder();
@@ -309,7 +561,7 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
     }
     if let Locator::CanvasItemPrefix(prefix) = locator {
         return graph
-            .nodes_preorder()
+            .presented_preorder()
             .into_iter()
             .flat_map(|node| match &node.kind {
                 NodeKind::Canvas { primitives, .. } => primitives
@@ -322,7 +574,7 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             .collect();
     }
     graph
-        .nodes_preorder()
+        .presented_preorder()
         .into_iter()
         .filter_map(|node| match (locator, &node.kind) {
             (
@@ -333,13 +585,37 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
                 Locator::TextPrefix(expected),
                 NodeKind::Text(actual) | NodeKind::StyledText { value: actual, .. },
             ) if actual.starts_with(expected) => Some(node.id),
-            (Locator::ButtonName(expected), NodeKind::Button { label, .. })
+            (
+                Locator::ButtonName(expected),
+                NodeKind::Button {
+                    label,
+                    role: ButtonRole::Button,
+                    ..
+                },
+            ) if expected == label => Some(node.id),
+            (
+                Locator::ButtonPrefix(expected),
+                NodeKind::Button {
+                    label,
+                    role: ButtonRole::Button,
+                    ..
+                },
+            ) if label.starts_with(expected) => Some(node.id),
+            (
+                Locator::TabName(expected),
+                NodeKind::Button {
+                    label,
+                    role: ButtonRole::Tab { .. },
+                    ..
+                },
+            ) if expected == label => Some(node.id),
+            (Locator::SeparatorName(expected), NodeKind::Split { label, .. })
                 if expected == label =>
             {
                 Some(node.id)
             }
-            (Locator::ButtonPrefix(expected), NodeKind::Button { label, .. })
-                if label.starts_with(expected) =>
+            (Locator::DropTargetName(expected), NodeKind::DropTarget { label, .. })
+                if expected == label =>
             {
                 Some(node.id)
             }
@@ -361,6 +637,17 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             }
             (Locator::DialogName(expected), NodeKind::Dialog { label, .. })
                 if expected == label =>
+            {
+                Some(node.id)
+            }
+            (Locator::Shortcut(expected), NodeKind::Popover { shortcuts, .. })
+                if shortcuts.iter().any(|shortcut| &shortcut.keys == expected) =>
+            {
+                Some(node.id)
+            }
+            // A tooltip is its presenting surface; a closed one is not there.
+            (Locator::TooltipName(expected), NodeKind::Popover { label, .. })
+                if expected == label && graph.popover_open(node.id) =>
             {
                 Some(node.id)
             }
@@ -437,7 +724,7 @@ pub(crate) struct CounterEvidence {
 pub(crate) fn resource_claim(
     command: &Command,
     file_baseline: [u64; 4],
-) -> Option<(Result<(), String>, Option<(u64, u64)>, CounterEvidence)> {
+) -> Option<ResourceClaimResult> {
     /// An exact owner reading, reported as the whole array on either side.
     fn exact<const N: usize>(
         name: &str,
@@ -641,6 +928,79 @@ pub(crate) fn resource_claim(
                 ],
             )
         }
+        Command::ExpectTaskCounters(expected) => {
+            let observed = crate::tasks::counters();
+            let constrained = expected
+                .iter()
+                .zip(observed)
+                .all(|(expected, observed)| expected.is_none_or(|value| value == observed));
+            let counts = Some((
+                expected.iter().flatten().sum(),
+                expected
+                    .iter()
+                    .zip(observed)
+                    .filter(|(expected, _)| expected.is_some())
+                    .map(|(_, observed)| observed)
+                    .sum(),
+            ));
+            let shown =
+                |value: &Option<u64>| value.map_or("_".to_string(), |value| value.to_string());
+            (
+                if constrained {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected task counters [{}], observed {observed:?}",
+                        expected.iter().map(shown).collect::<Vec<_>>().join(", ")
+                    ))
+                },
+                counts,
+            )
+        }
+        Command::ExpectWatchCounters(expected) => {
+            let observed = crate::watch::counters();
+            let constrained = expected
+                .iter()
+                .zip(observed)
+                .all(|(expected, observed)| expected.is_none_or(|value| value == observed));
+            let counts = Some((
+                expected.iter().flatten().sum(),
+                expected
+                    .iter()
+                    .zip(observed)
+                    .filter(|(expected, _)| expected.is_some())
+                    .map(|(_, observed)| observed)
+                    .sum(),
+            ));
+            let shown =
+                |value: &Option<u64>| value.map_or("_".to_string(), |value| value.to_string());
+            (
+                if constrained {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "expected watch counters [{}], observed {observed:?}",
+                        expected.iter().map(shown).collect::<Vec<_>>().join(", ")
+                    ))
+                },
+                counts,
+            )
+        }
+        Command::ExpectDocumentCounters(expected) => {
+            let [picks, chosen, canceled, refused, reads] = crate::document::counters();
+            exact(
+                "document counters",
+                expected,
+                [
+                    picks,
+                    chosen,
+                    canceled,
+                    refused,
+                    reads,
+                    crate::document::live() as u64,
+                ],
+            )
+        }
         Command::ExpectImageOwnerCounters(expected) => exact(
             "image owner counters",
             expected,
@@ -648,6 +1008,15 @@ pub(crate) fn resource_claim(
         ),
         Command::ExpectAssetCounters(expected) => {
             exact("asset counters", expected, crate::assets::counters())
+        }
+        Command::ExpectHashCounters(expected) => {
+            exact("hash counters", expected, crate::files::hash_counters())
+        }
+        Command::ExpectDropCounters(expected) => {
+            exact("drop counters", expected, crate::document::drop_counters())
+        }
+        Command::ExpectRecentCounters(expected) => {
+            exact("recent counters", expected, crate::recents::counters())
         }
         // The whole list, in order, compared as a list. A claim that counted
         // grants instead would pass for an application holding entirely
@@ -733,6 +1102,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         None,
         "initialization",
         "init",
+        None,
         cycle_started,
         roc_ns,
         roc_work,
@@ -740,13 +1110,57 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         roc_work_valid,
     ));
 
-    let mut marked = spec.benchmark.is_none();
     let mut cycle_ordinal = 1u64;
+    // The application's opening action, once the first state is mounted and
+    // before the first step, as the window sends it.
+    if crate::opens() {
+        let cycle_started = Instant::now();
+        observatory::reset_roc_work();
+        let roc_started = Instant::now();
+        let patch = crate::dispatch(crate::OPEN_EVENT);
+        let roc_ns = elapsed_ns(roc_started);
+        let (roc_work, roc_work_valid) = observatory::take_roc_work();
+        let facts = apply_transaction(&mut graph, patch)?;
+        observatory::cycle(make_cycle(
+            run_id,
+            cycle_ordinal,
+            None,
+            "initialization",
+            "open",
+            None,
+            cycle_started,
+            roc_ns,
+            roc_work,
+            &facts,
+            roc_work_valid,
+        ));
+        cycle_ordinal += 1;
+    }
+
+    for cycle in settle_canvas_sizes(
+        &mut graph,
+        run_id,
+        &mut cycle_ordinal,
+        None,
+        "initialization",
+    )? {
+        observatory::cycle(cycle);
+    }
+    let mut marked = spec.benchmark.is_none();
     let mut last_patch: Option<ApplyFacts> = None;
     let mut focused: Option<u64> = None;
+    // The canvas an unpressed pointer is over and the last point delivered.
+    // Named by its label, which survives the patch a hover itself causes; a
+    // node id does not.
+    let mut hovering: Option<(String, (i32, i32))> = None;
     let mut timer_fired_seen = crate::timers::fired_count();
     let mut dialog_return_focus: Option<(u8, String)> = None;
     for (ordinal, step) in spec.steps.iter().enumerate() {
+        // The control focused before the step, by the identity that survives
+        // a rebuild renumbering it.
+        let focus_before = focused
+            .and_then(|id| graph.node(id))
+            .and_then(|node| node.kind.focus_identity());
         let role = match &step.command {
             Command::MarkMetrics => "boundary",
             command if command.is_operation() && marked => "operation",
@@ -778,8 +1192,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectBounds(_, _)
             | Command::Screenshot(_)
             | Command::Type(_)
-            | Command::Key(_)
             | Command::Resize { .. }
+            | Command::DragFiles(..)
             | Command::Scroll { .. } => Err(format!(
                 "line {}: step `{}` is window-only; run this specification with --host-run-window-spec",
                 step.line,
@@ -796,45 +1210,60 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             }
             Command::HoverEnter(locator) | Command::HoverExit(locator) => {
                 let found = matches(&graph, locator);
+                let targets = found
+                    .first()
+                    .map(|id| graph.hover_targets(*id))
+                    .unwrap_or_default();
                 if found.len() != 1 {
                     Err(format!(
                         "line {}: hover locator matched {} nodes; expected exactly one",
                         step.line,
                         found.len()
                     ))
-                } else if !matches!(
-                    graph.node(found[0]).map(|node| &node.kind),
-                    Some(NodeKind::Button { .. })
-                ) {
-                    Err(format!("line {}: hover locator is not a button", step.line))
+                } else if targets.is_empty() {
+                    Err(format!(
+                        "line {}: hover locator is neither a hover target nor inside a popover's anchor",
+                        step.line
+                    ))
                 } else {
-                    // The canonical graph owns transition suppression and route liveness,
-                    // shared with the GPUI on_hover callback. No alternate handler table.
+                    // The canonical graph owns transition suppression, popover
+                    // presentation, and route liveness, shared with the GPUI
+                    // on_hover callback. No alternate handler table. A pointer
+                    // resting on the node rests on every region anchoring it;
+                    // a target an earlier handler's rebuild retired is skipped,
+                    // its state having moved to its replacement.
                     let entered = matches!(step.command, Command::HoverEnter(_));
-                    let route = graph.hover_transition(found[0], entered);
                     last_patch = None;
-                    if let Some(route) = route {
-                        let cycle_started = Instant::now();
-                        observatory::reset_roc_work();
-                        let roc_started = Instant::now();
-                        let patch = dispatch(route);
-                        let roc_ns = elapsed_ns(roc_started);
-                        let (roc_work, roc_work_valid) = observatory::take_roc_work();
-                        let facts = apply_transaction(&mut graph, patch)?;
-                        last_patch = Some(facts);
-                        pending_cycles.push(make_cycle(
-                            run_id,
-                            cycle_ordinal,
-                            Some(ordinal),
-                            if marked { "measured" } else { "setup" },
-                            if entered { "hover-enter" } else { "hover-exit" },
-                            cycle_started,
-                            roc_ns,
-                            roc_work,
-                            &facts,
-                            roc_work_valid,
-                        ));
-                        cycle_ordinal += 1;
+                    for target in targets {
+                        if graph.node(target).is_none() {
+                            continue;
+                        }
+                        let route = graph.hover_transition(target, entered);
+                        if let Some(route) = route {
+                            let hover_target = graph.cycle_target(route);
+                            let cycle_started = Instant::now();
+                            observatory::reset_roc_work();
+                            let roc_started = Instant::now();
+                            let patch = dispatch(route);
+                            let roc_ns = elapsed_ns(roc_started);
+                            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                            let facts = apply_transaction(&mut graph, patch)?;
+                            last_patch = Some(facts);
+                            pending_cycles.push(make_cycle(
+                                run_id,
+                                cycle_ordinal,
+                                Some(ordinal),
+                                if marked { "measured" } else { "setup" },
+                                if entered { "hover-enter" } else { "hover-exit" },
+                                hover_target,
+                                cycle_started,
+                                roc_ns,
+                                roc_work,
+                                &facts,
+                                roc_work_valid,
+                            ));
+                            cycle_ordinal += 1;
+                        }
                     }
                     Ok(())
                 }
@@ -867,6 +1296,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let opener = graph
                         .node(matches[0])
                         .and_then(|node| node.kind.focus_identity());
+                    let click_target = graph.cycle_target(matches[0]);
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
@@ -894,6 +1324,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "click",
+                        click_target,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -922,6 +1353,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         let id = matches(&graph, locator).into_iter().next().ok_or_else(|| {
                             format!("line {}: canvas disappeared during drag", step.line)
                         })?;
+                        let drag_target = graph.cycle_target(id);
                         let cycle_started = Instant::now();
                         observatory::reset_roc_work();
                         let roc_started = Instant::now();
@@ -931,6 +1363,8 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 phase,
                                 x,
                                 y,
+                                dx: 0,
+                                dy: 0,
                                 target,
                             },
                         );
@@ -944,6 +1378,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             Some(ordinal),
                             if marked { "measured" } else { "setup" },
                             "drag",
+                            drag_target,
                             cycle_started,
                             roc_ns,
                             roc_work,
@@ -952,9 +1387,177 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         ));
                         cycle_ordinal += 1;
                     }
+                    hovering = None;
+                    Ok(())
+                } else if let Some(grip) = graph
+                    .node(found[0])
+                    .and_then(|node| node.kind.splitter_grip())
+                {
+                    // One move from the press to the release, measured by the
+                    // rule the window's pointer handler uses; a size the
+                    // divider already shows asks Roc for nothing.
+                    let resize = grip.resize((*to_x - *from_x) as f32, (*to_y - *from_y) as f32);
+                    let shown = graph
+                        .node(found[0])
+                        .and_then(|node| node.kind.splitter_value());
+                    if shown != Some(resize) {
+                        let resize_target = graph.cycle_target(found[0]);
+                        let cycle_started = Instant::now();
+                        observatory::reset_roc_work();
+                        let roc_started = Instant::now();
+                        let patch = crate::dispatch_resize(found[0], resize);
+                        let roc_ns = elapsed_ns(roc_started);
+                        let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                        let facts = apply_transaction(&mut graph, patch)?;
+                        last_patch = Some(facts);
+                        pending_cycles.push(make_cycle(
+                            run_id,
+                            cycle_ordinal,
+                            Some(ordinal),
+                            if marked { "measured" } else { "setup" },
+                            "drag",
+                            resize_target,
+                            cycle_started,
+                            roc_ns,
+                            roc_work,
+                            &facts,
+                            roc_work_valid,
+                        ));
+                        cycle_ordinal += 1;
+                    }
+                    hovering = None;
                     Ok(())
                 } else {
-                    Err(format!("line {}: locator is not a canvas", step.line))
+                    Err(format!(
+                        "line {}: drag takes a canvas or a separator",
+                        step.line
+                    ))
+                }
+            }
+            Command::PointerMove(locator, _, _)
+            | Command::PointerLeave(locator)
+            | Command::Wheel(locator, _, _, _, _) => {
+                let found = matches(&graph, locator);
+                let listening = match (found.as_slice(), &step.command) {
+                    ([id], _) => match graph.node(*id).map(|node| &node.kind) {
+                        Some(NodeKind::Canvas {
+                            primitives,
+                            hover,
+                            wheel,
+                            ..
+                        }) => {
+                            if matches!(step.command, Command::Wheel(..)) {
+                                Ok((*id, *wheel, primitives))
+                            } else {
+                                Ok((*id, *hover, primitives))
+                            }
+                        }
+                        _ => Err(format!("line {}: locator is not a canvas", step.line)),
+                    },
+                    (found, _) => Err(format!(
+                        "line {}: {} locator matched {} nodes; expected exactly one",
+                        step.line,
+                        step.command.kind(),
+                        found.len()
+                    )),
+                };
+                match listening {
+                    Err(message) => Err(message),
+                    Ok((_, false, _)) => Err(format!(
+                        "line {}: the canvas has no {} handler, so the host delivers nothing",
+                        step.line,
+                        if matches!(step.command, Command::Wheel(..)) {
+                            "on_wheel"
+                        } else {
+                            "on_hover"
+                        }
+                    )),
+                    Ok((id, true, primitives)) => {
+                        // The window delivers what its pointer produces: one
+                        // move per new point, a leave only after a move, and
+                        // the topmost keyed shape under the point.
+                        let canvas = match graph.node(id).map(|node| &node.kind) {
+                            Some(NodeKind::Canvas { label, .. }) => label.clone(),
+                            _ => String::new(),
+                        };
+                        let event = match &step.command {
+                            Command::PointerMove(_, x, y) => {
+                                (hovering != Some((canvas.clone(), (*x, *y)))).then(|| {
+                                    hovering = Some((canvas.clone(), (*x, *y)));
+                                    (
+                                        "hover",
+                                        crate::CanvasEventPayload {
+                                            phase: crate::CANVAS_HOVER_MOVE,
+                                            x: *x,
+                                            y: *y,
+                                            dx: 0,
+                                            dy: 0,
+                                            target: crate::canvas_target(primitives, *x, *y)
+                                                .unwrap_or(0),
+                                        },
+                                    )
+                                })
+                            }
+                            Command::PointerLeave(_) => match hovering.take() {
+                                Some((hovered, (x, y))) if hovered == canvas => Some((
+                                    "hover",
+                                    crate::CanvasEventPayload {
+                                        phase: crate::CANVAS_HOVER_LEAVE,
+                                        x,
+                                        y,
+                                        dx: 0,
+                                        dy: 0,
+                                        target: 0,
+                                    },
+                                )),
+                                other => {
+                                    hovering = other;
+                                    None
+                                }
+                            },
+                            Command::Wheel(_, x, y, dx, dy) => Some((
+                                "wheel",
+                                crate::CanvasEventPayload {
+                                    phase: crate::CANVAS_WHEEL,
+                                    x: *x,
+                                    y: *y,
+                                    dx: *dx,
+                                    dy: *dy,
+                                    target: crate::canvas_target(primitives, *x, *y).unwrap_or(0),
+                                },
+                            )),
+                            _ => unreachable!("matched a canvas pointer step above"),
+                        };
+                        match event {
+                            None => Ok(()),
+                            Some((trigger, event)) => {
+                                let canvas_target = graph.cycle_target(id);
+                                let cycle_started = Instant::now();
+                                observatory::reset_roc_work();
+                                let roc_started = Instant::now();
+                                let patch = crate::dispatch_canvas(id, event);
+                                let roc_ns = elapsed_ns(roc_started);
+                                let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                                let facts = apply_transaction(&mut graph, patch)?;
+                                last_patch = Some(facts);
+                                pending_cycles.push(make_cycle(
+                                    run_id,
+                                    cycle_ordinal,
+                                    Some(ordinal),
+                                    if marked { "measured" } else { "setup" },
+                                    trigger,
+                                    canvas_target,
+                                    cycle_started,
+                                    roc_ns,
+                                    roc_work,
+                                    &facts,
+                                    roc_work_valid,
+                                ));
+                                cycle_ordinal += 1;
+                                Ok(())
+                            }
+                        }
+                    }
                 }
             }
             Command::ReplaceText(locator, value) => {
@@ -991,6 +1594,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     } else {
                         "input"
                     };
+                    let input_target = graph.cycle_target(node_id);
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
@@ -1005,6 +1609,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         trigger,
+                        input_target,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1051,6 +1656,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     let node_id = found[0];
                     let event_id = node_id | SUBMIT_EVENT_BIT;
                     let previous_dialog = graph.active_dialog();
+                    let submit_target = graph.cycle_target(event_id);
                     let cycle_started = Instant::now();
                     observatory::reset_roc_work();
                     let roc_started = Instant::now();
@@ -1071,6 +1677,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "text_submit",
+                        submit_target,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1107,22 +1714,31 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         "line {}: locator is blocked by the active dialog",
                         step.line
                     ))
-                } else if !matches!(
-                    graph.node(matches[0]).map(|node| &node.kind),
-                    Some(
-                        NodeKind::Button { enabled: true, .. }
-                            | NodeKind::Checkbox { enabled: true, .. }
-                            | NodeKind::Textarea {
-                                enabled: true,
-                                read_only: false,
-                                ..
-                            }
-                            | NodeKind::TextInput { enabled: true, .. }
-                    )
-                ) {
+                } else if graph
+                    .node(matches[0])
+                    .and_then(|node| node.kind.focus_identity())
+                    .is_none()
+                {
+                    // The one definition of what takes focus, which is also
+                    // what the window gives a focus handle.
                     Err(format!("line {}: locator is not focusable", step.line))
                 } else {
                     focused = Some(matches[0]);
+                    // Focus entering or leaving a popover's region, as the
+                    // native focus listeners report it.
+                    graph.popover_focus_moved(focused);
+                    Ok(())
+                }
+            }
+            Command::PressKey(ControlKey::Escape) if graph.active_dialog().is_none() => {
+                // Escape that no dialog takes reaches the window root, which
+                // closes every presenting popover.
+                if graph.dismiss_popovers().is_empty() {
+                    Err(format!(
+                        "line {}: Escape requires an active dialog or a presenting popover",
+                        step.line
+                    ))
+                } else {
                     Ok(())
                 }
             }
@@ -1152,6 +1768,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             ))
                         } else {
                             let opener = graph.node(id).and_then(|node| node.kind.focus_identity());
+                            let key_target = graph.cycle_target(id);
                             let cycle_started = Instant::now();
                             observatory::reset_roc_work();
                             let roc_started = Instant::now();
@@ -1179,6 +1796,75 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                                 Some(ordinal),
                                 if marked { "measured" } else { "setup" },
                                 "keyboard",
+                                key_target,
+                                cycle_started,
+                                roc_ns,
+                                roc_work,
+                                &facts,
+                                roc_work_valid,
+                            ));
+                            cycle_ordinal += 1;
+                            Ok(())
+                        }
+                    }
+                }
+            }
+            Command::Key(chord) => {
+                let keystroke = crate::keyboard::delivered(chord)
+                    .map_err(|detail| format!("line {}: {detail}", step.line))?;
+                let focused_kind = focused.and_then(|id| graph.node(id)).map(|node| &node.kind);
+                if crate::keyboard::host_takes(focused_kind, &keystroke) {
+                    // The window's keymap gives this chord to the host or to the
+                    // focused control before any shortcut; this runner does not
+                    // imitate what they then do.
+                    Err(format!(
+                        "line {}: the window gives \"{chord}\" to the host or the focused control before any shortcut; use focus, press-key, or a window run",
+                        step.line
+                    ))
+                } else {
+                    match graph.resolve_shortcut(
+                        focused,
+                        crate::keyboard::types_character(&keystroke),
+                        |declared| crate::keyboard::matches(&keystroke, declared),
+                    ) {
+                        // Nothing answers the chord, and in a window nothing
+                        // would happen either.
+                        None => Ok(()),
+                        Some(found) => {
+                            // The focused control opened any dialog the shortcut
+                            // shows, and gets focus back when it closes.
+                            let previous_dialog = graph.active_dialog();
+                            let opener = focused
+                                .and_then(|id| graph.node(id))
+                                .and_then(|node| node.kind.focus_identity());
+                            let shortcut_target = graph.cycle_target(found.event);
+                            let cycle_started = Instant::now();
+                            observatory::reset_roc_work();
+                            let roc_started = Instant::now();
+                            let patch = crate::dispatch_shortcut(&found);
+                            let roc_ns = elapsed_ns(roc_started);
+                            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                            let facts = apply_transaction(&mut graph, patch)?;
+                            match (previous_dialog, graph.active_dialog()) {
+                                (None, Some(dialog)) => {
+                                    dialog_return_focus = opener;
+                                    focused = graph.first_focusable_in(dialog);
+                                }
+                                (Some(_), None) => {
+                                    focused = dialog_return_focus
+                                        .take()
+                                        .and_then(|identity| graph.find_focus_identity(&identity));
+                                }
+                                _ => {}
+                            }
+                            last_patch = Some(facts);
+                            pending_cycles.push(make_cycle(
+                                run_id,
+                                cycle_ordinal,
+                                Some(ordinal),
+                                if marked { "measured" } else { "setup" },
+                                "key",
+                                shortcut_target,
                                 cycle_started,
                                 roc_ns,
                                 roc_work,
@@ -1192,7 +1878,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             }
             Command::AwaitTask => {
-                let before = task_counts();
+                let before = crate::tasks::delivered();
                 let cycle_started = Instant::now();
                 observatory::reset_roc_work();
                 let completion = await_task_completion()?;
@@ -1200,7 +1886,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 let patch = complete(completion);
                 let roc_ns = elapsed_ns(roc_started);
                 let after = task_counts();
-                if after.1 != before.1 + 1 || after.1 > after.0 {
+                if crate::tasks::delivered() != before + 1 || after.1 > after.0 {
                     return Err("task completion counters violated ownership invariants".into());
                 }
                 let (roc_work, roc_work_valid) = observatory::take_roc_work();
@@ -1212,6 +1898,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Some(ordinal),
                     if marked { "measured" } else { "setup" },
                     "task",
+                    None,
                     cycle_started,
                     roc_ns,
                     roc_work,
@@ -1224,13 +1911,22 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::AwaitCount(locator, expected) => {
                 // A wait can deliver several production turns. Record each callback
                 // and its own graph decision, never combine work with another patch.
-                let before = task_counts();
+                let before = crate::tasks::delivered();
                 let deadline = Instant::now() + crate::TASK_BUDGET;
                 let mut completions = 0u64;
                 let outcome = loop {
                     let found = matches(&graph, locator).len();
                     if found == *expected {
                         break Ok(());
+                    }
+                    // Without a clock, the one thing a wait can let happen
+                    // without a task is a hovered popover's delay elapsing.
+                    let pending = graph.pending_popovers();
+                    if !pending.is_empty() {
+                        for id in pending {
+                            graph.popover_elapse(id);
+                        }
+                        continue;
                     }
                     if Instant::now() >= deadline {
                         break Err(format!(
@@ -1254,6 +1950,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "task",
+                        None,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1264,7 +1961,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     completions += 1;
                 };
                 let after = task_counts();
-                if after.1 != before.1 + completions || after.1 > after.0 {
+                if crate::tasks::delivered() != before + completions || after.1 > after.0 {
                     return Err("task completion counters violated ownership invariants".into());
                 }
                 count_evidence = Some((*expected as u64, matches(&graph, locator).len() as u64));
@@ -1272,6 +1969,34 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             }
             Command::ClipboardText(text) => crate::clipboard::inject_fixture(text.clone())
                 .map_err(|message| format!("line {}: {message}", step.line)),
+            Command::SystemTheme(settings) => {
+                crate::appearance::set_system(*settings);
+                Ok(())
+            }
+            Command::ExpectTheme(dark) => {
+                theme_is(*dark).map_err(|message| format!("line {}: {message}", step.line))
+            }
+            // A worker blocking is not a turn: nothing is delivered and no
+            // cycle is recorded. The step only lets a later cancellation find
+            // the wait it is meant to interrupt, rather than a queued task.
+            Command::AwaitTaskWaits(expected) => {
+                let deadline = Instant::now() + crate::TASK_BUDGET;
+                loop {
+                    let waiting = crate::tasks::waiting();
+                    if waiting == *expected {
+                        count_evidence = Some((*expected, waiting));
+                        break Ok(());
+                    }
+                    if Instant::now() >= deadline {
+                        break Err(format!(
+                            "line {}: expected {expected} blocked task waits within {} seconds, observed {waiting}",
+                            step.line,
+                            crate::TASK_BUDGET.as_secs(),
+                        ));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+            }
             Command::AwaitTicks(count) => {
                 if *count == 0 {
                     return Err(format!(
@@ -1303,6 +2028,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                         Some(ordinal),
                         if marked { "measured" } else { "setup" },
                         "task",
+                        None,
                         cycle_started,
                         roc_ns,
                         roc_work,
@@ -1336,7 +2062,13 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectFileSelectionCounters(_)
             | Command::ExpectFileLifecycleCounters(_)
             | Command::ExpectFileAccess(_)
+            | Command::ExpectDocumentCounters(_)
+            | Command::ExpectWatchCounters(_)
+            | Command::ExpectTaskCounters(_)
             | Command::ExpectAssetCounters(_)
+            | Command::ExpectHashCounters(_)
+            | Command::ExpectDropCounters(_)
+            | Command::ExpectRecentCounters(_)
             | Command::ExpectGrants(_)
             | Command::ExpectGrantCounters(_)
             | Command::ExpectImageOwnerCounters(_) => {
@@ -1354,6 +2086,64 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::RevokeFileGrants => {
                 crate::files::revoke_all_roots();
                 Ok(())
+            }
+            Command::ReplaceFile { name, source } => {
+                crate::files::replace_in_private_copy(name, source)
+                    .map_err(|message| format!("line {}: {message}", step.line))
+            }
+            Command::RemoveFile(name) => crate::files::remove_in_private_copy(name)
+                .map_err(|message| format!("line {}: {message}", step.line)),
+            Command::Drop(locator, paths) => {
+                let found = matches(&graph, locator);
+                if found.len() != 1 {
+                    Err(format!(
+                        "line {}: drop locator matched {} nodes; expected exactly one",
+                        step.line,
+                        found.len()
+                    ))
+                } else if graph
+                    .active_dialog()
+                    .is_some_and(|dialog| !graph.is_descendant_of(found[0], dialog))
+                {
+                    Err(format!(
+                        "line {}: the drop target is behind an active dialog",
+                        step.line
+                    ))
+                } else if let Some(NodeKind::DropTarget { types, .. }) =
+                    graph.node(found[0]).map(|node| &node.kind)
+                {
+                    let resolved = crate::spec_drop_paths(paths)
+                        .map_err(|message| format!("line {}: {message}", step.line))?;
+                    // The admission and the route the window's drop handler
+                    // takes, as one `drop` cycle.
+                    let dropped = crate::document::admit_drop(types, &resolved);
+                    let drop_target = graph.cycle_target(found[0]);
+                    let cycle_started = Instant::now();
+                    observatory::reset_roc_work();
+                    let roc_started = Instant::now();
+                    let patch = crate::dispatch_drop(found[0], dropped);
+                    let roc_ns = elapsed_ns(roc_started);
+                    let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                    let facts = apply_transaction(&mut graph, patch)?;
+                    last_patch = Some(facts);
+                    pending_cycles.push(make_cycle(
+                        run_id,
+                        cycle_ordinal,
+                        Some(ordinal),
+                        if marked { "measured" } else { "setup" },
+                        "drop",
+                        drop_target,
+                        cycle_started,
+                        roc_ns,
+                        roc_work,
+                        &facts,
+                        roc_work_valid,
+                    ));
+                    cycle_ordinal += 1;
+                    Ok(())
+                } else {
+                    Err(format!("line {}: drop takes a drop target", step.line))
+                }
             }
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
@@ -1403,11 +2193,16 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             // Answered from the mounted graph alone, so the window runner
             // makes the same claims from the same code.
             command @ (Command::ExpectCanvasPrimitives(_, _)
+            | Command::ExpectCanvasSize(_, _, _)
             | Command::ExpectValue(_, _)
+            | Command::ExpectSelected(_, _)
             | Command::ExpectValueBytes(_, _)
             | Command::ExpectImageBytes(_, _)
+            | Command::ExpectRows(_, _)
             | Command::ExpectBefore(_, _)
-            | Command::ExpectBackground(_, _)) => {
+            | Command::ExpectBackground(_, _)
+            | Command::ExpectPopoverCounters(_)
+            | Command::ExpectKeyboardCounters(_)) => {
                 let (result, counts) =
                     graph_claim(&graph, command).expect("graph claim is missing an arm");
                 count_evidence = counts;
@@ -1450,6 +2245,29 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 }
             },
         };
+        // A canvas the step mounted, or whose size it changed, hears its size
+        // before the next step, as it would after the window's next frame.
+        let result = result.and_then(|()| {
+            pending_cycles.extend(settle_canvas_sizes(
+                &mut graph,
+                run_id,
+                &mut cycle_ordinal,
+                Some(ordinal),
+                if marked { "measured" } else { "setup" },
+            )?);
+            Ok(())
+        });
+        // The same control under a new id keeps focus, as it does in the
+        // window, where focus follows a rebuilt control by its identity.
+        if focused.is_some_and(|id| graph.node(id).is_none()) {
+            focused = focus_before.and_then(|identity| graph.find_focus_identity(&identity));
+        }
+        // A region that asked for focus with a new serial takes it once the
+        // step's patches are applied, as the window's does after a patch.
+        if let Some(target) = graph.take_focus_request() {
+            focused = Some(target);
+            graph.popover_focus_moved(focused);
+        }
         // Operation timing begins only after locator resolution, at the same
         // boundary as its attributed cycle. Assertions are correctness-only.
         let operation_duration = (!pending_cycles.is_empty())
@@ -1514,20 +2332,25 @@ fn make_cycle(
     step_ordinal: Option<usize>,
     measurement_phase: &'static str,
     trigger: &'static str,
+    target: Option<observatory::CycleTarget>,
     cycle_started: Instant,
     roc_callback_ns: u64,
     roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
     facts: &ApplyFacts,
     roc_work_valid: bool,
 ) -> Cycle {
+    let (start_ns, end_ns) = observatory::interval_since(cycle_started);
     Cycle {
         run_id,
         ordinal,
         step_ordinal,
         measurement_phase,
         trigger,
+        target,
         patch_kind: facts.kind,
-        duration_ns: elapsed_ns(cycle_started),
+        start_ns,
+        end_ns,
+        duration_ns: end_ns - start_ns,
         roc_callback_ns,
         validate_ns: facts.validate_ns,
         apply_ns: facts.apply_ns,
@@ -1549,6 +2372,22 @@ fn make_cycle(
         roc_work,
         roc_work_valid,
         component_work: observatory::component_cycle_work(),
+    }
+}
+
+/// Whether adaptive colours resolve to the scheme a step names. Both runners
+/// answer from the one process-wide appearance.
+pub(crate) fn theme_is(dark: bool) -> Result<(), String> {
+    let actual = crate::appearance::effective_dark();
+    if actual == dark {
+        Ok(())
+    } else {
+        let name = |dark| if dark { "dark" } else { "light" };
+        Err(format!(
+            "expected the {} scheme; adaptive colours resolve to {}",
+            name(dark),
+            name(actual)
+        ))
     }
 }
 
@@ -1606,7 +2445,11 @@ mod controlled_value_tests {
 
     #[test]
     fn background_claim_uses_explicit_graph_color_without_fabricating_counts() {
-        for color in [None, Some(0), Some(0x66E0FF)] {
+        for color in [
+            None,
+            Some(crate::Paint::Rgb(0)),
+            Some(crate::Paint::Rgb(0x66E0FF)),
+        ] {
             let mut graph = MountedGraph::default();
             graph
                 .apply(Patch::Mount {
@@ -1614,6 +2457,7 @@ mod controlled_value_tests {
                     nodes: vec![Node {
                         id: 1,
                         kind: NodeKind::Button {
+                            role: crate::bridge::ButtonRole::Button,
                             caption: String::new(),
                             label: "Cell".into(),
                             enabled: true,
@@ -1633,7 +2477,7 @@ mod controlled_value_tests {
                 &Command::ExpectBackground(Locator::ButtonName("Cell".into()), 0x66E0FF),
             )
             .unwrap();
-            assert_eq!(result.is_ok(), color == Some(0x66E0FF));
+            assert_eq!(result.is_ok(), color == Some(crate::Paint::Rgb(0x66E0FF)));
             assert_eq!(counts, None);
             if color.is_none() {
                 assert!(result.unwrap_err().contains("unavailable"));
@@ -1740,7 +2584,7 @@ mod component_work_tests {
 #[cfg(test)]
 mod locator_tests {
     use super::*;
-    use crate::bridge::{CanvasPrimitiveKind, Node, Style};
+    use crate::bridge::{Node, Style};
 
     fn within(ancestor: Locator, target: Locator) -> Locator {
         Locator::Within(Box::new(ancestor), Box::new(target))
@@ -1774,6 +2618,7 @@ mod locator_tests {
             stroke: None,
             stroke_width: 0,
             radius: 0,
+            ..Default::default()
         };
         let mut graph = MountedGraph::default();
         graph
@@ -1808,6 +2653,9 @@ mod locator_tests {
                         NodeKind::Canvas {
                             label: "Canvas".into(),
                             primitives: vec![primitive(1, "Dot one"), primitive(2, "Dot two")],
+                            hover: false,
+                            wheel: false,
+                            size: false,
                             style: style.clone(),
                         },
                         vec![],
@@ -1817,6 +2665,9 @@ mod locator_tests {
                         NodeKind::Canvas {
                             label: "Canvas".into(),
                             primitives: vec![primitive(1, "Dot one")],
+                            hover: false,
+                            wheel: false,
+                            size: false,
                             style,
                         },
                         vec![],

@@ -17,6 +17,17 @@ case identity, run and cycle counts, and the distribution of measured operation
 duration. A capture with lost events, writer failure, output truncation, or an
 unclean shutdown is rejected as incomplete.
 
+A capture's verdict follows from its own records. Until `metadata.final_state`
+is `complete` it has none: it is _withheld_, because the records a verdict rests
+on are decided at finalisation, and a capture still being recorded reads the
+same as one whose recorder stopped. A finalised capture is _untrusted_ when
+`clean_shutdown` is not `1`, `recorder_health` reports omitted events, a writer
+failure, or a reached output limit, `recording_gaps` holds any row, or any
+measurement family is still `unfinalized`. It is _partial_ when any family is
+`partial`. Otherwise it is _complete_: a `not_recorded` or `unavailable` family
+is a declared absence, not a loss. The Observatory example applies this rule to
+every capture it lists.
+
 The analyser opens databases read-only. You can also inspect them with any
 SQLite client; application-facing reports should use the supplied views so the
 evidence-status rules remain visible.
@@ -28,11 +39,13 @@ evidence-status rules remain visible.
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view semantic_health
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view roc_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view component_work
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view cycle_targets
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view host_gpui_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_spans
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view native_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view gpui_frame_work
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view virtual_list_materialization
+python3 scripts/analyze_stats.py CAPTURE.rgstats --view timeline
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view process_resources
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view capture_health
 python3 scripts/analyze_stats.py CAPTURE.rgstats --view scaling
@@ -47,6 +60,8 @@ how much Roc allocation activity occurred inside each owned span?
 retirements, registry visits, ancestor invalidations, keyed order-tree visits,
 and keyed fallback snapshot items did the component runtime perform in marked
 sample turns?
+`cycle_targets`:: Which element did each cycle reach, by node kind and
+structural identity, how many cycles reached it, and how long was the slowest?
 `host_gpui_work`:: How much time did graph validation, graph application, and
 available GPUI materialisation consume, and how many native nodes were retained
 or visited during structural validation?
@@ -57,8 +72,17 @@ subtree, and what is the status of the frame stages the host does not own?
 `AnyView` elements occurred in completed GPUI frames, grouped by node kind?
 `virtual_list_materialization`:: For interactive GPUI frames, how many logical
 items intersected each viewport and how many native entities were
-materialised, recycled, and retained? Semantic-headless captures report this
-family as `not_recorded` because they have no viewport.
+materialised, recycled, and retained? Each list records one row per drawn
+frame, after GPUI has drawn it; a patch that rebuilds part of a row, or retires
+rows with their list, records the entities it built or recycled in rows of its
+own. For a list of rows produced on demand, the intersecting
+items include rows not yet mounted, which are drawn as blank places and
+materialise no entity. The Roc turns that move such a list's window are
+ordinary cycles with the trigger `viewport`. Semantic-headless captures report
+this family as `not_recorded` because they have no viewport.
+`timeline`:: How many drawn frames record the cycles they were first to draw,
+how many list passes record the frame or cycle that produced them, and what
+span of the capture's clock do cycles, frames, and passes cover?
 `process_resources`:: How did process CPU time, peak RSS, and Roc allocation
 counters change across runs?
 `capture_health`:: Did batching, queue pressure, omissions, limits, or writer
@@ -165,6 +189,12 @@ and presentation are unavailable.
 
 `cycles.roc_callback_ns` measures time inside one Roc dispatch call. Each drag
 phase and task completion has its own cycle, including steps that await several completions.
+A canvas pointer phase records a `drag` cycle, a delivered canvas hover a
+`hover` cycle, and a canvas wheel scroll a `wheel` cycle, whether a
+specification or a person in the interactive window drives it. Each size a
+split's divider asks for while it is dragged records a `drag` cycle, and each
+of its keys a `key` cycle. Each size a canvas hears it was laid out at records
+a `resize` cycle, after the frame that laid it out.
 Waiting for workers and applying graph patches are outside the callback span.
 The enclosing cycle duration includes the wait.
 
@@ -196,6 +226,60 @@ therefore reported as unavailable rather than attributed. Taffy solves layout
 once for the window from GPUI's own root element, between the host element's
 layout request and its prepaint. Presentation and frame completion are private
 to GPUI; a compositor frame callback would be the seam that owns them.
+
+== Place work on one clock
+
+Every interval in a capture is measured on one process-relative monotonic
+clock, whose origin is fixed when recording starts. `runs.started_ns` and
+`runs.ended_ns`, and the `start_ns` and `end_ns` of `cycles`, `gpui_frames`, and
+`virtual_list_frames`, are nanoseconds on that clock. They order and place work;
+they carry no wall-clock time or machine identity.
+
+Each interval is recorded by the component that performs the work. A cycle's
+interval is its owner's: from the instant it began handling the event or
+completion to the instant its patch was applied, the same reading its
+`duration_ns` is taken from. A frame's interval runs from the start of the host
+element's layout request to the end of its paint. It therefore encloses GPUI's
+layout solve, whose own duration remains unavailable; the interval places the
+frame without attributing that time. A list pass's interval runs from the
+first range GPUI asked of the list in a frame to the moment its entities were
+settled after that frame, or, for a pass performed while a patch was applied
+to native views, across that application.
+
+Causal links are recorded by the owner that knows them, never inferred from the
+clock. Two intervals that touch are not thereby related.
+
+[cols="1,3",options="header"]
+|===
+|Table or column |Link
+|`gpui_frame_cycles(frame_id, cycle_id)`
+|The recorded cycles whose patches reached native views after the previous
+frame began drawing and before this one did: the changes this frame is the
+first to draw. An event loop may coalesce several cycles into one frame, which
+then has several rows. A frame that follows no new cycle, such as one drawn for
+hover or a list's own scrolling, has none. A cycle whose patch changed nothing
+is not linked, because it gave a frame nothing to draw. A frame abandoned before
+paint hands its cycles to the frame that does draw them.
+|`virtual_list_frames.origin`
+|`paint` for a pass settled after GPUI drew the list, `patch` for a pass
+performed while a patch was applied to native views.
+|`virtual_list_frames.frame_id`
+|For a `paint` pass, the drawn frame that asked for the list's rows. `NULL`
+when the frame that asked is not the frame the host recorded as painted.
+|`virtual_list_frames.cycle_id`
+|For a `patch` pass, the recorded cycle whose patch performed it. `NULL` for a
+patch the host applied outside any recorded cycle.
+|===
+
+Two measurement families describe this linkage. `frame_cycle_linkage` is
+complete when every drawn frame carries the cycles its owner handed it; a frame
+with no row is then a recorded "no new cycle", not a missing one.
+`virtual_list_linkage` is complete when every `paint` pass was settled against
+the frame that drew it. Both are `unavailable` when no frame was drawn or no
+list entered a viewport, and `partial` when the recorder omitted events, since
+an omitted cycle or frame has no row to link. Semantic-headless captures report
+both as `not_recorded`: they draw no frame and have no viewport, although their
+cycles still carry intervals.
 
 == Count native rendering work
 
@@ -240,7 +324,23 @@ completed frame is unavailable rather than zero.
 |13 |Text
 |14 |Styled text
 |15 |Boundary
+|16 |Keyed container
+|17 |Popover
+|18 |Split divider
+|19 |Drop target
 |===
+
+Schema 20 adds kind 17. A popover's view renders when its surface opens or
+closes as well as when the popover itself changes; its anchor and content are
+counted under their own kinds. The region that carries hover handlers,
+shortcuts, or a focus request for an element is a popover with no content, and
+is counted here too.
+
+Schema 24 adds kind 18. A split's divider renders when the size it carries
+changes; the panes beside it are columns, counted under kind 5.
+
+Schema 25 adds kind 19, and a cycle may target a `drop_target`. A drop target
+renders as a column does; a drop on it is one cycle with the trigger `drop`.
 
 Rows contain positive counts. A missing metric/kind row means measured zero
 only within a recorded frame with complete native-work evidence. A capture
@@ -254,8 +354,9 @@ measure distinct operations. A local Roc update can perform one component
 render while a subsequent frame renders many native views. Native counts
 identify this additional work without estimating it from Roc counters or
 elapsed time. They do not identify GPUI cache hits, layout-solver work,
-presentation, retained memory, or GPU work. Counts are frame-scoped; they do not
-assign a frame to an individual action when the event loop combines updates.
+presentation, retained memory, or GPU work. Counts are frame-scoped. A frame's
+recorded cycles in `gpui_frame_cycles` may be several when the event loop
+combines updates, and a frame's work is never divided among them.
 
 Native subtree reuse follows layout ownership. Non-root rows, columns, and
 panels whose width and height are fixed by matching pixel size, minimum, and
@@ -321,12 +422,92 @@ specifications independently of capture recording. When it is enabled,
 recording failure is evidence failure; it
 does not change application behaviour.
 
+== Read a capture while it is recorded
+
+A capture is a write-ahead-logged SQLite database, and the recorder commits
+batches of events as it goes, so a reader may open it while the application is
+still running. Open it read-only and not immutable, as the platform's SQLite
+capability does, and each query sees exactly the transactions committed so
+far. Every transaction leaves every foreign key satisfied: a reader never sees
+a cycle without its run, or a span without its cycle.
+
+What a reader may trust before `metadata.final_state` is `complete`:
+
+`metadata`:: Every key except the finalisation keys below is written once, when
+recording starts, and never changes. `capture_id` among them identifies this
+capture.
+`steps`, `cycles`, `roc_work_spans`, `component_work_counts`, `gpui_frames`, `gpui_native_work`, `gpui_frame_cycles`, and `virtual_list_frames`:: Append-only.
+A committed row is never updated or deleted, and ids only grow, so a reader
+that remembers the largest id it read finds exactly what arrived since with
+`id > ?`. A cycle arrives with its spans and component work, and a frame with
+its native work and the cycles it drew, in one transaction.
+`runs`:: A run's row arrives when it starts, with outcome `running` and every
+end column `NULL`, and is updated once, when it ends.
+`gpui_frame_work`:: Recorded after its frame, possibly in a later transaction,
+so a frame with no work rows yet may still receive them.
+
+What exists only once `final_state` is `complete`, and must not be read as
+evidence before then:
+
+`measurement_status`:: Every family is `unfinalized` until finalisation decides
+its status, reason, and row counts.
+`recorder_health`:: Absent until finalisation writes its one row.
+`recording_gaps`:: Written at finalisation.
+`final_state`, `clean_shutdown`, and the drain keys of `metadata`:: `final_state`
+is `recording` and `clean_shutdown` is `0` until the recorder finalises, then
+`complete` and, as the last write, `1`.
+
+A verdict, a comparison, or a scaling judgement rests on those, so a reader
+withholds it until the capture is finalised. A capture whose recorder died
+reads the same as one still being written; neither has a verdict.
+
+The Observatory example follows this contract. A capture it opens before
+finalisation is marked _Recording_ and watched through the platform's database
+watch, which reports each commit to the capture or its write-ahead log; when a
+commit wrote rows past the largest ids it read, or ended a run, or finalised
+the capture, it reads the capture again and shows the new rows where the
+person is. Its verdicts read _capture not yet finalised_ until then.
+
+`capture_id` is a random 128-bit identifier drawn when recording starts. It
+carries no machine, user, path, or clock. A reader that sees a file's
+`capture_id` change knows the file was replaced by another capture rather than
+grown, and reads it again from the start.
+
+== Cycle targets
+
+A cycle an element caused records that element in `cycles.target_kind` and
+`cycles.target_identity`. Both are present or both are null: a cycle no element
+caused, such as initialization, a task completion, or a timer tick, has no
+target.
+
+`target_kind` is the node's kind in the mounted graph: `button`, `checkbox`,
+`text_input`, `textarea`, `canvas`, `region` (a hover or shortcut region with
+no surface of its own), `popover`, `split`, `drop_target`, and the containers.
+A shortcut's target is the region that declares it; a canvas gesture's is the
+canvas; a divider's drag, and its keys, target its split; a drop targets the
+drop target it landed on. Schema 24 admits `split`, and schema 25
+`drop_target`.
+
+`target_identity` is sixteen hexadecimal digits: a 64-bit FNV-1a hash of the
+node's structural path, the kind and display position of each node from the
+root down to the target. The path holds no label, name, text, value, key, or
+component instance, so the identity carries no application text and can be
+recorded in any capture. It depends only on the shape of the mounted graph, so
+the same control in the same place has the same identity in every run, on every
+machine, and across rebuilds that do not move it. A keyed or virtual row is
+named by where it is shown, never by its key, because an application derives
+its keys from its data. An identity is a place, not a promise: a control that
+moves has a new one.
+
 == Comparison identity and privacy
 
 A capture stores comparison-relevant build, executable, workload, recorder,
 operating-system, architecture, and CPU properties. It never stores usernames,
 home-directory paths, hostnames, environment variables, command lines,
 application text or state, native pointers, or machine identifiers.
+
+The capture identity, `capture_id`, is random and names only the capture; it is
+excluded from every comparison, because two captures are never the same one.
 
 Grant tokens, selected resource names and paths, trusted-dialog contents,
 network destinations, device identifiers, clipboard values, and capture-source
@@ -337,3 +518,9 @@ than being reconstructed from diagnostics.
 Compiler and application revisions are represented as unavailable unless they
 are supplied by their owning build process. Missing identity weakens a
 comparison; it is never guessed.
+
+The Observatory example reads this identity from two captures, each through a
+connection of its own, and gates a comparison on it key by key: a key absent or
+unavailable in either capture fails the gate rather than being assumed equal.
+A second run of the same executable, an A/A capture, bounds the noise of every
+difference it shows.

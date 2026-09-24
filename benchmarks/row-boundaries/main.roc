@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc" }
 
 import pf.Gui
 
@@ -74,7 +74,7 @@ render_row = |row| Gui.row(
 		Gui.button({
 			caption: "Increment",
 			label: "Increment row ${row.id.to_str()}",
-			on_press: |current, _| Gui.update({ ..current, value: current.value + 1 }),
+			on_press: |current, _| Gui.Action.update({ ..current, value: current.value + 1 }),
 		}),
 	],
 )
@@ -108,15 +108,15 @@ render = |state| {
 							caption: "Select",
 							label: "Select row ${id.to_str()}",
 							on_press: |current, _| if current.selected == id {
-								Gui.none
+								Gui.Action.none
 							} else {
-								Gui.update({ ..current, selected: id })
+								Gui.Action.update({ ..current, selected: id })
 							},
 						}),
 						Gui.button({
 							caption: "Delete",
 							label: "Delete row ${id.to_str()}",
-							on_press: |current, _| Gui.update(delete_row(current, id)),
+							on_press: |current, _| Gui.Action.update(delete_row(current, id)),
 						}),
 					],
 				),
@@ -129,16 +129,16 @@ render = |state| {
 			Gui.row(
 				{},
 				[
-					Gui.button({ caption: "Create 100", label: "Create 100 rows", on_press: |latest, _| Gui.update({ ..create_rows(100), memoized: latest.memoized }) }),
-					Gui.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |latest, _| Gui.update({ ..create_rows(1000), memoized: latest.memoized }) }),
-					Gui.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |latest, _| Gui.update({ ..create_rows(10000), memoized: latest.memoized }) }),
-					Gui.button({ caption: "Memoized", label: "Use memoized rows", on_press: |latest, _| Gui.update({ ..latest, memoized: True }) }),
-					Gui.button({ caption: "Unmemoized", label: "Use unmemoized rows", on_press: |latest, _| Gui.update({ ..latest, memoized: False }) }),
-					Gui.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Gui.update(update_every_tenth(value)) }),
-					Gui.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Gui.update(swap_rows(value, 1, 998)) }),
-					Gui.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Gui.update(swap_rows(value, 1, 98)) }),
-					Gui.button({ caption: "Swap far", label: "Swap rows 2 and 9999", on_press: |value, _| Gui.update(swap_rows(value, 1, 9998)) }),
-					Gui.button({ caption: if state.compact "Show management" else "Show compact", label: "Toggle compact view", on_press: |value, _| Gui.update({ ..value, compact: !value.compact }) }),
+					Gui.button({ caption: "Create 100", label: "Create 100 rows", on_press: |latest, _| Gui.Action.update({ ..create_rows(100), memoized: latest.memoized }) }),
+					Gui.button({ caption: "Create 1,000", label: "Create 1,000 rows", on_press: |latest, _| Gui.Action.update({ ..create_rows(1000), memoized: latest.memoized }) }),
+					Gui.button({ caption: "Create 10,000", label: "Create 10,000 rows", on_press: |latest, _| Gui.Action.update({ ..create_rows(10000), memoized: latest.memoized }) }),
+					Gui.button({ caption: "Memoized", label: "Use memoized rows", on_press: |latest, _| Gui.Action.update({ ..latest, memoized: True }) }),
+					Gui.button({ caption: "Unmemoized", label: "Use unmemoized rows", on_press: |latest, _| Gui.Action.update({ ..latest, memoized: False }) }),
+					Gui.button({ caption: "Update every tenth", label: "Update every tenth row", on_press: |value, _| Gui.Action.update(update_every_tenth(value)) }),
+					Gui.button({ caption: "Swap", label: "Swap rows 2 and 999", on_press: |value, _| Gui.Action.update(swap_rows(value, 1, 998)) }),
+					Gui.button({ caption: "Swap small", label: "Swap rows 2 and 99", on_press: |value, _| Gui.Action.update(swap_rows(value, 1, 98)) }),
+					Gui.button({ caption: "Swap far", label: "Swap rows 2 and 9999", on_press: |value, _| Gui.Action.update(swap_rows(value, 1, 9998)) }),
+					Gui.button({ caption: if state.compact "Show management" else "Show compact", label: "Toggle compact view", on_press: |value, _| Gui.Action.update({ ..value, compact: !value.compact }) }),
 				],
 			),
 			Gui.text("Rows: ${state.order.len().to_str()}"),

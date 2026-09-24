@@ -11,10 +11,9 @@ import tempfile
 import tomllib
 
 from host_build_identity import source_fingerprint
-import vendored_gpui
 from prepare_dependencies import cargo_environment
 
-EVIDENCE_SCHEMA = 2
+EVIDENCE_SCHEMA = 3
 
 TARGETS = {"x64glibc": "x86_64-unknown-linux-gnu", "arm64mac": "aarch64-apple-darwin",
            "x64mingw": "x86_64-pc-windows-gnullvm"}
@@ -55,7 +54,7 @@ def metadata_graph(data):
 
 def evidence_files(target):
     """Name original captured documents required to reproduce crate selection."""
-    files = ("metadata.json", "cargo.jsonl", "Cargo.lock", "evidence.json", "selection.json", "build.json")
+    files = ("metadata.json", "cargo.jsonl", "Cargo.lock", "evidence.json", "selection.json", "build.json", "git-sources.json")
     return files
 
 
@@ -68,13 +67,15 @@ def same_checkout_lock(captured, checkout):
     return captured.replace(b"\r\n", b"\n") == checkout.replace(b"\r\n", b"\n")
 
 
-def derive(metadata_bytes, messages_bytes, lock_bytes, target, host_bytes, host_record=None, *, fingerprint, source_root=None):
+def derive(metadata_bytes, messages_bytes, lock_bytes, target, host_bytes, host_record=None, *, fingerprint, source_root=None, git_sources=None, git_policy=None):
     """Select all compiled packages, including build tools, from complete output.
 
     The filtered metadata graph bounds package membership; original Cargo.lock
     identities bind registry packages. This is a conservative compilation set,
     not a claim that every selected object remains in the final static library.
     """
+    from git_cargo_sources import POLICY, validate_record
+    git_sources = git_sources or {}
     packages, root, reachable = metadata_graph(metadata_bytes)
     freetype = {identity for identity in reachable if packages[identity]["name"] == "freetype-sys"}
     if target == "x64glibc" and any(packages[identity]["version"] != "0.20.1"
@@ -132,18 +133,28 @@ def derive(metadata_bytes, messages_bytes, lock_bytes, target, host_bytes, host_
     for identity in sorted(compiled):
         package = packages[identity]
         key = (package["name"], package["version"], package["source"])
-        if key not in locked or (package["source"] is not None and not locked[key]):
-            raise ValueError("compiled package has no Cargo.lock identity")
-        vendored = None
+        if key not in locked:
+            raise ValueError("compiled package has no Cargo.lock identity: " + package["name"])
+        source = package["source"]
+        if source is not None:
+            if source.startswith("git+"):
+                # Cargo identifies Git sources by the resolved commit in the
+                # source URL, not by a registry .crate archive checksum.
+                if not re.fullmatch(r"git\+.+#[0-9a-f]{40}", source) or locked[key] is not None:
+                    raise ValueError("compiled Git package has no pinned Cargo.lock revision")
+            elif not source.startswith("registry+") or not re.fullmatch(r"[0-9a-f]{64}", locked[key] or ""):
+                raise ValueError("compiled registry package has no Cargo.lock checksum")
         if package["source"] is None and identity != root:
-            vendored, _, _, _ = vendored_gpui.admit(package, source_root)
+            raise ValueError("compiled path package is not the host")
         record = {"id": identity, "name": package["name"], "version": package["version"],
                   "source": package["source"], "crate_sha256": locked[key],
                   "declared_license": package["license"]}
-        if vendored is not None:
-            record["vendored_source"] = vendored
+        if source is not None and source.startswith("git+"):
+            record["git_source"] = validate_record(package, git_sources.get(identity, {}), git_policy or POLICY)
         selected.append(record)
         report.append({"package": package})
+    if set(git_sources) != {p["id"] for p in selected if "git_source" in p}:
+        raise ValueError("Git source evidence differs from compiled packages")
     evidence = {"schema_version": EVIDENCE_SCHEMA, "target": target, "rust_target": TARGETS[target],
                 "source_fingerprint": fingerprint,
                 "cargo_lock_sha256": hashlib.sha256(lock_bytes).hexdigest(),
@@ -215,8 +226,8 @@ def reject_private_paths(data, root, user_home=None):
 
 def macos_shaders(metadata, messages, target_directory, toolchain, host_digest):
     """Bind fresh GPUI shader outputs to their Cargo package and resulting host."""
-    packages = [p for p in metadata["packages"] if p["name"] == "gpui"]
-    if len(packages) != 1 or packages[0]["version"] != "0.2.2":
+    packages = [p for p in metadata["packages"] if p["name"] == "gpui_apple"]
+    if len(packages) != 1 or packages[0]["version"] != "0.1.0":
         raise ValueError("review Mac shader inputs for the selected GPUI version")
     package = packages[0]
     records = [json.loads(line) for line in messages.splitlines() if line.startswith(b"{")]
@@ -229,10 +240,10 @@ def macos_shaders(metadata, messages, target_directory, toolchain, host_digest):
         if not data:
             raise ValueError("empty GPUI shader input or output")
         return {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
-    return {"toolchain": toolchain, "gpui_package_id": package["id"],
+    return {"schema_version": 2, "toolchain": toolchain, "shader_package_id": package["id"],
             "cargo_host_sha256": host_digest, "fresh_cargo_target": True,
-            "shader_source": record(Path(package["manifest_path"]).parent / "src/platform/mac/shaders.metal"),
-            "outputs": {name: record(outputs[0] / name) for name in ("scene.h", "shaders.air", "shaders.metallib")}}
+            "shader_source": record(Path(package["manifest_path"]).parent / "src/shaders.metal"),
+            "outputs": {name: record(outputs[0] / name) for name in ("scene.h", "shaders.metallib")}}
 
 
 def capture(root, target, output, jobs, environment, expected_fingerprint=None):
@@ -373,8 +384,14 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
         metadata = sanitized_json(raw_metadata, replacements)
         messages_bytes = sanitized_messages(raw_messages, replacements)
         (stage / "cargo.jsonl").write_bytes(messages_bytes)
+        from git_cargo_sources import capture as capture_git_sources
+        compiled_ids = {m["package_id"] for line in raw_messages.splitlines() if line.startswith(b"{")
+                        for m in [json.loads(line)] if m.get("reason") in ("compiler-artifact", "build-script-executed")}
+        git_sources = capture_git_sources(
+            [p for p in json.loads(raw_metadata)["packages"] if p["id"] in compiled_ids], stage / "git-sources")
+        (stage / "git-sources.json").write_text(json.dumps(git_sources, indent=2) + "\n")
         evidence, selection = derive(metadata, messages_bytes, lock, target,
-                                     host.read_bytes(), fingerprint=fingerprint, source_root=root)
+                                     host.read_bytes(), fingerprint=fingerprint, source_root=root, git_sources=git_sources)
         if apple_tools is not None:
             if macos_toolchain(environment) != apple_tools:
                 raise ValueError("Mac shader toolchain changed during compilation")

@@ -1,3 +1,4 @@
+pub use crate::observatory::CycleTarget;
 use crate::roc_platform_abi::{
     MountOrNoChangeOrReplace, MountOrNoChangeOrReplaceTag, RocErasedCallable,
 };
@@ -53,6 +54,7 @@ struct KeyedChild {
     next: Option<KeyedChildKey>,
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct KeyedOrderEdit {
     revision: u64,
@@ -67,6 +69,7 @@ enum KeyedOrderError {
     StaleNewRevision { current: u64, proposed: u64 },
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum KeyedOrderOperation {
     Insert {
@@ -88,6 +91,7 @@ enum KeyedOrderOperation {
     },
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct KeyedOrderAtomicEdit {
     revision: u64,
@@ -343,8 +347,10 @@ impl KeyedChildOrder {
         revision: u64,
         entries: &[(KeyedChildKey, u64, u64)],
     ) -> Result<Self, KeyedOrderError> {
-        let mut order = Self::default();
-        order.revision = revision;
+        let mut order = Self {
+            revision,
+            ..Self::default()
+        };
         for (index, (key, root, instance)) in entries.iter().copied().enumerate() {
             if order.children.contains_key(&key) {
                 return Err(KeyedOrderError::Duplicate(key));
@@ -375,6 +381,7 @@ impl KeyedChildOrder {
         }
     }
 
+    #[cfg(test)]
     fn apply_atomic(
         &mut self,
         base_revision: u64,
@@ -425,12 +432,14 @@ impl KeyedChildOrder {
         }
     }
 
+    #[cfg(test)]
     fn get(&self, key: KeyedChildKey) -> Option<(u64, u64)> {
         self.children
             .get(&key)
             .map(|child| (child.root, child.instance))
     }
 
+    #[cfg(test)]
     fn insert_before(
         &mut self,
         expected_revision: u64,
@@ -488,6 +497,7 @@ impl KeyedChildOrder {
         })
     }
 
+    #[cfg(test)]
     fn remove(
         &mut self,
         expected_revision: u64,
@@ -528,6 +538,7 @@ impl KeyedChildOrder {
         ))
     }
 
+    #[cfg(test)]
     fn move_before(
         &mut self,
         expected_revision: u64,
@@ -603,6 +614,7 @@ impl KeyedChildOrder {
         })
     }
 
+    #[cfg(test)]
     fn replace(
         &mut self,
         expected_revision: u64,
@@ -627,6 +639,21 @@ impl KeyedChildOrder {
     }
 }
 
+/// The logical extent of a list whose rows are produced on demand.
+///
+/// The mounted item children are the rows `first..first + children.len()` of
+/// `count`. The owning render boundary, `instance`, is what carries the list's
+/// viewport across renders, because the list node itself is replaced whenever
+/// its window moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProvidedRows {
+    pub instance: u64,
+    pub count: u64,
+    pub first: u64,
+    /// The application asked to hear when the visible rows change.
+    pub notify: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NodeKind {
     /// A mounted component's lifetime. This node adds no layout surface.
@@ -636,11 +663,20 @@ pub enum NodeKind {
     Canvas {
         label: String,
         primitives: Vec<CanvasPrimitive>,
+        /// Whether the owner handles pointer movement with no button pressed,
+        /// and wheel scrolling. The host listens only for what is handled.
+        hover: bool,
+        wheel: bool,
+        /// Whether the owner handles the size the canvas is laid out at. The
+        /// host reports sizes only to a canvas that asks.
+        size: bool,
         style: Box<Style>,
     },
     Button {
         caption: String,
         label: String,
+        /// A plain button, or one tab of a tab strip.
+        role: ButtonRole,
         enabled: bool,
         hover_enter: bool,
         hover_exit: bool,
@@ -684,6 +720,23 @@ pub enum NodeKind {
         label: String,
         style: Box<Style>,
     },
+    /// An anchor, its first child, annotated by a non-modal surface that
+    /// presents the remaining children. With no remaining children it is a
+    /// hover region and presents nothing.
+    Popover {
+        label: String,
+        placement: Placement,
+        delay_ms: u32,
+        hover_enter: bool,
+        hover_exit: bool,
+        /// The key chords the region answers, in the order declared.
+        shortcuts: Vec<Shortcut>,
+        /// A request for focus to move into the anchor, honoured once for each
+        /// distinct serial; 0 asks for nothing.
+        focus_serial: u64,
+        /// The surface's style; the anchor keeps its own.
+        style: Box<Style>,
+    },
     Panel {
         label: String,
         style: Box<Style>,
@@ -706,6 +759,9 @@ pub enum NodeKind {
         /// Space held clear at the bottom of each row inside `row_height`.
         row_gap: u32,
         style: Box<Style>,
+        /// Present when the application produces rows on demand; the item
+        /// children are then a window of the list, not the whole of it.
+        rows: Option<ProvidedRows>,
     },
     TextInput {
         label: String,
@@ -714,19 +770,51 @@ pub enum NodeKind {
         enabled: bool,
         style: Box<Style>,
     },
+    /// Two panes, its children, and the divider between them. It carries the
+    /// sized pane's extent and bounds so a drag becomes a size without asking
+    /// Roc, and the keys the divider answers while it holds keyboard focus. A
+    /// collapsed pane stays mounted but is neither drawn nor presented.
+    Split {
+        label: String,
+        axis: SplitAxis,
+        side: SplitSide,
+        size: u32,
+        min: u32,
+        max: u32,
+        collapsible: bool,
+        collapsed: bool,
+        thickness: u32,
+        /// The divider's keys, in the order declared.
+        shortcuts: Vec<Shortcut>,
+        /// The divider's colours; its size fields size the split.
+        style: Box<Style>,
+    },
+    /// A column that accepts files dropped on it. It carries the file types it
+    /// accepts, already validated, so a drop is admitted without asking Roc,
+    /// and the colours it shows while acceptable files are dragged over it.
+    DropTarget {
+        label: String,
+        types: Vec<crate::document::FileType>,
+        drop_bg: Option<crate::Paint>,
+        drop_border: Option<crate::Paint>,
+        style: Box<Style>,
+    },
     /// Text that carries its own type: colour, size, weight, and face, with no
-    /// container element to hold them.
+    /// container element to hold them. `runs` is empty for text of one style;
+    /// otherwise the runs cover `value` exactly, in order, and each restyles
+    /// its own bytes of it.
     StyledText {
         value: String,
-        fg: Option<u32>,
+        fg: Option<crate::Paint>,
         font_size: u32,
         font_weight: u32,
         font_face: FontFace,
+        runs: Vec<TextRun>,
     },
     Text(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CanvasPrimitive {
     pub kind: CanvasPrimitiveKind,
     pub key: u64,
@@ -737,17 +825,153 @@ pub struct CanvasPrimitive {
     pub height: u32,
     pub x2: i32,
     pub y2: i32,
-    pub fill: Option<u32>,
-    pub stroke: Option<u32>,
+    pub fill: Option<crate::Paint>,
+    pub stroke: Option<crate::Paint>,
     pub stroke_width: u32,
     pub radius: u32,
+    /// A text primitive's line, its size in logical pixels, and its placement
+    /// within the box from `x` to `x + width`. Empty for every other kind.
+    pub text: String,
+    pub text_size: u32,
+    pub align: CanvasTextAlign,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+impl CanvasPrimitive {
+    /// A text primitive's line height: its size and a quarter again, rounded
+    /// down, so a locator's rectangle is the same on every host.
+    pub fn line_height(&self) -> u32 {
+        self.text_size + self.text_size / 4
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CanvasPrimitiveKind {
     Ellipse,
     Line,
+    #[default]
     Rectangle,
+    Text,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CanvasTextAlign {
+    #[default]
+    Start,
+    Center,
+    End,
+}
+
+/// One key chord a region answers.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Shortcut {
+    /// The chord in GPUI's canonical spelling, which is also what the
+    /// application's handler is told was pressed.
+    pub keys: String,
+    pub scope: ShortcutScope,
+}
+
+/// When a shortcut is live.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShortcutScope {
+    /// While its region is mounted and presented.
+    Window,
+    /// Only while keyboard focus is inside its region.
+    Focus,
+}
+
+/// The shortcut a keystroke reached: the event naming its region's route,
+/// which of the region's shortcuts it is, and the chord as the region spells it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ShortcutMatch {
+    pub region: u64,
+    pub event: u64,
+    pub index: u64,
+    pub keys: String,
+}
+
+/// What a pressable control is to a person and to a locator.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ButtonRole {
+    #[default]
+    Button,
+    Tab {
+        selected: bool,
+    },
+}
+
+/// The direction a split lays out its panes: side by side, or stacked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SplitAxis {
+    Horizontal,
+    Vertical,
+}
+
+/// Which of a split's panes its size belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SplitSide {
+    Start,
+    End,
+}
+
+/// A split's requested extent: what `Event.Resize` carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Resize {
+    pub size: u32,
+    pub collapsed: bool,
+}
+
+/// A divider as it was when a pointer pressed it. A drag is measured from
+/// the press, so every move asks for a size against these bounds rather than
+/// against a size an earlier move of the same drag already changed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SplitterGrip {
+    axis: SplitAxis,
+    side: SplitSide,
+    /// The sized pane's extent under the pointer: zero while collapsed.
+    start: u32,
+    /// The size a collapse keeps to return to.
+    size: u32,
+    min: u32,
+    max: u32,
+    collapsible: bool,
+}
+
+impl SplitterGrip {
+    /// The size a pointer `(dx, dy)` logical pixels from where it pressed asks
+    /// for. Movement across the divider's axis is ignored; movement towards
+    /// the sized pane shrinks it. A collapsible pane dragged below half its
+    /// minimum asks to collapse, keeping the size it had.
+    pub fn resize(&self, dx: f32, dy: f32) -> Resize {
+        let along = match self.axis {
+            SplitAxis::Horizontal => dx,
+            SplitAxis::Vertical => dy,
+        };
+        let signed = match self.side {
+            SplitSide::Start => along,
+            SplitSide::End => -along,
+        };
+        let raw = self.start as f32 + signed;
+        if self.collapsible && self.min > 0 && raw < self.min as f32 / 2.0 {
+            return Resize {
+                size: self.size,
+                collapsed: true,
+            };
+        }
+        let clamped = raw.round().clamp(self.min as f32, self.max as f32) as u32;
+        Resize {
+            size: clamped,
+            collapsed: false,
+        }
+    }
+}
+
+/// Which side of its anchor a popover surface is placed on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Placement {
+    Below,
+    Above,
+    Start,
+    End,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -809,6 +1033,33 @@ impl NodeKind {
         )
     }
 
+    /// Which kind this is, as a capture names the target of a cycle. A
+    /// popover with no surface of its own is a region: it anchors hover or
+    /// shortcut handlers and presents nothing.
+    pub fn target_kind(&self) -> &'static str {
+        match self {
+            Self::Canvas { .. } => "canvas",
+            Self::Button { .. } => "button",
+            Self::Checkbox { .. } => "checkbox",
+            Self::Textarea { .. } => "textarea",
+            Self::Image { .. } => "image",
+            Self::Column { .. } | Self::KeyedColumn { .. } => "column",
+            Self::Dialog { .. } => "dialog",
+            Self::Panel { .. } => "panel",
+            Self::Row { .. } => "row",
+            Self::Scroll { .. } => "scroll",
+            Self::VirtualItem { .. } => "virtual_item",
+            Self::VirtualList { .. } => "virtual_list",
+            Self::TextInput { .. } => "text_input",
+            Self::Text(_) | Self::StyledText { .. } => "text",
+            Self::Boundary { .. } => "boundary",
+            Self::Popover { label, .. } if label.is_empty() => "region",
+            Self::Popover { .. } => "popover",
+            Self::Split { .. } => "split",
+            Self::DropTarget { .. } => "drop_target",
+        }
+    }
+
     /// Which kind this is, as a number, for identity comparisons.
     ///
     /// Two nodes are the same element across a patch only if they agree here:
@@ -832,6 +1083,9 @@ impl NodeKind {
             Self::Text(_) => 13,
             Self::StyledText { .. } => 14,
             Self::Boundary { .. } => 15,
+            Self::Popover { .. } => 17,
+            Self::Split { .. } => 18,
+            Self::DropTarget { .. } => 19,
         }
     }
 
@@ -852,8 +1106,11 @@ impl NodeKind {
             | Self::Column { label, .. }
             | Self::KeyedColumn { label, .. }
             | Self::Dialog { label, .. }
+            | Self::Popover { label, .. }
             | Self::Panel { label, .. }
             | Self::Row { label, .. }
+            | Self::Split { label, .. }
+            | Self::DropTarget { label, .. }
             | Self::TextInput { label, .. } => label.as_str().into(),
             Self::Scroll { name, .. } | Self::VirtualList { name, .. } => name.as_str().into(),
             Self::VirtualItem { key } => key.to_string().into(),
@@ -885,6 +1142,61 @@ impl NodeKind {
                 enabled: true,
                 ..
             } => Some((3, label.clone())),
+            Self::Split { label, .. } => Some((4, label.clone())),
+            _ => None,
+        }
+    }
+
+    /// A divider's grip for a drag starting now, or `None` for anything else.
+    pub fn splitter_grip(&self) -> Option<SplitterGrip> {
+        match self {
+            Self::Split {
+                axis,
+                side,
+                size,
+                min,
+                max,
+                collapsible,
+                collapsed,
+                ..
+            } => Some(SplitterGrip {
+                axis: *axis,
+                side: *side,
+                start: if *collapsed { 0 } else { *size },
+                size: *size,
+                min: *min,
+                max: *max,
+                collapsible: *collapsible,
+            }),
+            _ => None,
+        }
+    }
+
+    /// Which child of a split its collapse hides, if it is collapsed.
+    pub fn hidden_pane(&self) -> Option<usize> {
+        match self {
+            Self::Split {
+                side,
+                collapsible: true,
+                collapsed: true,
+                ..
+            } => Some(match side {
+                SplitSide::Start => 0,
+                SplitSide::End => 1,
+            }),
+            _ => None,
+        }
+    }
+
+    /// What a divider shows now, which a drag need not ask for again.
+    pub fn splitter_value(&self) -> Option<Resize> {
+        match self {
+            Self::Split {
+                size, collapsed, ..
+            } => Some(Resize {
+                size: *size,
+                collapsed: *collapsed,
+            }),
             _ => None,
         }
     }
@@ -963,10 +1275,23 @@ pub enum Justify {
 /// box and its mark, which otherwise keep host values chosen for a dark ground.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CheckboxIndicator {
-    pub box_bg: Option<u32>,
-    pub box_checked_bg: Option<u32>,
-    pub box_border: Option<u32>,
-    pub mark_color: Option<u32>,
+    pub box_bg: Option<crate::Paint>,
+    pub box_checked_bg: Option<crate::Paint>,
+    pub box_border: Option<crate::Paint>,
+    pub mark_color: Option<crate::Paint>,
+}
+
+/// One styled run of rich text: `len` UTF-8 bytes of the element's value,
+/// and what the run sets over the element's own type. An absent colour and a
+/// zero weight keep the element's.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TextRun {
+    pub len: usize,
+    pub fg: Option<crate::Paint>,
+    pub bg: Option<crate::Paint>,
+    pub font_weight: u32,
+    pub underline: bool,
+    pub monospace: bool,
 }
 
 /// The typeface family a string is set in.
@@ -1000,14 +1325,14 @@ pub struct Style {
     pub max_width: Length,
     pub max_height: Length,
     pub grow: bool,
-    pub bg: Option<u32>,
-    pub hover_bg: Option<u32>,
-    pub active_bg: Option<u32>,
-    pub disabled_bg: Option<u32>,
-    pub disabled_fg: Option<u32>,
-    pub focus_color: Option<u32>,
-    pub fg: Option<u32>,
-    pub border_color: Option<u32>,
+    pub bg: Option<crate::Paint>,
+    pub hover_bg: Option<crate::Paint>,
+    pub active_bg: Option<crate::Paint>,
+    pub disabled_bg: Option<crate::Paint>,
+    pub disabled_fg: Option<crate::Paint>,
+    pub focus_color: Option<crate::Paint>,
+    pub fg: Option<crate::Paint>,
+    pub border_color: Option<crate::Paint>,
     /// Top, right, bottom, left, already resolved from the shorthand.
     pub border_width: [u32; 4],
     pub radius: u32,
@@ -1017,7 +1342,7 @@ pub struct Style {
     /// percentage of that colour it is painted at. A zero blur paints none.
     pub shadow: u32,
     pub shadow_y: u32,
-    pub shadow_color: Option<u32>,
+    pub shadow_color: Option<crate::Paint>,
     pub shadow_alpha: u32,
     pub font_face: FontFace,
     pub text_overflow: TextOverflow,
@@ -1111,9 +1436,6 @@ pub struct GraphApply {
     pub retired_root: bool,
     pub parent: Option<(u64, usize)>,
     pub retained_roots: Vec<u64>,
-    pub retained_nodes: u64,
-    /// Structural validation visits; excludes indexed metadata/scope lookups.
-    pub validation_visits: u64,
     pub removed_instances: Vec<u64>,
     pub staged_instances: Vec<u64>,
     pub(crate) keyed_edits: Vec<KeyedNativeEdit>,
@@ -1223,6 +1545,8 @@ pub type ElementIdentity = Vec<IdentitySegment>;
 
 pub const HOVER_ENTER_EVENT_BIT: u64 = 1 << 62;
 pub const HOVER_EXIT_EVENT_BIT: u64 = 1 << 61;
+/// The route of every shortcut a region declares.
+pub const SHORTCUT_EVENT_BIT: u64 = 1 << 60;
 
 /// The canonical mounted UI graph. Both semantic specs and the GPUI runtime
 /// apply patches here; GPUI entities are only a materialized view of this state.
@@ -1237,6 +1561,118 @@ pub struct MountedGraph {
     input_owners: NodeMap<Option<u64>>,
     dialog: Option<u64>,
     hovered: NodeSet,
+    popovers: PopoverState,
+    keyboard: KeyboardState,
+    /// The size last reported to each canvas whose owner handles its size.
+    /// Carried by identity across a rebuild, so a canvas hears each size once
+    /// while it stays mounted, whichever runner lays it out.
+    canvas_sizes: NodeMap<(u32, u32)>,
+}
+
+/// The regions whose shortcuts a keystroke may reach and the focus requests
+/// the last transaction made. Owned by the graph so the native window and the
+/// semantic runner resolve a keystroke, and honour a request, by one policy.
+#[derive(Default)]
+struct KeyboardState {
+    /// Every mounted region that declares a shortcut.
+    regions: NodeSet,
+    /// The subset declaring one that is live wherever focus is.
+    window_regions: NodeSet,
+    /// The serial each mounted region last asked for focus with.
+    serials: NodeMap<u64>,
+    /// Regions staged by the transaction being applied that carry a serial.
+    staged_requests: Vec<u64>,
+    /// Regions whose serial is new since the last request was taken.
+    requests: Vec<u64>,
+    counters: KeyboardCounters,
+}
+
+/// Deterministic keyboard work, counted by the graph that does it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct KeyboardCounters {
+    /// Keystrokes offered to the application's shortcuts.
+    pub offered: u64,
+    /// Keystrokes a shortcut answered.
+    pub matched: u64,
+    /// Declared shortcuts compared against a keystroke.
+    pub compared: u64,
+    /// Focus requests that moved focus.
+    pub focused: u64,
+}
+
+impl KeyboardCounters {
+    pub fn as_array(self) -> [u64; 4] {
+        [self.offered, self.matched, self.compared, self.focused]
+    }
+}
+
+/// Which popovers are presenting, and why. Owned by the graph so the native
+/// window and the semantic runner apply one policy: a surface opens after its
+/// delay while the pointer rests on the anchor, at once while keyboard focus
+/// is inside it, and closes when both have left or on Escape.
+#[derive(Default)]
+struct PopoverState {
+    open: NodeSet,
+    /// Hovered, waiting for the delay to elapse.
+    pending: NodeSet,
+    focus_within: NodeSet,
+    counters: PopoverCounters,
+}
+
+/// Deterministic popover transitions, counted by the graph that decides them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PopoverCounters {
+    /// Surfaces that began presenting.
+    pub opened: u64,
+    /// Surfaces closed because pointer and focus both left.
+    pub closed: u64,
+    /// Surfaces closed by Escape.
+    pub dismissed: u64,
+}
+
+impl PopoverCounters {
+    pub fn as_array(self) -> [u64; 3] {
+        [self.opened, self.closed, self.dismissed]
+    }
+}
+
+/// Interaction state of retired nodes, carried by identity to the nodes that
+/// replace them, so a rebuild under the pointer neither replays nor drops it.
+#[derive(Default)]
+struct InteractionCarry {
+    hovered: HashSet<ElementIdentity>,
+    open: HashSet<ElementIdentity>,
+    pending: HashSet<ElementIdentity>,
+    focus_within: HashSet<ElementIdentity>,
+    /// The serial a retired region had asked for focus with.
+    focus_serials: HashMap<ElementIdentity, u64>,
+    /// The size a retired canvas had last reported.
+    canvas_sizes: HashMap<ElementIdentity, (u32, u32)>,
+}
+
+impl InteractionCarry {
+    fn is_empty(&self) -> bool {
+        self.hovered.is_empty()
+            && self.open.is_empty()
+            && self.pending.is_empty()
+            && self.focus_within.is_empty()
+            && self.canvas_sizes.is_empty()
+    }
+}
+
+/// Whether the graph tracks pointer edges for this node: an enabled button
+/// with a hover handler, or any popover.
+fn tracks_hover(kind: &NodeKind) -> bool {
+    match kind {
+        NodeKind::Button {
+            enabled: true,
+            hover_enter,
+            hover_exit,
+            ..
+        } => *hover_enter || *hover_exit,
+        NodeKind::Popover { .. } => true,
+        _ => false,
+    }
 }
 
 struct MountedNode {
@@ -1327,6 +1763,53 @@ impl MountedGraph {
         self.nodes.get(&id).and_then(|entry| entry.parent)
     }
 
+    /// The node an event route reaches, named for a capture without any
+    /// application text: its kind, and a hash of its structural path.
+    ///
+    /// The path is the kind and the display position of every node from the
+    /// root down to the target. It holds no label, name, value, key, or
+    /// component instance, so it can be recorded under the capture privacy
+    /// rules, and it depends only on the shape of the mounted graph, so the
+    /// same control in the same place hashes the same across runs, rebuilds,
+    /// and machines. A keyed or virtual row is named by where it is shown,
+    /// never by its key, which an application derives from its data.
+    pub fn cycle_target(&self, route: u64) -> Option<CycleTarget> {
+        const ROUTE_BITS: u64 =
+            (1 << 63) | HOVER_ENTER_EVENT_BIT | HOVER_EXIT_EVENT_BIT | SHORTCUT_EVENT_BIT;
+        let target = route & !ROUTE_BITS;
+        let kind = self.node(target)?.kind.target_kind();
+        // FNV-1a over (tag, position) pairs from the target up to the root. The
+        // walk order is fixed, so the hash names the same path every time.
+        let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut mix = |value: u64| {
+            for byte in value.to_le_bytes() {
+                hash ^= u64::from(byte);
+                hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        };
+        let mut id = target;
+        loop {
+            let entry = self.nodes.get(&id)?;
+            mix(u64::from(entry.node.kind.tag()));
+            match entry.parent {
+                Some(ParentLocation::OrdinaryIndex { parent, index }) => {
+                    mix(index as u64);
+                    id = parent;
+                }
+                Some(ParentLocation::Keyed { container, .. }) => {
+                    let position = self.children_of(container).position(|child| child == id)?;
+                    mix(position as u64);
+                    id = container;
+                }
+                None => break,
+            }
+        }
+        Some(CycleTarget {
+            kind,
+            identity: format!("{hash:016x}"),
+        })
+    }
+
     pub fn subtree_size(&self, id: u64) -> Option<u64> {
         self.nodes.get(&id).map(|entry| entry.subtree_size)
     }
@@ -1389,6 +1872,33 @@ impl MountedGraph {
         ordered
     }
 
+    /// Nodes a person can currently perceive, in production child order: the
+    /// content of a closed popover is mounted but not presented, so it is
+    /// skipped along with everything below it.
+    pub fn presented_preorder(&self) -> Vec<&Node> {
+        let mut ordered = Vec::with_capacity(self.nodes.len());
+        let mut pending = self.root.into_iter().collect::<Vec<_>>();
+        while let Some(id) = pending.pop() {
+            let node = &self.nodes.get(&id).expect("mounted child is missing").node;
+            ordered.push(node);
+            if matches!(node.kind, NodeKind::Popover { .. }) && !self.popovers.open.contains(&id) {
+                pending.extend(node.children.first().copied());
+            } else if let Some(hidden) = node.kind.hidden_pane() {
+                pending.extend(
+                    node.children
+                        .iter()
+                        .enumerate()
+                        .rev()
+                        .filter(|(index, _)| *index != hidden)
+                        .map(|(_, child)| *child),
+                );
+            } else {
+                pending.extend(self.children_of(id).rev());
+            }
+        }
+        ordered
+    }
+
     /// Where every mounted node sits, named rather than numbered.
     ///
     /// A mounted node id is deliberately never reused, so it cannot say that
@@ -1403,6 +1913,7 @@ impl MountedGraph {
     /// Repeated names among siblings are disambiguated by occurrence, so the
     /// identity of a node is unique within the graph even when an application
     /// gives two sibling buttons the same name.
+    #[cfg(test)]
     pub fn element_identities(&self) -> HashMap<u64, ElementIdentity> {
         let mut identities = HashMap::new();
         if let Some(root) = self.root {
@@ -1446,6 +1957,7 @@ impl MountedGraph {
 
     /// Record identities for `root` and everything beneath it, given the
     /// identity of its parent and its own key among that parent's children.
+    #[cfg(test)]
     pub fn identities_below(
         &self,
         root: u64,
@@ -1494,6 +2006,17 @@ impl MountedGraph {
                     HOVER_EXIT_EVENT_BIT
                 },
             ),
+            NodeKind::Popover {
+                hover_enter,
+                hover_exit,
+                ..
+            } if if entered { *hover_enter } else { *hover_exit } => Some(
+                id | if entered {
+                    HOVER_ENTER_EVENT_BIT
+                } else {
+                    HOVER_EXIT_EVENT_BIT
+                },
+            ),
             _ => None,
         }
     }
@@ -1507,8 +2030,7 @@ impl MountedGraph {
         {
             return None;
         }
-        if !matches!(self.node(id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
-        {
+        if !self.node(id).is_some_and(|node| tracks_hover(&node.kind)) {
             return None;
         }
         let changed = if entered {
@@ -1516,7 +2038,523 @@ impl MountedGraph {
         } else {
             self.hovered.remove(&id)
         };
+        if changed {
+            self.popover_hover_edge(id, entered);
+        }
         changed.then(|| self.hover_route(id, entered)).flatten()
+    }
+
+    /// The nodes a pointer resting on `id` hovers, outermost first: every
+    /// popover whose anchor contains `id`, then `id` itself when it tracks
+    /// hover. A popover's surface floats outside its anchor, so a node in a
+    /// surface hovers nothing above that popover.
+    pub fn hover_targets(&self, id: u64) -> Vec<u64> {
+        let mut targets = Vec::new();
+        if self.node(id).is_some_and(|node| tracks_hover(&node.kind)) {
+            targets.push(id);
+        }
+        let mut current = id;
+        while let Some(location) = self.parent_location(current) {
+            let parent = location.parent();
+            if matches!(
+                self.node(parent).map(|node| &node.kind),
+                Some(NodeKind::Popover { .. })
+            ) {
+                if !matches!(location, ParentLocation::OrdinaryIndex { index: 0, .. }) {
+                    break;
+                }
+                targets.push(parent);
+            }
+            current = parent;
+        }
+        targets.reverse();
+        targets
+    }
+
+    /// A popover with content to present, as opposed to a hover region.
+    fn presents(&self, id: u64) -> bool {
+        self.node(id).is_some_and(|node| {
+            matches!(node.kind, NodeKind::Popover { .. }) && node.children.len() > 1
+        })
+    }
+
+    fn open_popover(&mut self, id: u64) -> bool {
+        self.popovers.pending.remove(&id);
+        let opened = self.popovers.open.insert(id);
+        if opened {
+            self.popovers.counters.opened += 1;
+        }
+        opened
+    }
+
+    fn close_popover(&mut self, id: u64) -> bool {
+        self.popovers.pending.remove(&id);
+        let closed = self.popovers.open.remove(&id);
+        if closed {
+            self.popovers.counters.closed += 1;
+        }
+        closed
+    }
+
+    fn popover_hover_edge(&mut self, id: u64, entered: bool) {
+        if !self.presents(id) {
+            return;
+        }
+        if entered {
+            let delay = match self.node(id).map(|node| &node.kind) {
+                Some(NodeKind::Popover { delay_ms, .. }) => *delay_ms,
+                _ => 0,
+            };
+            if delay == 0 {
+                self.open_popover(id);
+            } else if !self.popovers.open.contains(&id) {
+                self.popovers.pending.insert(id);
+            }
+        } else {
+            self.popovers.pending.remove(&id);
+            if !self.popovers.focus_within.contains(&id) {
+                self.close_popover(id);
+            }
+        }
+    }
+
+    /// The delay a hovered popover is waiting out, when it is waiting.
+    pub fn popover_delay(&self, id: u64) -> Option<u32> {
+        if !self.popovers.pending.contains(&id) {
+            return None;
+        }
+        match self.node(id).map(|node| &node.kind) {
+            Some(NodeKind::Popover { delay_ms, .. }) => Some(*delay_ms),
+            _ => None,
+        }
+    }
+
+    /// The delay has elapsed. Opens the popover only if the pointer is still
+    /// resting on its anchor; reports whether it opened.
+    pub fn popover_elapse(&mut self, id: u64) -> bool {
+        self.popovers.pending.remove(&id) && self.hovered.contains(&id) && self.open_popover(id)
+    }
+
+    /// Every popover waiting out a delay. A runner without a clock elapses
+    /// these when a specification waits.
+    pub fn pending_popovers(&self) -> Vec<u64> {
+        let mut pending = self.popovers.pending.iter().copied().collect::<Vec<_>>();
+        pending.sort_unstable();
+        pending
+    }
+
+    /// Keyboard focus entered or left a popover. Reports whether the popover
+    /// opened or closed.
+    pub fn popover_focus(&mut self, id: u64, within: bool) -> bool {
+        if !self.presents(id) {
+            return false;
+        }
+        if within {
+            self.popovers.focus_within.insert(id);
+            self.open_popover(id)
+        } else {
+            self.popovers.focus_within.remove(&id);
+            !self.hovered.contains(&id) && self.close_popover(id)
+        }
+    }
+
+    /// Focus moved to `focused`, or left every control. Updates each popover
+    /// the move entered or left, and returns those whose presentation changed.
+    pub fn popover_focus_moved(&mut self, focused: Option<u64>) -> Vec<u64> {
+        let mut containing = Vec::new();
+        let mut current = focused;
+        while let Some(id) = current {
+            if self.presents(id) {
+                containing.push(id);
+            }
+            current = self.parent(id).map(|(parent, _)| parent);
+        }
+        let mut left = self
+            .popovers
+            .focus_within
+            .iter()
+            .copied()
+            .filter(|id| !containing.contains(id))
+            .collect::<Vec<_>>();
+        left.sort_unstable();
+        let mut changed = Vec::new();
+        for id in left {
+            if self.popover_focus(id, false) {
+                changed.push(id);
+            }
+        }
+        for id in containing {
+            if !self.popovers.focus_within.contains(&id) && self.popover_focus(id, true) {
+                changed.push(id);
+            }
+        }
+        changed
+    }
+
+    /// Escape closes every presenting popover and cancels every pending one.
+    /// Returns the popovers it closed; each stays closed until the pointer or
+    /// focus enters it again.
+    pub fn dismiss_popovers(&mut self) -> Vec<u64> {
+        let mut closed = self.popovers.open.drain().collect::<Vec<_>>();
+        closed.sort_unstable();
+        self.popovers.pending.clear();
+        self.popovers.focus_within.clear();
+        self.popovers.counters.dismissed += closed.len() as u64;
+        closed
+    }
+
+    pub fn popover_open(&self, id: u64) -> bool {
+        self.popovers.open.contains(&id)
+    }
+
+    pub fn popover_counters(&self) -> PopoverCounters {
+        self.popovers.counters
+    }
+
+    pub fn keyboard_counters(&self) -> KeyboardCounters {
+        self.keyboard.counters
+    }
+
+    /// Whether a person can perceive `id`: nothing above it is the content of
+    /// a closed popover or the pane of a collapsed split.
+    fn is_presented(&self, id: u64) -> bool {
+        let mut current = id;
+        while let Some(location) = self.parent_location(current) {
+            let parent = location.parent();
+            if let ParentLocation::OrdinaryIndex { index, .. } = location
+                && self
+                    .node(parent)
+                    .and_then(|node| node.kind.hidden_pane())
+                    .is_some_and(|hidden| hidden == index)
+            {
+                return false;
+            }
+            if !matches!(location, ParentLocation::OrdinaryIndex { index: 0, .. })
+                && matches!(
+                    self.node(parent).map(|node| &node.kind),
+                    Some(NodeKind::Popover { .. })
+                )
+                && !self.popovers.open.contains(&parent)
+            {
+                return false;
+            }
+            current = parent;
+        }
+        true
+    }
+
+    /// `id` and its ancestors, from the mounted root down to `id`.
+    fn path_from_root(&self, id: u64) -> Vec<u64> {
+        let mut path = vec![id];
+        let mut current = id;
+        while let Some(location) = self.parent_location(current) {
+            current = location.parent();
+            path.push(current);
+        }
+        path.reverse();
+        path
+    }
+
+    /// Whether `a` comes before `b` in document order, the order Tab visits.
+    /// An ancestor comes before its descendants.
+    fn precedes(&self, a: u64, b: u64) -> bool {
+        let (left, right) = (self.path_from_root(a), self.path_from_root(b));
+        let shared = left
+            .iter()
+            .zip(&right)
+            .take_while(|(left, right)| left == right)
+            .count();
+        match (left.get(shared), right.get(shared)) {
+            (None, _) => true,
+            (Some(_), None) => false,
+            (Some(first), Some(second)) => {
+                self.children_of(left[shared - 1])
+                    .find(|child| child == first || child == second)
+                    == Some(*first)
+            }
+        }
+    }
+
+    /// Whether a keystroke may reach the shortcuts of `region` while a modal
+    /// dialog is active: only those declared inside it may.
+    fn region_live(&self, region: u64) -> bool {
+        self.dialog
+            .is_none_or(|dialog| self.is_descendant_of(region, dialog))
+            && self.is_presented(region)
+    }
+
+    /// The shortcut a keystroke reaches, with keyboard focus on `focused`.
+    ///
+    /// The regions enclosing focus are asked first, innermost first, with both
+    /// their window and focus shortcuts; then every other live region's window
+    /// shortcuts, where the last in document order wins a chord two declare. A
+    /// modal dialog leaves only the regions inside it live. A keystroke that
+    /// would type a character into a focused text field is text, and reaches
+    /// no shortcut. `matches` compares one declared chord, in canonical
+    /// spelling, with the keystroke; every comparison is counted.
+    pub fn resolve_shortcut(
+        &mut self,
+        focused: Option<u64>,
+        types_character: bool,
+        matches: impl Fn(&str) -> bool,
+    ) -> Option<ShortcutMatch> {
+        self.keyboard.counters.offered += 1;
+        let focused = focused.filter(|id| self.nodes.contains_key(id));
+        let editing = focused.is_some_and(|id| {
+            matches!(
+                self.node(id).map(|node| &node.kind),
+                Some(
+                    NodeKind::TextInput { enabled: true, .. }
+                        | NodeKind::Textarea {
+                            enabled: true,
+                            read_only: false,
+                            ..
+                        }
+                )
+            )
+        });
+        if editing && types_character {
+            return None;
+        }
+        let mut compared = 0;
+        let mut found = None;
+        let mut enclosing = Vec::new();
+        let mut current = focused;
+        while let Some(id) = current {
+            if self.keyboard.regions.contains(&id) {
+                enclosing.push(id);
+            }
+            if Some(id) == self.dialog {
+                break;
+            }
+            current = self.parent_location(id).map(ParentLocation::parent);
+        }
+        'enclosing: for region in &enclosing {
+            if !self.region_live(*region) {
+                continue;
+            }
+            let declared = match self.node(*region).map(|node| &node.kind) {
+                Some(NodeKind::Popover { shortcuts, .. }) => shortcuts.as_slice(),
+                // A split's region is its divider, not the panes beside it.
+                Some(NodeKind::Split { shortcuts, .. }) if focused == Some(*region) => {
+                    shortcuts.as_slice()
+                }
+                _ => &[],
+            };
+            for (index, shortcut) in declared.iter().enumerate() {
+                compared += 1;
+                if matches(&shortcut.keys) {
+                    found = Some((*region, index, shortcut.keys.clone()));
+                    break 'enclosing;
+                }
+            }
+        }
+        if found.is_none() {
+            let mut candidates = Vec::new();
+            for region in &self.keyboard.window_regions {
+                if enclosing.contains(region) || !self.region_live(*region) {
+                    continue;
+                }
+                if let Some(NodeKind::Popover { shortcuts, .. }) =
+                    self.node(*region).map(|node| &node.kind)
+                {
+                    for (index, shortcut) in shortcuts.iter().enumerate() {
+                        if shortcut.scope != ShortcutScope::Window {
+                            continue;
+                        }
+                        compared += 1;
+                        if matches(&shortcut.keys) {
+                            candidates.push((*region, index, shortcut.keys.clone()));
+                            break;
+                        }
+                    }
+                }
+            }
+            found = candidates.into_iter().reduce(|kept, next| {
+                if self.precedes(kept.0, next.0) {
+                    next
+                } else {
+                    kept
+                }
+            });
+        }
+        self.keyboard.counters.compared += compared;
+        let (region, index, keys) = found?;
+        self.keyboard.counters.matched += 1;
+        Some(ShortcutMatch {
+            region,
+            event: region | SHORTCUT_EVENT_BIT,
+            index: index as u64,
+            keys,
+        })
+    }
+
+    /// The control focus moves to for the regions that asked since this was
+    /// last called: the first enabled control inside the one latest in
+    /// document order, if it is live and has one. A request made behind a
+    /// modal dialog, or inside a closed popover, moves nothing.
+    pub fn take_focus_request(&mut self) -> Option<u64> {
+        let requests = std::mem::take(&mut self.keyboard.requests);
+        let region = requests
+            .into_iter()
+            .filter(|region| self.nodes.contains_key(region) && self.region_live(*region))
+            .reduce(|kept, next| {
+                if self.precedes(kept, next) {
+                    next
+                } else {
+                    kept
+                }
+            })?;
+        let mut pending = vec![region];
+        while let Some(id) = pending.pop() {
+            let node = self.node(id)?;
+            if node.kind.focus_identity().is_some() {
+                self.keyboard.counters.focused += 1;
+                return Some(id);
+            }
+            if matches!(node.kind, NodeKind::Popover { .. }) && !self.popovers.open.contains(&id) {
+                pending.extend(node.children.first().copied());
+            } else if let Some(hidden) = node.kind.hidden_pane() {
+                let shown = node
+                    .children
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .filter(|(index, _)| *index != hidden)
+                    .map(|(_, child)| *child)
+                    .collect::<Vec<_>>();
+                pending.extend(shown);
+            } else {
+                pending.extend(self.children_of(id).rev());
+            }
+        }
+        None
+    }
+
+    /// Collect the interaction state of nodes about to be retired, by
+    /// identity, while their ancestry is still mounted.
+    fn carry_interaction(&mut self, removed: &[u64]) -> InteractionCarry {
+        let mut carry = InteractionCarry::default();
+        for id in removed {
+            self.keyboard.regions.remove(id);
+            self.keyboard.window_regions.remove(id);
+            if let Some(serial) = self.keyboard.serials.remove(id) {
+                carry.focus_serials.insert(self.identity(*id), serial);
+            }
+            if let Some(size) = self.canvas_sizes.remove(id) {
+                carry.canvas_sizes.insert(self.identity(*id), size);
+            }
+            let hovered = self.hovered.remove(id);
+            let open = self.popovers.open.remove(id);
+            let pending = self.popovers.pending.remove(id);
+            let focus = self.popovers.focus_within.remove(id);
+            if hovered || open || pending || focus {
+                let identity = self.identity(*id);
+                if hovered {
+                    carry.hovered.insert(identity.clone());
+                }
+                if open {
+                    carry.open.insert(identity.clone());
+                }
+                if pending {
+                    carry.pending.insert(identity.clone());
+                }
+                if focus {
+                    carry.focus_within.insert(identity);
+                }
+            }
+        }
+        carry
+    }
+
+    /// Give carried interaction state to the staged nodes that took the
+    /// retired nodes' identities.
+    fn restore_interaction(&mut self, staged: &[u64], carry: InteractionCarry) {
+        // A region asks for focus when its serial is one its identity has not
+        // asked with before: new, or changed since the region it replaces.
+        for region in std::mem::take(&mut self.keyboard.staged_requests) {
+            let Some(NodeKind::Popover { focus_serial, .. }) =
+                self.node(region).map(|node| &node.kind)
+            else {
+                continue;
+            };
+            let serial = *focus_serial;
+            let before = carry.focus_serials.get(&self.identity(region)).copied();
+            self.keyboard.serials.insert(region, serial);
+            if before != Some(serial) {
+                self.keyboard.requests.push(region);
+            }
+        }
+        if carry.is_empty() {
+            return;
+        }
+        for id in staged {
+            let Some(node) = self.node(*id) else {
+                continue;
+            };
+            if matches!(node.kind, NodeKind::Canvas { size: true, .. }) {
+                if let Some(size) = carry.canvas_sizes.get(&self.identity(*id)) {
+                    self.canvas_sizes.insert(*id, *size);
+                }
+                continue;
+            }
+            if !tracks_hover(&node.kind) {
+                continue;
+            }
+            let presents = self.presents(*id);
+            let identity = self.identity(*id);
+            if carry.hovered.contains(&identity) {
+                self.hovered.insert(*id);
+            }
+            if presents {
+                if carry.open.contains(&identity) {
+                    self.popovers.open.insert(*id);
+                }
+                if carry.pending.contains(&identity) {
+                    self.popovers.pending.insert(*id);
+                }
+                if carry.focus_within.contains(&identity) {
+                    self.popovers.focus_within.insert(*id);
+                }
+            }
+        }
+    }
+
+    /// Record `size` as the size reported to a canvas whose owner handles
+    /// its size. False when the canvas is gone, does not ask, or has already
+    /// heard this size, so nothing is to be delivered.
+    pub(crate) fn report_canvas_size(&mut self, id: u64, size: (u32, u32)) -> bool {
+        if !matches!(
+            self.node(id).map(|node| &node.kind),
+            Some(NodeKind::Canvas { size: true, .. })
+        ) {
+            return false;
+        }
+        self.canvas_sizes.insert(id, size) != Some(size)
+    }
+
+    /// The size last reported to a canvas, if one has been.
+    pub(crate) fn reported_canvas_size(&self, id: u64) -> Option<(u32, u32)> {
+        self.canvas_sizes.get(&id).copied()
+    }
+
+    /// Modal input policy: a newly active dialog retires background pointer
+    /// and popover state without dispatching callbacks.
+    fn retire_behind_dialog(&mut self, dialog: u64) {
+        let blocked = self
+            .hovered
+            .iter()
+            .chain(self.popovers.open.iter())
+            .chain(self.popovers.pending.iter())
+            .chain(self.popovers.focus_within.iter())
+            .copied()
+            .filter(|id| !self.is_descendant_of(*id, dialog))
+            .collect::<Vec<_>>();
+        for id in blocked {
+            self.hovered.remove(&id);
+            self.popovers.focus_within.remove(&id);
+            self.close_popover(id);
+        }
     }
 
     pub fn is_descendant_of(&self, mut id: u64, ancestor: u64) -> bool {
@@ -1541,12 +2579,22 @@ impl MountedGraph {
     /// into view, so deciding visibility means clipping against these.
     pub fn scroll_ancestors(&self, id: u64) -> Vec<u64> {
         let mut found = Vec::new();
+        // A presenting popover's surface, and its content, float above the
+        // window rather than inside any scrolling ancestor.
+        if self.presents(id) {
+            return found;
+        }
         let mut current = self.nodes.get(&id).and_then(|entry| entry.parent);
         while let Some(parent) = current {
             let parent_id = parent.parent();
             let Some(entry) = self.nodes.get(&parent_id) else {
                 break;
             };
+            if matches!(parent, ParentLocation::OrdinaryIndex { index, .. } if index > 0)
+                && matches!(entry.node.kind, NodeKind::Popover { .. })
+            {
+                break;
+            }
             if matches!(
                 entry.node.kind,
                 NodeKind::Scroll { .. } | NodeKind::VirtualList { .. }
@@ -1619,6 +2667,7 @@ impl MountedGraph {
 
     /// IDs below virtual-list nodes. They remain in the canonical graph for
     /// semantic lookup and routing but do not receive eager GPUI entities.
+    #[cfg(test)]
     pub fn virtual_descendant_ids(&self) -> HashSet<u64> {
         let mut result = HashSet::new();
         for entry in self.nodes.values() {
@@ -1711,208 +2760,195 @@ impl MountedGraph {
             validated: ValidatedFragment,
         }
 
+        type PreparedFragments = (Vec<FragmentPlan>, Vec<u64>, u64, Vec<KeyedNativeEdit>);
         let owner = self.component_owner(container);
         let mut journal = KeyedOrderJournal::new(&mut order);
-        let prepared =
-            (|| -> Result<(Vec<FragmentPlan>, Vec<u64>, u64, Vec<KeyedNativeEdit>), String> {
-                let mut fragments = Vec::new();
-                let mut native_edits = Vec::new();
-                let mut staged_ids = NodeSet::default();
-                let mut staged_instances = NodeSet::default();
-                let mut graph_visits = 0;
+        let prepared = (|| -> Result<PreparedFragments, String> {
+            let mut fragments = Vec::new();
+            let mut native_edits = Vec::new();
+            let mut staged_ids = NodeSet::default();
+            let mut staged_instances = NodeSet::default();
+            let mut graph_visits = 0;
 
-                for operation in operations {
-                    match operation {
-                        KeyedGraphOperation::Insert {
+            for operation in operations {
+                match operation {
+                    KeyedGraphOperation::Insert {
+                        key,
+                        before,
+                        root,
+                        nodes,
+                    } => {
+                        let validated =
+                            validate_fragment(root, &nodes, &NodeSet::default(), owner, |id| {
+                                self.node(id)
+                            })?;
+                        graph_visits += validated.visits;
+                        let instance = match validated
+                            .lookup(root, &nodes, |id| self.node(id))
+                            .map(|node| &node.kind)
+                        {
+                            Some(NodeKind::Boundary { instance }) => *instance,
+                            _ => {
+                                return Err("a keyed item root must be a component boundary".into());
+                            }
+                        };
+                        Self::validate_keyed_staged_fragment(
+                            self,
+                            &nodes,
+                            &mut staged_ids,
+                            &mut staged_instances,
+                            None,
+                        )?;
+                        journal
+                            .insert(key, root, instance, before)
+                            .map_err(|error| {
+                                format!("keyed order rejected transaction: {error:?}")
+                            })?;
+                        native_edits.push(KeyedNativeEdit::Insert { key, before, root });
+                        fragments.push(FragmentPlan {
                             key,
-                            before,
                             root,
                             nodes,
-                        } => {
-                            let validated = validate_fragment(
-                                root,
-                                &nodes,
-                                &NodeSet::default(),
-                                owner,
-                                |id| self.node(id),
-                            )?;
-                            graph_visits += validated.visits;
-                            let instance = match validated
-                                .lookup(root, &nodes, |id| self.node(id))
-                                .map(|node| &node.kind)
-                            {
-                                Some(NodeKind::Boundary { instance }) => *instance,
-                                _ => {
-                                    return Err(
-                                        "a keyed item root must be a component boundary".into()
-                                    );
-                                }
-                            };
-                            Self::validate_keyed_staged_fragment(
-                                self,
-                                &nodes,
-                                &mut staged_ids,
-                                &mut staged_instances,
-                                None,
-                            )?;
-                            journal
-                                .insert(key, root, instance, before)
-                                .map_err(|error| {
-                                    format!("keyed order rejected transaction: {error:?}")
-                                })?;
-                            native_edits.push(KeyedNativeEdit::Insert { key, before, root });
-                            fragments.push(FragmentPlan {
-                                key,
-                                root,
-                                nodes,
-                                validated,
-                            });
-                        }
-                        KeyedGraphOperation::Remove { key } => {
-                            let root = journal
-                                .child(key)
-                                .map_err(|error| {
-                                    format!("keyed order rejected transaction: {error:?}")
-                                })?
-                                .root;
-                            journal.remove(key).map_err(|error| {
+                            validated,
+                        });
+                    }
+                    KeyedGraphOperation::Remove { key } => {
+                        let root = journal
+                            .child(key)
+                            .map_err(|error| {
                                 format!("keyed order rejected transaction: {error:?}")
+                            })?
+                            .root;
+                        journal.remove(key).map_err(|error| {
+                            format!("keyed order rejected transaction: {error:?}")
+                        })?;
+                        native_edits.push(KeyedNativeEdit::Remove { key, root });
+                    }
+                    KeyedGraphOperation::Move { key, before } => {
+                        journal.move_before(key, before).map_err(|error| {
+                            format!("keyed order rejected transaction: {error:?}")
+                        })?;
+                        native_edits.push(KeyedNativeEdit::Move { key, before });
+                    }
+                    KeyedGraphOperation::Set { key, root, nodes } => {
+                        let child = journal.child(key).map_err(|error| {
+                            format!("keyed order rejected transaction: {error:?}")
+                        })?;
+                        let validated =
+                            validate_fragment(root, &nodes, &NodeSet::default(), owner, |id| {
+                                self.node(id)
                             })?;
-                            native_edits.push(KeyedNativeEdit::Remove { key, root });
-                        }
-                        KeyedGraphOperation::Move { key, before } => {
-                            journal.move_before(key, before).map_err(|error| {
-                                format!("keyed order rejected transaction: {error:?}")
-                            })?;
-                            native_edits.push(KeyedNativeEdit::Move { key, before });
-                        }
-                        KeyedGraphOperation::Set { key, root, nodes } => {
-                            let child = journal.child(key).map_err(|error| {
-                                format!("keyed order rejected transaction: {error:?}")
-                            })?;
-                            let validated = validate_fragment(
-                                root,
-                                &nodes,
-                                &NodeSet::default(),
-                                owner,
-                                |id| self.node(id),
-                            )?;
-                            graph_visits += validated.visits;
-                            match validated
-                                .lookup(root, &nodes, |id| self.node(id))
-                                .map(|node| &node.kind)
-                            {
-                                Some(NodeKind::Boundary { instance })
-                                    if *instance == child.instance => {}
-                                Some(NodeKind::Boundary { .. }) => {
-                                    return Err(
-                                        "a keyed Set must preserve its component instance".into()
-                                    );
-                                }
-                                _ => {
-                                    return Err(
-                                        "a keyed item root must be a component boundary".into()
-                                    );
-                                }
+                        graph_visits += validated.visits;
+                        match validated
+                            .lookup(root, &nodes, |id| self.node(id))
+                            .map(|node| &node.kind)
+                        {
+                            Some(NodeKind::Boundary { instance })
+                                if *instance == child.instance => {}
+                            Some(NodeKind::Boundary { .. }) => {
+                                return Err(
+                                    "a keyed Set must preserve its component instance".into()
+                                );
                             }
-                            Self::validate_keyed_staged_fragment(
-                                self,
-                                &nodes,
-                                &mut staged_ids,
-                                &mut staged_instances,
-                                Some(child.instance),
-                            )?;
-                            journal.replace(key, root).map_err(|error| {
-                                format!("keyed order rejected transaction: {error:?}")
-                            })?;
-                            native_edits.push(KeyedNativeEdit::Set {
-                                key,
-                                old_root: child.root,
-                                root,
-                            });
-                            fragments.push(FragmentPlan {
-                                key,
-                                root,
-                                nodes,
-                                validated,
-                            });
+                            _ => {
+                                return Err("a keyed item root must be a component boundary".into());
+                            }
                         }
+                        Self::validate_keyed_staged_fragment(
+                            self,
+                            &nodes,
+                            &mut staged_ids,
+                            &mut staged_instances,
+                            Some(child.instance),
+                        )?;
+                        journal.replace(key, root).map_err(|error| {
+                            format!("keyed order rejected transaction: {error:?}")
+                        })?;
+                        native_edits.push(KeyedNativeEdit::Set {
+                            key,
+                            old_root: child.root,
+                            root,
+                        });
+                        fragments.push(FragmentPlan {
+                            key,
+                            root,
+                            nodes,
+                            validated,
+                        });
                     }
                 }
+            }
 
-                let mut removed_roots = Vec::new();
-                for (key, original) in &journal.originals {
-                    let final_child = journal.order.children.get(key);
-                    if let Some(original) = original
-                        && final_child.is_none_or(|child| child.root != original.root)
-                    {
-                        removed_roots.push(original.root);
-                    }
+            let mut removed_roots = Vec::new();
+            for (key, original) in &journal.originals {
+                let final_child = journal.order.children.get(key);
+                if let Some(original) = original
+                    && final_child.is_none_or(|child| child.root != original.root)
+                {
+                    removed_roots.push(original.root);
                 }
-                let mut removed_ids = Vec::new();
-                for root in removed_roots {
-                    let mut pending = vec![root];
-                    while let Some(id) = pending.pop() {
-                        graph_visits += 1;
-                        removed_ids.push(id);
-                        pending.extend(self.children_of(id));
-                    }
+            }
+            let mut removed_ids = Vec::new();
+            for root in removed_roots {
+                let mut pending = vec![root];
+                while let Some(id) = pending.pop() {
+                    graph_visits += 1;
+                    removed_ids.push(id);
+                    pending.extend(self.children_of(id));
                 }
-                let removed = removed_ids.iter().copied().collect::<NodeSet>();
+            }
+            let removed = removed_ids.iter().copied().collect::<NodeSet>();
 
-                fragments.retain(|fragment| {
-                    journal
-                        .order
-                        .children
-                        .get(&fragment.key)
-                        .is_some_and(|child| child.root == fragment.root)
-                });
-                let mut labels = HashSet::new();
-                let mut staged_dialog = false;
-                for fragment in &fragments {
-                    for node in &fragment.nodes {
-                        match &node.kind {
-                            NodeKind::Dialog { .. } => {
-                                if staged_dialog
-                                    || self.dialog.is_some_and(|id| !removed.contains(&id))
-                                {
-                                    return Err(
-                                        "mounted graph would contain more than one modal dialog"
-                                            .into(),
-                                    );
-                                }
-                                staged_dialog = true;
+            fragments.retain(|fragment| {
+                journal
+                    .order
+                    .children
+                    .get(&fragment.key)
+                    .is_some_and(|child| child.root == fragment.root)
+            });
+            let mut labels = HashSet::new();
+            let mut staged_dialog = false;
+            for fragment in &fragments {
+                for node in &fragment.nodes {
+                    match &node.kind {
+                        NodeKind::Dialog { .. } => {
+                            if staged_dialog || self.dialog.is_some_and(|id| !removed.contains(&id))
+                            {
+                                return Err(
+                                    "mounted graph would contain more than one modal dialog".into(),
+                                );
                             }
-                            NodeKind::TextInput { label, .. } => {
-                                let owner = fragment.validated.input_owners[&node.id];
-                                if !labels.insert((owner, label.clone()))
-                                    || self
-                                        .input_labels
-                                        .get(&(owner, label.clone()))
-                                        .is_some_and(|id| !removed.contains(id))
-                                {
-                                    return Err(format!(
-                                        "mounted graph contains duplicate text input label {label:?}"
-                                    ));
-                                }
-                            }
-                            NodeKind::Boundary { instance } => {
-                                if self
-                                    .boundary_instances
-                                    .get(instance)
+                            staged_dialog = true;
+                        }
+                        NodeKind::TextInput { label, .. } => {
+                            let owner = fragment.validated.input_owners[&node.id];
+                            if !labels.insert((owner, label.clone()))
+                                || self
+                                    .input_labels
+                                    .get(&(owner, label.clone()))
                                     .is_some_and(|id| !removed.contains(id))
-                                {
-                                    return Err(format!(
-                                        "component instance {instance} is already mounted"
-                                    ));
-                                }
+                            {
+                                return Err(format!(
+                                    "mounted graph contains duplicate text input label {label:?}"
+                                ));
                             }
-                            _ => {}
                         }
+                        NodeKind::Boundary { instance }
+                            if self
+                                .boundary_instances
+                                .get(instance)
+                                .is_some_and(|id| !removed.contains(id)) =>
+                        {
+                            return Err(format!(
+                                "component instance {instance} is already mounted"
+                            ));
+                        }
+                        _ => {}
                     }
                 }
-                Ok((fragments, removed_ids, graph_visits, native_edits))
-            })();
+            }
+            Ok((fragments, removed_ids, graph_visits, native_edits))
+        })();
 
         let (fragments, removed_ids, graph_visits, native_edits) = match prepared {
             Ok(prepared) => prepared,
@@ -1933,13 +2969,8 @@ impl MountedGraph {
         let apply_started = MEASURE.then(Instant::now);
 
         let old_size = self.nodes[&container].subtree_size;
-        let mut hovered_identities = HashSet::new();
         let mut removed_instances = Vec::new();
-        for id in &removed_ids {
-            if self.hovered.remove(id) {
-                hovered_identities.insert(self.identity(*id));
-            }
-        }
+        let carried = self.carry_interaction(&removed_ids);
         for id in &removed_ids {
             let entry = self.nodes.remove(id).expect("prevalidated retirement");
             match entry.node.kind {
@@ -1994,27 +3025,11 @@ impl MountedGraph {
             .get_mut(&container)
             .expect("validated container")
             .keyed_children = Some(order);
-        if !hovered_identities.is_empty() {
-            for id in &staged_ids {
-                if matches!(self.node(*id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
-                    && hovered_identities.contains(&self.identity(*id))
-                {
-                    self.hovered.insert(*id);
-                }
-            }
-        }
+        self.restore_interaction(&staged_ids, carried);
         if self.dialog != previous_dialog
             && let Some(dialog) = self.dialog
         {
-            let blocked = self
-                .hovered
-                .iter()
-                .copied()
-                .filter(|id| !self.is_descendant_of(*id, dialog))
-                .collect::<Vec<_>>();
-            for id in blocked {
-                self.hovered.remove(&id);
-            }
+            self.retire_behind_dialog(dialog);
         }
         Ok(KeyedGraphApply {
             revision: new_revision,
@@ -2099,8 +3114,6 @@ impl MountedGraph {
                     retired_root: false,
                     parent: None,
                     retained_roots: vec![],
-                    retained_nodes: 0,
-                    validation_visits: keyed.graph_visits,
                     removed_instances: keyed.removed_instances,
                     staged_instances: keyed.staged_instances,
                     keyed_edits: keyed.native_edits,
@@ -2135,8 +3148,6 @@ impl MountedGraph {
                     retired_root: false,
                     parent: None,
                     retained_roots: vec![],
-                    retained_nodes: 0,
-                    validation_visits: 0,
                     removed_instances: vec![],
                     staged_instances: vec![],
                     keyed_edits: vec![],
@@ -2159,10 +3170,10 @@ impl MountedGraph {
         if old_root.is_none() && self.root.is_some() {
             return Err("application attempted to mount twice".into());
         }
-        if let Some(id) = old_root {
-            if !self.nodes.contains_key(&id) {
-                return Err(format!("replacement target {id} is missing"));
-            }
+        if let Some(id) = old_root
+            && !self.nodes.contains_key(&id)
+        {
+            return Err(format!("replacement target {id} is missing"));
         }
         let parent_location = old_root.and_then(|id| self.parent_location(id));
         let parent = match parent_location {
@@ -2225,16 +3236,15 @@ impl MountedGraph {
                 NodeKind::Dialog { .. } if self.dialog.is_some_and(|id| !removed.contains(&id)) => {
                     return Err("mounted graph would contain more than one modal dialog".into());
                 }
-                NodeKind::TextInput { label, .. } => {
+                NodeKind::TextInput { label, .. }
                     if self
                         .input_labels
                         .get(&(validated.input_owners[&node.id], label.clone()))
-                        .is_some_and(|id| !removed.contains(id))
-                    {
-                        return Err(format!(
-                            "mounted graph contains duplicate text input label {label:?}"
-                        ));
-                    }
+                        .is_some_and(|id| !removed.contains(id)) =>
+                {
+                    return Err(format!(
+                        "mounted graph contains duplicate text input label {label:?}"
+                    ));
                 }
                 NodeKind::Boundary { instance } => match self.boundary_instances.get(instance) {
                     Some(id) if !removed.contains(id) => {
@@ -2303,14 +3313,13 @@ impl MountedGraph {
                 continue;
             }
             let node = &nodes[validated.indices[&id]];
-            if let NodeKind::Boundary { instance } = node.kind {
-                if let Some(old) = self.boundary_instances.get(&instance) {
-                    if self.identity(*old) != identity {
-                        return Err(format!(
-                            "component instance {instance} changed structural scope"
-                        ));
-                    }
-                }
+            if let NodeKind::Boundary { instance } = node.kind
+                && let Some(old) = self.boundary_instances.get(&instance)
+                && self.identity(*old) != identity
+            {
+                return Err(format!(
+                    "component instance {instance} changed structural scope"
+                ));
             }
             pending.push((id, root_segment.clone(), true));
             let mut occurrences = HashMap::new();
@@ -2351,12 +3360,7 @@ impl MountedGraph {
             .collect();
         let mut removed_instances = Vec::new();
         let retired_root = old_root == self.root && old_root.is_some() && frontier.is_empty();
-        let mut hovered_identities = HashSet::new();
-        for id in &removed_ids {
-            if self.hovered.remove(id) {
-                hovered_identities.insert(self.identity(*id));
-            }
-        }
+        let carried = self.carry_interaction(&removed_ids);
         for id in &removed_ids {
             let entry = self.nodes.remove(id).expect("validated retirement");
             match entry.node.kind {
@@ -2412,30 +3416,14 @@ impl MountedGraph {
         } else {
             self.root = Some(root);
         }
-        if !hovered_identities.is_empty() {
-            for id in &staged_ids {
-                if matches!(self.node(*id).map(|node| &node.kind), Some(NodeKind::Button { enabled: true, hover_enter, hover_exit, .. }) if *hover_enter || *hover_exit)
-                    && hovered_identities.contains(&self.identity(*id))
-                {
-                    self.hovered.insert(*id);
-                }
-            }
-        }
+        self.restore_interaction(&staged_ids, carried);
         if self.dialog != previous_dialog
             && let Some(dialog) = self.dialog
         {
             // Modal input policy suppresses background exit callbacks. Retire
-            // blocked hover state without dispatching callbacks or walking
-            // unrelated mounted nodes.
-            let blocked = self
-                .hovered
-                .iter()
-                .copied()
-                .filter(|id| !self.is_descendant_of(*id, dialog))
-                .collect::<Vec<_>>();
-            for id in blocked {
-                self.hovered.remove(&id);
-            }
+            // blocked hover and popover state without dispatching callbacks or
+            // walking unrelated mounted nodes.
+            self.retire_behind_dialog(dialog);
         }
         let facts = ApplyFacts {
             kind: if old_root.is_some() {
@@ -2463,8 +3451,6 @@ impl MountedGraph {
             retired_root,
             parent,
             retained_roots,
-            retained_nodes,
-            validation_visits,
             removed_instances,
             staged_instances,
             keyed_edits: vec![],
@@ -2490,6 +3476,28 @@ impl MountedGraph {
                 }
                 NodeKind::Dialog { .. } => {
                     self.dialog = Some(node.id);
+                }
+                NodeKind::Popover {
+                    shortcuts,
+                    focus_serial,
+                    ..
+                } => {
+                    if !shortcuts.is_empty() {
+                        self.keyboard.regions.insert(node.id);
+                    }
+                    if shortcuts
+                        .iter()
+                        .any(|shortcut| shortcut.scope == ShortcutScope::Window)
+                    {
+                        self.keyboard.window_regions.insert(node.id);
+                    }
+                    if *focus_serial != 0 {
+                        self.keyboard.staged_requests.push(node.id);
+                    }
+                }
+                // A divider's keys are live only while it holds focus itself.
+                NodeKind::Split { shortcuts, .. } if !shortcuts.is_empty() => {
+                    self.keyboard.regions.insert(node.id);
                 }
                 _ => {}
             }
@@ -2787,10 +3795,10 @@ impl ComponentRegistry {
     /// Retirement and root updates follow the graph delta, never a full scan.
     pub fn commit(&mut self, graph: &MountedGraph, applied: &GraphApply) {
         for instance in &applied.removed_instances {
-            if graph.boundary_root(*instance).is_none() {
-                if let Some(location) = self.instances.remove(instance) {
-                    self.live.remove(&location);
-                }
+            if graph.boundary_root(*instance).is_none()
+                && let Some(location) = self.instances.remove(instance)
+            {
+                self.live.remove(&location);
             }
         }
         for (location, mut mount) in std::mem::take(&mut self.pending) {
@@ -2801,12 +3809,12 @@ impl ComponentRegistry {
             }
         }
         for instance in &applied.staged_instances {
-            if let Some(location) = self.instances.get(instance) {
-                if let Some(mount) = self.live.get_mut(location) {
-                    mount.root = graph
-                        .boundary_root(*instance)
-                        .expect("staged component is mounted");
-                }
+            if let Some(location) = self.instances.get(instance)
+                && let Some(mount) = self.live.get_mut(location)
+            {
+                mount.root = graph
+                    .boundary_root(*instance)
+                    .expect("staged component is mounted");
             }
         }
         self.abort();
@@ -3297,15 +4305,11 @@ fn validate_fragment<'a>(
                     return Err("native subtree contains more than one modal dialog".into());
                 }
             }
-            NodeKind::TextInput { label, .. } => {
-                if label.is_empty() {
-                    return Err("text input label must not be empty".into());
-                }
+            NodeKind::TextInput { label, .. } if label.is_empty() => {
+                return Err("text input label must not be empty".into());
             }
-            NodeKind::Boundary { instance } => {
-                if !instances.insert(*instance) {
-                    return Err(format!("duplicate component instance {instance}"));
-                }
+            NodeKind::Boundary { instance } if !instances.insert(*instance) => {
+                return Err(format!("duplicate component instance {instance}"));
             }
             _ => {}
         }
@@ -3328,9 +4332,30 @@ fn validate_fragment<'a>(
                     node.id
                 ));
             }
+            NodeKind::Popover { .. } if node.children.is_empty() => {
+                return Err(format!(
+                    "popover node {} must have an anchor child",
+                    node.id
+                ));
+            }
+            NodeKind::Popover { delay_ms, .. } if delay_ms > 60_000 => {
+                return Err(format!(
+                    "popover node {} delay exceeds 60000 milliseconds",
+                    node.id
+                ));
+            }
             NodeKind::Scroll { .. } if node.children.len() != 1 => {
                 return Err(format!(
                     "scroll node {} must have one content child",
+                    node.id
+                ));
+            }
+            NodeKind::Split { .. } if node.children.len() != 2 => {
+                return Err(format!("split node {} must have two panes", node.id));
+            }
+            NodeKind::Split { size, min, max, .. } if !(min <= size && size <= max) => {
+                return Err(format!(
+                    "split node {} holds a size outside its bounds",
                     node.id
                 ));
             }
@@ -3343,6 +4368,19 @@ fn validate_fragment<'a>(
             NodeKind::VirtualList { row_height, .. } if !(1..=16_384).contains(&row_height) => {
                 return Err(format!(
                     "virtual list node {} has invalid row height",
+                    node.id
+                ));
+            }
+            NodeKind::VirtualList {
+                rows: Some(rows), ..
+            } if rows.instance == 0
+                || rows
+                    .first
+                    .checked_add(node.children.len() as u64)
+                    .is_none_or(|end| end > rows.count) =>
+            {
+                return Err(format!(
+                    "virtual list node {} mounts rows outside its provided extent",
                     node.id
                 ));
             }
@@ -3415,6 +4453,7 @@ mod tests {
         let button = |id: u64, name: &str| Node {
             id,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: name.into(),
                 label: name.into(),
                 enabled: true,
@@ -3460,6 +4499,66 @@ mod tests {
         );
         // The last control removed: focus lands on the new last one.
         assert_eq!(graph.focus_destination(9), Some(7));
+    }
+
+    #[test]
+    fn a_cycle_target_names_a_place_and_no_text() {
+        let button = |id: u64, name: &str| Node {
+            id,
+            kind: NodeKind::Button {
+                role: ButtonRole::Button,
+                caption: name.into(),
+                label: name.into(),
+                enabled: true,
+                hover_enter: false,
+                hover_exit: false,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        let row = |id: u64, children: Vec<u64>| Node {
+            id,
+            kind: NodeKind::Row {
+                label: String::new(),
+                style: Box::default(),
+            },
+            children,
+        };
+        let mounted = |nodes: Vec<Node>| {
+            let mut graph = MountedGraph::default();
+            graph
+                .apply(Patch::Mount {
+                    root: nodes[0].id,
+                    nodes,
+                })
+                .expect("mount");
+            graph
+        };
+        let first = mounted(vec![
+            row(1, vec![2, 3]),
+            button(2, "Save"),
+            button(3, "Open"),
+        ]);
+        let save = first.cycle_target(2).expect("target");
+        assert_eq!(save.kind, "button");
+        assert_eq!(save.identity.len(), 16);
+        assert!(!save.identity.contains("Save"));
+        // A different run numbers its nodes differently and names its buttons
+        // differently; the same place has the same identity.
+        let renamed = mounted(vec![
+            row(7, vec![8, 9]),
+            button(8, "Speichern"),
+            button(9, "x"),
+        ]);
+        assert_eq!(renamed.cycle_target(8), Some(save.clone()));
+        // Route bits select a handler, not a different node.
+        assert_eq!(
+            first.cycle_target(2 | HOVER_ENTER_EVENT_BIT),
+            Some(save.clone())
+        );
+        // Another place is another identity.
+        assert_ne!(first.cycle_target(3).unwrap().identity, save.identity);
+        assert_eq!(first.cycle_target(99), None);
     }
 
     #[test]
@@ -3817,6 +4916,7 @@ mod tests {
             Node {
                 id: root + 1,
                 kind: NodeKind::Button {
+                    role: crate::bridge::ButtonRole::Button,
                     caption: label.into(),
                     label: label.into(),
                     enabled: true,
@@ -4005,8 +5105,8 @@ mod tests {
             .apply_keyed(1, 1, 2, vec![KeyedGraphOperation::Remove { key }])
             .unwrap();
         assert_eq!(graph.active_dialog(), None);
-        assert!(graph.input_owners.get(&4).is_none());
-        assert!(graph.input_labels.get(&(Some(10), "name".into())).is_none());
+        assert!(!graph.input_owners.contains_key(&4));
+        assert!(!graph.input_labels.contains_key(&(Some(10), "name".into())));
     }
 
     #[test]
@@ -4363,6 +5463,7 @@ mod tests {
 
     fn button(label: &str, enabled: bool) -> NodeKind {
         NodeKind::Button {
+            role: crate::bridge::ButtonRole::Button,
             caption: label.into(),
             label: label.into(),
             enabled,
@@ -4406,6 +5507,9 @@ mod tests {
             NodeKind::Canvas {
                 label: "Timeline track".into(),
                 primitives: vec![],
+                hover: false,
+                wheel: false,
+                size: false,
                 style: Box::default(),
             },
             NodeKind::Dialog {
@@ -4735,6 +5839,7 @@ mod tests {
                     row_height: 24,
                     row_gap: 0,
                     style: Box::default(),
+                    rows: None,
                 },
                 children: vec![2, 4],
             },
@@ -4744,6 +5849,55 @@ mod tests {
                 .unwrap_err()
                 .contains("duplicate item key 7")
         );
+    }
+
+    #[test]
+    fn a_provided_list_mounts_rows_only_inside_its_extent() {
+        let list = |first, count, instance| Node {
+            id: 5,
+            kind: NodeKind::VirtualList {
+                name: "rows".into(),
+                row_height: 24,
+                row_gap: 0,
+                style: Box::default(),
+                rows: Some(ProvidedRows {
+                    instance,
+                    count,
+                    first,
+                    notify: false,
+                }),
+            },
+            children: vec![2, 4],
+        };
+        let rows = |list| {
+            [
+                text(1, "first"),
+                Node {
+                    id: 2,
+                    kind: NodeKind::VirtualItem { key: 998 },
+                    children: vec![1],
+                },
+                text(3, "second"),
+                Node {
+                    id: 4,
+                    kind: NodeKind::VirtualItem { key: 999 },
+                    children: vec![3],
+                },
+                list,
+            ]
+        };
+        assert!(validate_tree(5, &rows(list(998, 1000, 9))).is_ok());
+        for refused in [
+            list(999, 1000, 9),
+            list(u64::MAX, 1000, 9),
+            list(0, 1000, 0),
+        ] {
+            assert!(
+                validate_tree(5, &rows(refused))
+                    .unwrap_err()
+                    .contains("outside its provided extent")
+            );
+        }
     }
 
     #[test]
@@ -4763,6 +5917,7 @@ mod tests {
                     row_height: 24,
                     row_gap: 0,
                     style: Box::default(),
+                    rows: None,
                 },
                 children: vec![2],
             },
@@ -4784,6 +5939,7 @@ mod tests {
                 row_height: 24,
                 row_gap: 0,
                 style: Box::default(),
+                rows: None,
             },
             children: vec![2, 4, 6],
         }];
@@ -5308,7 +6464,7 @@ mod tests {
             .unwrap();
         assert_eq!(applied.staged_ids, vec![6]);
         assert_eq!(applied.removed_ids, vec![5]);
-        assert_eq!(applied.retained_nodes, 4);
+        assert_eq!(applied.facts.retained_nodes, 4);
         assert_eq!(applied.facts.live, 5);
         assert!(!applied.retired_root);
         assert_eq!(graph.parent(4), Some((6, 0)));
@@ -5829,7 +6985,7 @@ mod tests {
     fn no_change_has_no_graph_validation_or_retirement_work() {
         let mut graph = two_components();
         let result = graph.apply(Patch::NoChange).unwrap();
-        assert_eq!(result.validation_visits, 0);
+        assert_eq!(result.facts.validation_visits, 0);
         assert_eq!(result.facts.staged, 0);
         assert_eq!(result.facts.removed, 0);
         assert_eq!(result.facts.live, 5);
@@ -5858,10 +7014,10 @@ mod tests {
                     retained_roots: vec![count + 2],
                 })
                 .unwrap();
-            assert_eq!(applied.retained_nodes, count + 2);
+            assert_eq!(applied.facts.retained_nodes, count + 2);
             assert_eq!(applied.facts.staged, 1);
             assert_eq!(applied.facts.removed, 1);
-            visits.push(applied.validation_visits);
+            visits.push(applied.facts.validation_visits);
         }
         assert_eq!(visits, vec![5, 5, 5]);
     }
@@ -6063,6 +7219,7 @@ mod tests {
         Node {
             id,
             kind: NodeKind::Button {
+                role: crate::bridge::ButtonRole::Button,
                 caption: "Cell".into(),
                 label: "Cell".into(),
                 enabled,
@@ -6385,5 +7542,509 @@ mod tests {
             registry.begin_render(0).is_err(),
             "finished lowering still awaits graph acceptance"
         );
+    }
+
+    fn popover(id: u64, label: &str, delay_ms: u32, handlers: bool, children: Vec<u64>) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Popover {
+                label: label.into(),
+                placement: Placement::Below,
+                delay_ms,
+                hover_enter: handlers,
+                hover_exit: handlers,
+                shortcuts: vec![],
+                focus_serial: 0,
+                style: Box::default(),
+            },
+            children,
+        }
+    }
+
+    /// A region of one child that answers `chords` and asks for focus with
+    /// `serial`.
+    fn keyed_region(id: u64, child: u64, chords: &[(&str, ShortcutScope)], serial: u64) -> Node {
+        Node {
+            id,
+            kind: NodeKind::Popover {
+                label: String::new(),
+                placement: Placement::Below,
+                delay_ms: 0,
+                hover_enter: false,
+                hover_exit: false,
+                shortcuts: chords
+                    .iter()
+                    .map(|(keys, scope)| Shortcut {
+                        keys: (*keys).into(),
+                        scope: *scope,
+                    })
+                    .collect(),
+                focus_serial: serial,
+                style: Box::default(),
+            },
+            children: vec![child],
+        }
+    }
+
+    fn resolve(graph: &mut MountedGraph, focused: Option<u64>, chord: &str) -> Option<(u64, u64)> {
+        graph
+            .resolve_shortcut(focused, false, |declared| declared == chord)
+            .map(|found| (found.region, found.index))
+    }
+
+    /// A window region 20 around a column holding a focus region 21 around
+    /// button 1, a window region 22 around button 2, and a plain button 3.
+    fn shortcut_tree(base: u64) -> Vec<Node> {
+        use ShortcutScope::{Focus, Window};
+        vec![
+            button_node(base + 1, "One"),
+            button_node(base + 2, "Two"),
+            button_node(base + 3, "Three"),
+            keyed_region(
+                base + 21,
+                base + 1,
+                &[("down", Focus), ("ctrl-k", Window)],
+                0,
+            ),
+            keyed_region(
+                base + 22,
+                base + 2,
+                &[("ctrl-k", Window), ("ctrl-j", Window)],
+                0,
+            ),
+            column(base + 10, vec![base + 21, base + 22, base + 3]),
+            keyed_region(
+                base + 20,
+                base + 10,
+                &[("ctrl-k", Window), ("f1", Window)],
+                0,
+            ),
+        ]
+    }
+
+    fn button_node(id: u64, label: &str) -> Node {
+        Node {
+            id,
+            kind: button(label, true),
+            children: vec![],
+        }
+    }
+
+    #[test]
+    fn a_shortcut_nearer_focus_wins_and_focus_shortcuts_need_focus_inside() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 20,
+                nodes: shortcut_tree(0),
+            })
+            .unwrap();
+        // With focus in the focus region, it answers first, innermost first.
+        assert_eq!(resolve(&mut graph, Some(1), "down"), Some((21, 0)));
+        assert_eq!(resolve(&mut graph, Some(1), "ctrl-k"), Some((21, 1)));
+        assert_eq!(resolve(&mut graph, Some(2), "ctrl-k"), Some((22, 0)));
+        // Elsewhere its focus shortcut is not live, and among regions not
+        // enclosing focus the last in document order wins.
+        assert_eq!(resolve(&mut graph, Some(3), "down"), None);
+        assert_eq!(resolve(&mut graph, Some(3), "ctrl-k"), Some((20, 0)));
+        assert_eq!(resolve(&mut graph, None, "ctrl-j"), Some((22, 1)));
+        assert_eq!(resolve(&mut graph, None, "f1"), Some((20, 1)));
+        assert_eq!(resolve(&mut graph, None, "f2"), None);
+        let counters = graph.keyboard_counters();
+        assert_eq!((counters.offered, counters.matched), (8, 6));
+    }
+
+    #[test]
+    fn a_typed_character_in_a_text_field_reaches_no_shortcut() {
+        let mut graph = MountedGraph::default();
+        let field = Node {
+            id: 1,
+            kind: NodeKind::TextInput {
+                label: "Filter".into(),
+                value: String::new(),
+                placeholder: String::new(),
+                enabled: true,
+                style: Box::default(),
+            },
+            children: vec![],
+        };
+        graph
+            .apply(Patch::Mount {
+                root: 2,
+                nodes: vec![
+                    field,
+                    keyed_region(2, 1, &[("j", ShortcutScope::Window)], 0),
+                ],
+            })
+            .unwrap();
+        assert!(graph.resolve_shortcut(Some(1), true, |_| true).is_none());
+        assert_eq!(graph.keyboard_counters().compared, 0);
+        assert!(
+            graph
+                .resolve_shortcut(None, true, |keys| keys == "j")
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn a_modal_dialog_leaves_only_its_own_shortcuts_live() {
+        let mut graph = MountedGraph::default();
+        let mut nodes = shortcut_tree(0);
+        nodes.retain(|node| node.id != 20);
+        nodes.push(button_node(30, "Close"));
+        nodes.push(keyed_region(
+            31,
+            30,
+            &[("ctrl-j", ShortcutScope::Window)],
+            0,
+        ));
+        nodes.push(Node {
+            id: 32,
+            kind: NodeKind::Dialog {
+                label: "Palette".into(),
+                style: Box::default(),
+            },
+            children: vec![31],
+        });
+        nodes.push(keyed_region(
+            20,
+            10,
+            &[("ctrl-k", ShortcutScope::Window)],
+            0,
+        ));
+        nodes.push(column(40, vec![20, 32]));
+        graph.apply(Patch::Mount { root: 40, nodes }).unwrap();
+        assert_eq!(resolve(&mut graph, Some(30), "ctrl-k"), None);
+        assert_eq!(resolve(&mut graph, Some(30), "ctrl-j"), Some((31, 0)));
+        assert_eq!(resolve(&mut graph, None, "ctrl-j"), Some((31, 0)));
+    }
+
+    #[test]
+    fn a_region_takes_focus_once_for_each_new_serial() {
+        let tree = |serial: u64, base: u64| {
+            vec![
+                text(base + 1, "Heading"),
+                button_node(base + 2, "Choose"),
+                column(base + 3, vec![base + 1, base + 2]),
+                keyed_region(base + 4, base + 3, &[], serial),
+                column(base + 10, vec![base + 4]),
+            ]
+        };
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: tree(7, 0),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), Some(2));
+        assert_eq!(graph.take_focus_request(), None);
+        // The same serial on the region that replaces it asks for nothing.
+        graph
+            .apply(Patch::Replace {
+                old_root: 10,
+                root: 110,
+                nodes: tree(7, 100),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), None);
+        // A new serial asks again; 0 never asks.
+        graph
+            .apply(Patch::Replace {
+                old_root: 110,
+                root: 210,
+                nodes: tree(8, 200),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), Some(202));
+        graph
+            .apply(Patch::Replace {
+                old_root: 210,
+                root: 310,
+                nodes: tree(0, 300),
+            })
+            .unwrap();
+        assert_eq!(graph.take_focus_request(), None);
+        assert_eq!(graph.keyboard_counters().focused, 2);
+    }
+
+    /// A cell with a note: column 10 holds popover 3, anchoring text 1 and
+    /// presenting text 2.
+    fn noted_cell(base: u64, delay_ms: u32) -> Vec<Node> {
+        vec![
+            text(base + 1, "cell"),
+            text(base + 2, "note"),
+            popover(base + 3, "Note", delay_ms, false, vec![base + 1, base + 2]),
+            column(base + 10, vec![base + 3]),
+        ]
+    }
+
+    /// A split 5 of button 1 and button 2, sizing its end pane, collapsible,
+    /// whose divider answers `left` and `enter`, inside column 10.
+    fn split_tree(base: u64, collapsed: bool) -> Vec<Node> {
+        vec![
+            button_node(base + 1, "Main"),
+            button_node(base + 2, "Aside"),
+            Node {
+                id: base + 5,
+                kind: NodeKind::Split {
+                    label: "Divider".into(),
+                    axis: SplitAxis::Horizontal,
+                    side: SplitSide::End,
+                    size: 300,
+                    min: 200,
+                    max: 600,
+                    collapsible: true,
+                    collapsed,
+                    thickness: 6,
+                    shortcuts: ["left", "enter"]
+                        .iter()
+                        .map(|keys| Shortcut {
+                            keys: (*keys).into(),
+                            scope: ShortcutScope::Focus,
+                        })
+                        .collect(),
+                    style: Box::default(),
+                },
+                children: vec![base + 1, base + 2],
+            },
+            column(base + 10, vec![base + 5]),
+        ]
+    }
+
+    #[test]
+    fn a_drag_asks_for_a_size_measured_from_the_press_within_the_bounds() {
+        let kind = split_tree(0, false)
+            .into_iter()
+            .find(|node| node.id == 5)
+            .unwrap()
+            .kind;
+        let grip = kind.splitter_grip().unwrap();
+        let ask = |size, collapsed| Resize { size, collapsed };
+        // The sized pane is after the divider, so moving towards the start
+        // widens it and moving towards the end narrows it.
+        assert_eq!(grip.resize(-40.0, 13.0), ask(340, false));
+        assert_eq!(grip.resize(40.4, 0.0), ask(260, false));
+        // Movement across the axis is not movement along it.
+        assert_eq!(grip.resize(0.0, 500.0), ask(300, false));
+        assert_eq!(grip.resize(-900.0, 0.0), ask(600, false));
+        // Below the minimum it holds the minimum, until past half of it,
+        // where a collapsible pane asks to fold and keeps its size.
+        assert_eq!(grip.resize(150.0, 0.0), ask(200, false));
+        assert_eq!(grip.resize(201.0, 0.0), ask(300, true));
+        assert_eq!(kind.splitter_value(), Some(ask(300, false)));
+        // A folded pane is dragged out from nothing.
+        let folded = split_tree(0, true)
+            .into_iter()
+            .find(|node| node.id == 5)
+            .unwrap()
+            .kind;
+        assert_eq!(folded.hidden_pane(), Some(1));
+        assert_eq!(
+            folded.splitter_grip().unwrap().resize(-250.0, 0.0),
+            ask(250, false)
+        );
+        assert_eq!(kind.hidden_pane(), None);
+    }
+
+    #[test]
+    fn a_collapsed_split_keeps_its_pane_mounted_but_not_presented() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: split_tree(0, true),
+            })
+            .unwrap();
+        let presented = graph
+            .presented_preorder()
+            .iter()
+            .map(|node| node.id)
+            .collect::<Vec<_>>();
+        assert_eq!(presented, vec![10, 5, 1]);
+        assert!(graph.node(2).is_some(), "the folded pane stays mounted");
+        assert!(!graph.is_presented(2));
+        assert!(graph.is_presented(1));
+        assert!(validate_tree(10, &split_tree(0, false)).is_ok());
+        let mut crowded = split_tree(0, false);
+        crowded[2].children.push(3);
+        crowded.push(button_node(3, "Third"));
+        assert!(
+            validate_tree(10, &crowded)
+                .unwrap_err()
+                .contains("must have two panes")
+        );
+    }
+
+    #[test]
+    fn a_dividers_keys_answer_only_while_it_holds_focus() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: split_tree(0, false),
+            })
+            .unwrap();
+        assert_eq!(resolve(&mut graph, Some(5), "left"), Some((5, 0)));
+        assert_eq!(resolve(&mut graph, Some(5), "enter"), Some((5, 1)));
+        // Focus in a pane is inside the split, but not on its divider.
+        assert_eq!(resolve(&mut graph, Some(1), "left"), None);
+        assert_eq!(resolve(&mut graph, None, "left"), None);
+    }
+
+    #[test]
+    fn popover_opens_after_its_delay_and_closes_when_the_pointer_leaves() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: noted_cell(0, 400),
+            })
+            .unwrap();
+        assert_eq!(graph.hover_targets(1), vec![3]);
+        assert!(
+            graph.hover_targets(2).is_empty(),
+            "the surface is not the anchor"
+        );
+        let presented = |graph: &MountedGraph| {
+            graph
+                .presented_preorder()
+                .iter()
+                .map(|node| node.id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(presented(&graph), vec![10, 3, 1]);
+        // No handler is installed, so the edge dispatches nothing to Roc.
+        assert_eq!(graph.hover_transition(3, true), None);
+        assert!(!graph.popover_open(3));
+        assert_eq!(graph.popover_delay(3), Some(400));
+        assert_eq!(graph.pending_popovers(), vec![3]);
+        assert!(graph.popover_elapse(3));
+        assert!(graph.popover_open(3));
+        assert_eq!(presented(&graph), vec![10, 3, 1, 2]);
+        assert_eq!(graph.hover_transition(3, false), None);
+        assert!(!graph.popover_open(3));
+        // A delay that elapses after the pointer left opens nothing.
+        graph.hover_transition(3, true);
+        graph.hover_transition(3, false);
+        assert!(!graph.popover_elapse(3));
+        assert_eq!(
+            graph.popover_counters(),
+            PopoverCounters {
+                opened: 1,
+                closed: 1,
+                dismissed: 0
+            }
+        );
+    }
+
+    #[test]
+    fn popover_focus_opens_at_once_and_holds_it_open_past_the_pointer() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: noted_cell(0, 400),
+            })
+            .unwrap();
+        assert_eq!(graph.popover_focus_moved(Some(1)), vec![3]);
+        assert!(graph.popover_open(3));
+        graph.hover_transition(3, true);
+        graph.hover_transition(3, false);
+        assert!(graph.popover_open(3), "focus inside keeps it presenting");
+        assert_eq!(graph.popover_focus_moved(None), vec![3]);
+        assert!(!graph.popover_open(3));
+        // Escape closes what presents, and it stays closed.
+        graph.popover_focus_moved(Some(1));
+        assert_eq!(graph.dismiss_popovers(), vec![3]);
+        assert!(!graph.popover_open(3));
+        assert_eq!(graph.popover_counters().as_array(), [2, 1, 1]);
+    }
+
+    #[test]
+    fn popover_presentation_survives_a_rebuild_under_the_pointer() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: noted_cell(0, 0),
+            })
+            .unwrap();
+        graph.hover_transition(3, true);
+        assert!(graph.popover_open(3), "no delay opens at once");
+        graph
+            .apply(Patch::Replace {
+                old_root: 10,
+                root: 110,
+                nodes: noted_cell(100, 0),
+            })
+            .unwrap();
+        assert!(graph.popover_open(103));
+        assert_eq!(graph.hover_transition(103, true), None, "still hovered");
+        graph.hover_transition(103, false);
+        assert!(!graph.popover_open(103));
+        assert_eq!(graph.popover_counters().as_array(), [1, 1, 0]);
+    }
+
+    #[test]
+    fn hover_region_reports_edges_on_any_element_and_presents_nothing() {
+        let mut graph = MountedGraph::default();
+        graph
+            .apply(Patch::Mount {
+                root: 10,
+                nodes: vec![
+                    text(1, "cell"),
+                    popover(3, "", 0, true, vec![1]),
+                    column(10, vec![3]),
+                ],
+            })
+            .unwrap();
+        assert_eq!(graph.hover_targets(1), vec![3]);
+        assert_eq!(
+            graph.hover_transition(3, true),
+            Some(3 | HOVER_ENTER_EVENT_BIT)
+        );
+        assert!(!graph.popover_open(3));
+        assert_eq!(
+            graph.hover_transition(3, false),
+            Some(3 | HOVER_EXIT_EVENT_BIT)
+        );
+        assert_eq!(graph.popover_counters().as_array(), [0, 0, 0]);
+    }
+
+    #[test]
+    fn popover_anchors_are_validated_and_modal_dialogs_close_background_popovers() {
+        assert!(
+            validate_tree(3, &[popover(3, "Empty", 0, false, vec![])])
+                .unwrap_err()
+                .contains("anchor")
+        );
+        let mut graph = MountedGraph::default();
+        let mut nodes = noted_cell(0, 0);
+        nodes.push(text(20, "slot"));
+        nodes.push(column(30, vec![10, 20]));
+        graph.apply(Patch::Mount { root: 30, nodes }).unwrap();
+        graph.hover_transition(3, true);
+        assert!(graph.popover_open(3));
+        graph
+            .apply(Patch::Replace {
+                old_root: 20,
+                root: 40,
+                nodes: vec![Node {
+                    id: 40,
+                    kind: NodeKind::Dialog {
+                        label: "Modal".into(),
+                        style: Box::default(),
+                    },
+                    children: vec![],
+                }],
+            })
+            .unwrap();
+        assert!(
+            !graph.popover_open(3),
+            "a dialog retires background popovers"
+        );
+        assert_eq!(graph.hover_transition(3, true), None);
+        assert!(!graph.popover_open(3), "and blocks them while it is up");
     }
 }

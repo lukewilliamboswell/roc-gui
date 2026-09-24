@@ -1,4 +1,4 @@
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc" }
 
 import Counter
 import pf.Gui
@@ -9,14 +9,11 @@ State : {
 	right : Counter.State,
 }
 
-paper : Gui.Color
-paper = 0xF2EFE6
+paper = 0xF2EFE6.Gui.Color
 
-ink : Gui.Color
-ink = 0x1F1C17
+ink = 0x1F1C17.Gui.Color
 
-muted_ink : Gui.Color
-muted_ink = 0x8C8474
+muted_ink = 0x8C8474.Gui.Color
 
 ## A card owns how it looks; the page owns how much of the row it takes. The
 ## cards divide the page's measure between them rather than sitting at a fixed

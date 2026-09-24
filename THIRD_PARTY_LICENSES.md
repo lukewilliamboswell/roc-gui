@@ -9,9 +9,23 @@ through reviewed locks that record their exact identities, hashes, and sizes.
 - glibc and admitted Linux sources: see `third_party/licenses/glibc/`.
 - LLVM libunwind and its Zig distribution: see `third_party/licenses/unwind/`.
 - xkbcommon: see `third_party/licenses/xkbcommon/`.
+- The Windows GNU runtime -- MinGW-w64 startup and CRT support, Zig's compiler
+  runtime and C library shims, LLVM libunwind, the UBSan runtime, and the UCRT
+  import libraries: its notices, including the MinGW-w64 public-domain
+  disclaimer, ship with the linker-input release and in a platform bundle under
+  `third-party/x64mingw/licenses/`.
+- The Windows host's `windows-imports.lib` is generated for each host build by
+  Zig's LLVM `dlltool` from a module-definition file of DLL and export names.
+  It holds only those names and the import records `dlltool` writes; it
+  contains no Microsoft or SDK code. The names come from the host's own
+  compiler output of the `windows` and `windows-sys` crates (MIT or
+  Apache-2.0), the `windows-targets` import libraries (MIT or Apache-2.0), and
+  Zig's bundled MinGW-w64 definitions (public domain).
 - GPUI-derived host code: see `third_party/licenses/LICENSE-GPUI`.
-- GPUI 0.2.2: vendored under `vendor/gpui/`; see its `LICENSE-APACHE`
-  and `ROC-GUI-PATCHES.md` for upstream provenance and local changes.
+- GPUI and the Zed crates it is built with: Cargo fetches them from the
+  reviewed fork <https://github.com/lukewilliamboswell/zed> at the exact
+  revision pinned in `crates/host/Cargo.toml` and `Cargo.lock`. They are
+  licensed under Apache-2.0; see each crate's `LICENSE-APACHE`.
 - Space Grotesk and Plus Jakarta Sans, used to set the documentation: see
   `docs/theme/fonts/`. Both are licensed under the SIL Open Font License,
   version 1.1, and are redistributed here in their unmodified released form.

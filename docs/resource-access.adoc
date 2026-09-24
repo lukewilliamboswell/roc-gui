@@ -39,6 +39,34 @@ This opens the operating system's own folder chooser. If the person picks a
 folder, you are handed a value that reads that folder. If they cancel, you are
 handed nothing, and cancelling is an ordinary outcome rather than a failure.
 
+When one file is all you need, ask for one file:
+
+[source,roc]
+----
+access.pick_file!([{ label: "Captures", extensions: ["rgstats"], mime_types: [] }])
+----
+
+The person picks a file of a type you offered, and you are handed a
+`Gui.Files.File.Read` that reads that file and nothing beside it: not its
+siblings, not its folder. Ask for the smallest thing that does the job; a
+document viewer that asks for a folder has asked for every other document in
+it.
+
+Dropping is choosing too. A person who drags a file from their file manager and
+lets go of it over your window has chosen it as surely as one who picked it in a
+chooser, in a gesture the operating system delivers rather than your
+application. Declare where a drop may land and what it may be:
+
+[source,roc]
+----
+Gui.drop_target({ label: "Captures", types: capture_types, on_drop: open_dropped }, children)
+----
+
+Each dropped file of a type you declared arrives in `on_drop` as a
+`Gui.Files.File.Read`, exactly as a chosen file does, and everything else dropped
+is named and refused. The grant records that it arrived by a drop rather than a
+chooser, so the evidence can say which.
+
 There is no second step. No "this application would like to access your files"
 dialog appears before or after, because the choosing *was* the permission.
 Someone who picked `~/Photos/2026` has said everything that needs saying, and
@@ -56,15 +84,15 @@ to functions, and store it in a record:
 
 [source,roc]
 ----
-State : { project : [None, Some(Gui.FilesDirRead)] }
+State : { project : [None, Some(Gui.Files.Dir.Read)] }
 ----
 
 Three things are true of it, and between them they are the reason this works.
 
-*You cannot make one up.* There is no constructor. A `Gui.FilesDirRead` exists
+*You cannot make one up.* There is no constructor. A `Gui.Files.Dir.Read` exists
 because someone handed you one.
 
-*Its type says what it is for.* A `Gui.FilesDirRead` reads a directory. There is
+*Its type says what it is for.* A `Gui.Files.Dir.Read` reads a directory. There is
 no permission list to consult alongside it, because the type you are holding is
 the permission, and at every call site you can see exactly what you are handing
 over.
@@ -116,10 +144,11 @@ than to the application: the application cannot draw it, suppress it, or tell
 that it is open, which is the only way a withdrawal control is worth anything.
 
 When a grant is withdrawn, everything derived from it stops at the same moment:
-the subfolder handles, the database opened from that folder, the connection
-opened through that device. You do not have to hunt them down and close them.
-They refuse their next use with a typed error that says the authority was
-withdrawn, rather than one that says something went wrong.
+the subfolder handles, the database opened from that folder, the watch waiting
+for that database to change, the connection opened through that device. You do
+not have to hunt them down and close them. They refuse their next use with a
+typed error that says the authority was withdrawn, rather than one that says
+something went wrong, and a watch that is waiting wakes to say so.
 
 Two limits, stated plainly because a model that overpromises here is worse than
 one that does not try:
@@ -127,7 +156,37 @@ one that does not try:
 * Work already finished stays finished. Bytes you have read are in your
   application's memory, and withdrawing a grant cannot reach in and remove them.
 * A grant given for a session ends with the session. Nothing carries over to the
-  next run unless the person asked for it to be remembered.
+  next run unless it was remembered, which the next section describes.
+
+== Remembering what you were given
+
+A person who opened a document yesterday expects to find it again today without
+choosing it again. Your application may remember a file or folder it was
+given:
+
+[source,roc]
+----
+access.remember_file!(chosen.file)
+----
+
+What is remembered is a record, not authority, and it is kept by the platform,
+not by your application: the place the person chose and what was there. Your
+application sees each entry of its recent list only as a key, a name, and
+whether it can be reopened now. Reopening asks the platform to grant the entry
+again, and the platform first checks that the thing at that place is still the
+thing that was chosen. A file that is missing, one that something else was
+renamed over, or one your application may no longer read is refused with that
+reason, never reopened: a name is not an identity, and the person chose a file,
+not whatever later takes its name.
+
+Remembering takes your `Access`, not only the handle. A library you hand a file
+to can read it, but it cannot keep it for next time; only the application a
+person gave it to can.
+
+A remembered grant is listed in the App access surface as remembered, beside a
+list of everything remembered. Withdrawing a remembered grant forgets it, and
+each remembered entry can be forgotten there directly, with no help from your
+application — which is the point of offering it there.
 
 == Why it is built this way
 

@@ -4,6 +4,41 @@ Read `AGENTS.md` before changing the platform. The central constraint is “test
 what we fly”: tests and measurements drive the production implementation and
 never reproduce it.
 
+== Pinned development environment
+
+`blueprint run build` builds the native host. `blueprint run test` builds and
+runs the application specifications through the production host.
+`blueprint run lint` runs Clippy with warnings treated as errors.
+`blueprint run check` verifies the installed compiler against `.roc-version`.
+Run these commands inside the Blueprint bootstrap environment described in
+Getting started. Commit `Blueprint.roc`, `Blueprint.lock`, and `.roc-version`;
+`.blueprint/` contains generated files.
+
+The Linux shell supplies native build dependencies, including Fontconfig and
+Wayland. The build helper prepends its verified ALSA interface to the shell
+search paths. Executables use the native desktop runtime libraries selected by
+the system ELF loader.
+
+Development builds select the unified linker-input release when its producer
+inputs match the checkout. Missing or stale releases select the development
+recipes and their verified component inputs. Invalid locks and failed artifact
+verification stop the build. Release packaging requires a matching unified lock.
+
+CI runs the same Clippy command as the local pre-commit hook, including test
+targets, with `-D warnings`. Install the `clippy` component from the repository
+Rust toolchain when running the hook outside the Blueprint environment.
+
+Change `.roc-version` to select another compiler. Run `blueprint update` when
+the locked overlay needs a newer release, and review the lock changes. CI checks
+that every maintained example and benchmark has adjacent specifications and
+runs the semantic suites. A build or semantic failure fails the gate; it is not
+silently skipped. Record unresolved defects in `wip/issues-backlog.md`.
+
+Release packaging verifies the compiler identity and records its exact tag in
+the release manifest. Release validation and example archiving insert that tag
+into app headers alongside the released platform reference. The branch sources
+remain unpinned so the repository has one compiler authority.
+
 == Validate a change
 
 [source,sh]
@@ -82,7 +117,13 @@ values, and dimensions are not capture evidence.
 `expect-asset-counters`:: The production asset owner's six totals, in order:
 opens, refused opens, manifest checks, reads, refused reads, and bytes read.
 Asset paths, file names, and asset content are not capture evidence.
-`revoke-file-grants`:: Invokes the trusted-host revocation seam. It is not an
+`expect-document-counters`:: The document owner's picks, chosen files,
+cancellations, refusals, and reads, then its live handles.
+`expect-hash-counters`:: The file hash owner's files hashed, hashes refused, and
+bytes hashed, across directory and single-file grants. File names, paths, and
+digests are not capture evidence.
+`revoke-file-grants`:: Invokes the trusted-host revocation seam for every chosen
+folder and file. It is not an
 application event or a Roc capability API.
 
 The Settings Center's 100-, 1,000-, and 10,000-byte profile-note cases exercise
@@ -132,13 +173,58 @@ Native artifacts have three independent release layers:
 
 . The linker-input producer builds one content-addressed release containing the
   complete `x64glibc`, `arm64mac`, and `x64mingw` sets. This includes every
-  `platform/main.roc` input except `libhost.a`; the Windows resource therefore
-  belongs to this release, not to the GUI host release.
+  `platform/main.roc` input the host does not produce; the Windows resource
+  therefore belongs to this release, not to the GUI host release.
 . Host producers build `libhost.a` for each target and bind it to the exact host
-  source, Cargo lock, configuration, profile, and toolchain inputs.
+  source, Cargo lock, configuration, profile, and toolchain inputs. The Windows
+  host also produces `windows-imports.lib`, described below.
 . Platform release assembly admits released external and host inputs, runs the
   supported consumer matrix, and publishes those same tested bytes under Roc's
   content-addressed bundle name.
+
+=== Host source companions
+
+Host notice selection comes from Cargo's successful build messages and is
+checked against the committed lock. Registry sources retain their published
+crate archive and checksum. Git sources require an exact repository, revision,
+and package path in `dependencies/gui-host-notices/git-sources.json`.
+
+The build captures Git package sources from immutable Git objects, checks them
+against the compiler's checkout, and retains original workspace declarations
+and notices. In-repository symbolic links are resolved; escaping links and
+submodules are rejected. Evidence records the repository, revision, package
+path, Git tree identity, and a separate SHA-256 digest of the deterministic
+source archive. Notice composition and source-companion validation verify that
+archive digest; a Git revision is never used as a crate archive checksum.
+
+=== The Windows import library
+
+A Windows link needs an import record for every DLL function the program
+calls. The platform ships exactly those records in one library,
+`windows-imports.lib`, rather than the complete export lists of every DLL a
+dependency could name. Only the host and the GNU runtime call DLLs, and what
+they call is fixed when the host is built, so the host build derives it:
+
+. rustc reports the native libraries the host archive leaves to the final link,
+  and the build scripts report where they are.
+. `scripts/windows_link_imports.py` follows the link the way the linker does:
+  from the host's objects and the runtime's startup object, it pulls a runtime
+  or import member only when a symbol it defines is still undefined.
+. An import rustc emitted is taken with the DLL and type rustc gave it. A name
+  referenced without one is resolved through rustc's native libraries in
+  rustc's order. Anything left must be defined by the linker or by the Roc
+  application; any other name fails the build.
+. The complete exports of `kernel32` are added as the application ABI: code the
+  Roc compiler emits calls it as C code calls the UCRT, and a later compiler may
+  call more of it than this host does.
+. Zig's `dlltool` writes one import library per DLL from a module-definition
+  file, and the members are merged into one archive. Every member is read back
+  and compared with the requirement it was made from.
+
+The host's own import members are then separated from `libhost.a` against the
+host's own inventory. The normalization receipt records both steps, the native
+libraries, and every import by DLL, name, and type; a host release is admitted
+only when the packaged library matches that receipt.
 
 Linker-input production runs only when explicitly dispatched for an open pull
 request whose branch contains a material recipe, catalogue, resource, or symbol
@@ -159,14 +245,86 @@ a cache hit, and download the immutable release only on a miss.
 
 Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
-must never fall back to a local build. Developers may explicitly select a native
-source build when an artifact is absent or its source fingerprint is stale.
+must never fall back to a local build. Development builds select native source
+inputs when the unified lock is absent or its producer fingerprint is stale.
+`./build.py --source-inputs` also selects this path explicitly; the linker-input
+producer stages its exact candidate archives before final-link validation.
 Final platform releases accept only locked, released, and attested inputs.
 
 Change a linker input through its owning recipe and tests, then dispatch the
 trusted linker-input publisher with that pull request number. The resulting
 signed lock commit makes the new symbols available to the same branch. Ordinary
 platform and host changes reuse the locked release and never invoke a producer.
+
+=== Linux producers with Nix
+
+The five Linux component producers use `dependencies/linux/default.nix` and the
+root nixpkgs input in `Blueprint.lock`. Zig 0.16.0 and the build tools come from
+that package set. Meson uses the recipe's fixed-hash 1.12.0 source with the same
+nixpkgs packaging. Upstream source downloads are fixed-output derivations;
+compilation and native probes run inside the network-isolated Nix sandbox.
+
+Run a component producer with an absent output directory, then force a rebuild:
+
+[source,shell]
+----
+python3 scripts/build_freetype.py --output /tmp/candidate
+python3 scripts/build_freetype.py --rebuild --output /tmp/rebuild
+cmp /tmp/candidate/freetype-x64glibc.tar /tmp/rebuild/freetype-x64glibc.tar
+----
+
+`--rebuild` executes Nix's reproducibility check, even when the first result is
+cached. CI requires sandboxing and repeats this for every Linux component.
+Schema-2 archives identify the builder tool derivation, nixpkgs revision and
+content hash, Blueprint lock, and Nix recipe. Corresponding source includes the
+upstream source bytes and reproduction inputs. Consumers also accept the
+schema-1 archives used by other targets and existing reviewed releases.
+
+Published shared libraries have no build search paths or store-qualified
+runtime dependencies. Producer probes use the sandbox's private loader and
+providers. A separate Ubuntu validation job admits the exact candidate archives,
+final-links the production host, and runs the GPUI smoke test outside Nix before
+those archives can be assembled and attested.
+
+=== Windows inputs from Nix and native Windows
+
+On Linux x86-64, the Windows runtime and resource producers use
+`dependencies/windows-gnu-runtime/default.nix`, with nixpkgs pinned by
+`Blueprint.lock`. The runtime compiles with the recipe's hash-verified official
+Zig distribution; the resource compiler comes from pinned nixpkgs. Downloads
+are fixed-output derivations and builds run in the network-isolated sandbox.
+
+[source,shell]
+----
+python3 scripts/build_windows_gnu_runtime.py --output /tmp/windows-candidate
+python3 scripts/build_windows_gnu_runtime.py --rebuild --output /tmp/windows-rebuild
+python3 scripts/build_windows_resource.py --output /tmp/windows-resource
+python3 scripts/check_linux_reproduction.py /tmp/windows-candidate --target x64mingw
+----
+
+On native Windows x86-64, Python 3.12 or newer runs the same runtime compilation
+and packaging code using the recipe's hash-pinned Windows Zig distribution.
+The resource command uses Zig 0.16.0 on `PATH`. Set `TEMP` to a directory without
+spaces, as required by the verbose linker diagnostics used to identify inputs.
+
+[source,powershell]
+----
+python scripts/build_windows_gnu_runtime.py --output candidate
+python scripts/build_windows_resource.py --output resource
+----
+
+Native builds use fresh compiler caches on every invocation; `--cache` stores
+only the verified Zig download. Schema-3 native archives record the Windows
+toolchain digest and reproduction source digests. Schema-2 Nix archives record
+the pinned Nix build environment. Neither archive records the builder's local
+paths or machine identity.
+
+CI requires two identical Nix builds, two identical native Windows builds, and
+matching resource bytes across both hosts. Windows executes the runtime probes
+against each host's candidate, including CRT startup and teardown, thread-local
+destructors, C++ and Rust unwinding, and UBSan failure. The published runtime is
+the Nix candidate that passed native execution; cross-host runtime byte equality
+is not required because the build provenance differs.
 
 === Generated system-library interfaces
 

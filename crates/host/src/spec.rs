@@ -28,6 +28,23 @@ pub enum Grant {
     /// and an application that cannot be shown cancelling cannot be shown
     /// treating it as one.
     DirectoryCanceled,
+    /// Read access to a private copy of one directory, relative to the
+    /// application directory: `(directory copy "PATH")`. The harness copies
+    /// the directory's files for the run and discards them after it, and the
+    /// host grants the copy, so a `replace-file` step can change what the
+    /// application is reading without touching the original.
+    DirectoryCopy(String),
+    /// Read access to one file, relative to the application directory. It is
+    /// what `pick_file!` answers with.
+    File(String),
+    /// A file chooser the person dismisses without choosing: `(file canceled)`,
+    /// the file counterpart of `(directory canceled)`.
+    FileCanceled,
+    /// The capture this run is recording, as the file the chooser answers
+    /// with: `(file recording)`. The production recorder is writing it while
+    /// the application reads it, which is what a person watching a recording
+    /// does. Only the semantic runner records a capture.
+    FileRecording,
     /// Private application-data storage seeded from this directory.
     AppData(String),
     /// The content directory an `Assets.content_directory` store resolves to.
@@ -52,13 +69,37 @@ pub enum Grant {
     Device(String),
     /// A system sampler: `standard`, `unavailable`, or `processes:N`.
     SystemMonitor(String),
+    /// The system appearance the case sees: `(theme dark)`, optionally with
+    /// `reduced-motion`. It is not authority, only what the desktop reports;
+    /// a case without it sees a light scheme with full motion.
+    Theme(crate::appearance::Settings),
+    /// The application's recent list, provisioned for the run in place of the
+    /// person's own: `(recents ITEM...)`, the first most recent. Each item is
+    /// a file or folder relative to the application directory, `(each "DIR")`
+    /// for every file directly in a folder by name, or `(copied "NAME")` for
+    /// a child of the `(directory copy ...)` grant, which a later step may
+    /// replace or remove.
+    Recents(Vec<RecentSeed>),
+}
+
+/// One provisioned entry of the recent list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RecentSeed {
+    /// A file or folder relative to the application directory.
+    Path(String),
+    /// Every ordinary file directly in a folder relative to the application
+    /// directory, in name order, or only those with one extension.
+    Each(String, Option<String>),
+    /// A direct child of the privately copied directory grant.
+    Copied(String),
 }
 
 impl Grant {
     /// The grant's vocabulary name, which is also its uniqueness key.
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Directory(_) | Self::DirectoryCanceled => "directory",
+            Self::Directory(_) | Self::DirectoryCanceled | Self::DirectoryCopy(_) => "directory",
+            Self::File(_) | Self::FileCanceled | Self::FileRecording => "file",
             Self::AppData(_) => "app-data",
             Self::Assets(_) => "assets",
             Self::Clipboard { .. } => "clipboard",
@@ -69,6 +110,8 @@ impl Grant {
             Self::Process(_) => "process",
             Self::Device(_) => "device",
             Self::SystemMonitor(_) => "system-monitor",
+            Self::Theme(_) => "theme",
+            Self::Recents(_) => "recents",
         }
     }
 
@@ -80,6 +123,8 @@ impl Grant {
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::Directory(path)
+            | Self::DirectoryCopy(path)
+            | Self::File(path)
             | Self::AppData(path)
             | Self::Assets(path)
             | Self::Server { script: path, .. } => Some(path),
@@ -160,6 +205,13 @@ pub enum Command {
     HoverExit(Locator),
     /// Compare explicit application background, not a native hover refinement.
     ExpectBackground(Locator, u32),
+    /// Popovers opened, closed by pointer and focus leaving, and dismissed
+    /// by Escape, as counted by the mounted graph that decides them.
+    ExpectPopoverCounters([u64; 3]),
+    /// Keystrokes offered to shortcuts, keystrokes a shortcut answered,
+    /// shortcuts compared, and focus requests honoured, as counted by the
+    /// mounted graph that resolves them.
+    ExpectKeyboardCounters([u64; 4]),
     MarkNativeWork,
     ExpectNativeWork {
         button_renders_max: Option<u64>,
@@ -173,6 +225,13 @@ pub enum Command {
         element_states_moved_min: Option<u64>,
     },
     Drag(Locator, i32, i32, i32, i32),
+    /// Move an unpressed pointer to a point in canvas coordinates, through the
+    /// canvas's production hover route.
+    PointerMove(Locator, i32, i32),
+    /// Take a hovering pointer off a canvas.
+    PointerLeave(Locator),
+    /// Scroll a wheel over a point of a canvas by a distance in pixels.
+    Wheel(Locator, i32, i32, i32, i32),
     ReplaceText(Locator, String),
     Focus(Locator),
     PressKey(ControlKey),
@@ -185,7 +244,14 @@ pub enum Command {
     /// the application, so this waits for the graph to say what it means.
     AwaitCount(Locator, usize),
     ClipboardText(String),
+    /// The desktop reports a new appearance, as a person changing it would.
+    SystemTheme(crate::appearance::Settings),
+    /// The scheme adaptive colours now resolve to: `true` for dark.
+    ExpectTheme(bool),
     AwaitTicks(u32),
+    /// Wait until exactly this many running tasks are blocked in a capability
+    /// wait that ending them would interrupt: a timer, a watch, or a query.
+    AwaitTaskWaits(u64),
     ExpectSubscriptions(usize),
     ExpectTcpStreams(usize),
     ExpectProcesses(usize),
@@ -206,11 +272,47 @@ pub enum Command {
     ExpectFileLifecycleCounters([u64; 6]),
     ExpectFileAccess([u64; 3]),
     RevokeFileGrants,
+    /// Replace one direct child of the privately copied directory grant with
+    /// a copy of a file, relative to the application directory, by renaming
+    /// it over the child in one step, as a person moving a new recording into
+    /// place does.
+    ReplaceFile {
+        name: String,
+        source: String,
+    },
+    /// Remove one direct child of the privately copied directory grant, as a
+    /// person deleting a file does.
+    RemoveFile(String),
+    /// Drop files, named relative to the application directory, on a drop
+    /// target: through GPUI's own file-drop path in a window, and through the
+    /// same admission and route the window's drop handler calls otherwise.
+    Drop(Locator, Vec<String>),
+    /// Drag files over a drop target and hold them there without dropping,
+    /// so the window shows how the target answers them.
+    DragFiles(Locator, Vec<String>),
+    /// Drops delivered, files they granted, and items they refused.
+    ExpectDropCounters([u64; 3]),
+    /// Grants remembered, entries reopened, reopens and remembers refused,
+    /// entries forgotten, and the entries the recent list holds.
+    ExpectRecentCounters([u64; 5]),
+    /// Watches started, changes delivered, watches cancelled, and watches
+    /// ended by revocation, then the watches held; `_` leaves one unconstrained.
+    ExpectWatchCounters([Option<u64>; 5]),
+    /// Tasks issued, completions published, completions delivered, tasks
+    /// superseded, tasks cancelled, and capability waits interrupted; `_`
+    /// leaves one unconstrained.
+    ExpectTaskCounters([Option<u64>; 6]),
+    /// The document owner's picks, chosen files, cancellations, refusals, and
+    /// reads, then the live document handles.
+    ExpectDocumentCounters([u64; 6]),
     ExpectImageOwnerCounters([u64; 4]),
     /// Asset-store owner counters: opens, refused opens, manifest checks, reads,
     /// refused reads, and bytes read. All six are numeric; no path, file name,
     /// or asset content ever becomes evidence.
     ExpectAssetCounters([u64; 6]),
+    /// The file hash owner's totals, in order: files hashed, hashes refused,
+    /// and bytes hashed. No name, path, or digest ever becomes evidence.
+    ExpectHashCounters([u64; 3]),
     /// Every live grant, each rendered by `grant::Grant::describe`, in registry
     /// order. The claim a person most wants to make about authority is not a
     /// number but a list: this is what this application is holding, and nothing
@@ -227,12 +329,19 @@ pub enum Command {
     Submit(Locator),
     ExpectVisible(Locator),
     ExpectFocused(Locator),
+    /// Whether exactly one tab is, or is not, the selected tab of its strip.
+    ExpectSelected(Locator, bool),
     ExpectNotVisible(Locator),
     ExpectCount(Locator, usize),
     ExpectCanvasPrimitives(Locator, usize),
+    /// The size last reported to a canvas whose owner handles its size:
+    /// width and height in logical pixels.
+    ExpectCanvasSize(Locator, u32, u32),
     ExpectValue(Locator, String),
     ExpectValueBytes(Locator, usize),
     ExpectImageBytes(Locator, usize),
+    /// The logical extent of a virtual list and the rows it has mounted.
+    ExpectRows(Locator, RowsExpectation),
     ExpectBefore(Locator, Locator),
     ExpectPatch(PatchExpectation),
     MarkMetrics,
@@ -252,7 +361,8 @@ pub enum Command {
     Screenshot(Screenshot),
     /// Type text one real keystroke at a time into the focused element.
     Type(String),
-    /// Send one real key chord, such as "secondary-a", through the keymap.
+    /// Press one key chord, such as "ctrl-k": through the window's real
+    /// keymap, or through the shortcut resolution the window would reach.
     Key(String),
     /// Resize the production window, so a layout can be proved at a size other
     /// than the one `main.roc` asks for.
@@ -282,15 +392,7 @@ pub enum ScrollMotion {
 }
 
 /// Modifier tokens a chord may carry, matching GPUI's keystroke spelling.
-const CHORD_MODIFIERS: [&str; 7] = [
-    "ctrl",
-    "alt",
-    "shift",
-    "cmd",
-    "super",
-    "fn",
-    "secondary",
-];
+const CHORD_MODIFIERS: [&str; 7] = ["ctrl", "alt", "shift", "cmd", "super", "fn", "secondary"];
 
 /// Check a chord's shape without reimplementing GPUI's parser.
 ///
@@ -349,6 +451,17 @@ fn valid_screenshot_name(name: &str) -> bool {
             .all(|value| value.is_ascii_lowercase() || value.is_ascii_digit() || value == '-')
 }
 
+/// Claims about a virtual list's rows. `count` is how many rows the list
+/// holds, `first` is the index of its first mounted row, and `mounted` is how
+/// many rows it has mounted. A list given all of its items mounts all of them;
+/// a list whose rows are produced on demand mounts a window of them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RowsExpectation {
+    pub count: Option<u64>,
+    pub first: Option<u64>,
+    pub mounted: Option<u64>,
+}
+
 /// Bounds on a laid-out element's size, in logical pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct BoundsExpectation {
@@ -374,16 +487,24 @@ impl Command {
             Self::HoverEnter(_) => "hover-enter",
             Self::HoverExit(_) => "hover-exit",
             Self::ExpectBackground(_, _) => "expect-background",
+            Self::ExpectPopoverCounters(_) => "expect-popover-counters",
+            Self::ExpectKeyboardCounters(_) => "expect-keyboard-counters",
             Self::MarkNativeWork => "mark-native-work",
             Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
+            Self::PointerMove(..) => "pointer-move",
+            Self::PointerLeave(_) => "pointer-leave",
+            Self::Wheel(..) => "wheel",
             Self::ReplaceText(_, _) => "replace-text",
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
             Self::AwaitCount(_, _) => "await-count",
             Self::ClipboardText(_) => "clipboard-text",
+            Self::SystemTheme(_) => "system-theme",
+            Self::ExpectTheme(_) => "expect-theme",
             Self::AwaitTicks(_) => "await-ticks",
+            Self::AwaitTaskWaits(_) => "await-task-waits",
             Self::ExpectSubscriptions(_) => "expect-subscriptions",
             Self::ExpectTcpStreams(_) => "expect-tcp-streams",
             Self::ExpectProcesses(_) => "expect-processes",
@@ -404,8 +525,18 @@ impl Command {
             Self::ExpectFileLifecycleCounters(_) => "expect-file-lifecycle-counters",
             Self::ExpectFileAccess(_) => "expect-file-access",
             Self::RevokeFileGrants => "revoke-file-grants",
+            Self::ReplaceFile { .. } => "replace-file",
+            Self::RemoveFile(_) => "remove-file",
+            Self::Drop(..) => "drop",
+            Self::DragFiles(..) => "drag-files",
+            Self::ExpectDropCounters(_) => "expect-drop-counters",
+            Self::ExpectRecentCounters(_) => "expect-recent-counters",
+            Self::ExpectWatchCounters(_) => "expect-watch-counters",
+            Self::ExpectTaskCounters(_) => "expect-task-counters",
+            Self::ExpectDocumentCounters(_) => "expect-document-counters",
             Self::ExpectImageOwnerCounters(_) => "expect-image-owner-counters",
             Self::ExpectAssetCounters(_) => "expect-asset-counters",
+            Self::ExpectHashCounters(_) => "expect-hash-counters",
             Self::ExpectGrants(_) => "expect-grants",
             Self::ExpectGrantCounters(_) => "expect-grant-counters",
             Self::ExpectAppAccess(_) => "expect-app-access",
@@ -413,12 +544,16 @@ impl Command {
             Self::Submit(_) => "submit",
             Self::ExpectVisible(_) => "expect-visible",
             Self::ExpectFocused(_) => "expect-focused",
+            Self::ExpectSelected(_, true) => "expect-selected",
+            Self::ExpectSelected(_, false) => "expect-not-selected",
             Self::ExpectNotVisible(_) => "expect-not-visible",
             Self::ExpectCount(_, _) => "expect-count",
             Self::ExpectCanvasPrimitives(_, _) => "expect-canvas-primitives",
+            Self::ExpectCanvasSize(_, _, _) => "expect-canvas-size",
             Self::ExpectValue(_, _) => "expect-value",
             Self::ExpectValueBytes(_, _) => "expect-value-bytes",
             Self::ExpectImageBytes(_, _) => "expect-image-bytes",
+            Self::ExpectRows(_, _) => "expect-rows",
             Self::ExpectBefore(_, _) => "expect-before",
             Self::ExpectPatch(_) => "expect-patch",
             Self::MarkMetrics => "mark-metrics",
@@ -455,8 +590,9 @@ impl Command {
             | Self::ExpectBounds(_, _)
             | Self::Screenshot(_)
             | Self::Type(_)
-            | Self::Key(_)
             | Self::Resize { .. }
+            // Feedback for files held over a target is something drawn.
+            | Self::DragFiles(..)
             // Scrolling is a fact about a viewport and a content size, neither
             // of which the semantic runner has: without layout there is no
             // fold for content to be below.
@@ -465,8 +601,25 @@ impl Command {
             Self::Click(_)
             | Self::HoverEnter(_)
             | Self::HoverExit(_)
+            // A semantic run delivers the canvas event the window's real
+            // pointer produces, through the same route; a window run moves
+            // the pointer itself.
+            | Self::PointerMove(..)
+            | Self::PointerLeave(_)
+            | Self::Wheel(..)
+            // Both runners measure a drag from the press through one shared
+            // rule; a window run presses, moves, and releases its own pointer.
+            | Self::Drag(..)
+            // A window run drops through GPUI's own file-drop events; a
+            // semantic run admits the same paths and takes the same route the
+            // window's drop handler calls.
+            | Self::Drop(..)
             | Self::Focus(_)
             | Self::PressKey(_)
+            // A semantic run resolves the chord's shortcut through the graph
+            // exactly as the window's root does, and refuses a chord the
+            // window's keymap would give to the host or to a focused field.
+            | Self::Key(_)
             | Self::AwaitTask
             // The fixture clipboard is one process-wide store, so changing the
             // granted source and waiting for the application's own timer to
@@ -474,6 +627,11 @@ impl Command {
             // two a windowed case could not put a single item into a
             // clipboard-driven application, and so could not photograph one.
             | Self::ClipboardText(_)
+            // The appearance is one process-wide setting both runners resolve
+            // colours by, so changing it and reading it back mean the same
+            // thing under either.
+            | Self::SystemTheme(_)
+            | Self::ExpectTheme(_)
             | Self::AwaitTicks(_)
             | Self::AwaitCount(_, _)
             | Self::ExpectVisible(_)
@@ -484,12 +642,17 @@ impl Command {
             // and by one shared implementation rather than two. A window case
             // can therefore assert a semantic truth and photograph it.
             | Self::ExpectCanvasPrimitives(_, _)
+            | Self::ExpectCanvasSize(_, _, _)
             | Self::ExpectValue(_, _)
+            | Self::ExpectSelected(_, _)
             | Self::ExpectValueBytes(_, _)
             | Self::ExpectImageBytes(_, _)
+            | Self::ExpectRows(_, _)
             | Self::ExpectComponentWork(_)
             | Self::ExpectBefore(_, _)
             | Self::ExpectBackground(_, _)
+            | Self::ExpectPopoverCounters(_)
+            | Self::ExpectKeyboardCounters(_)
             // Answered from a process-global resource owner, of which the host
             // has exactly one. A window run reads the same files registry, the
             // same clipboard and the same audio device table the semantic run
@@ -498,6 +661,11 @@ impl Command {
             // that produced it in the same run. Revoking grants likewise acts on
             // the one registry; what the application then sees is its next read.
             | Self::RevokeFileGrants
+            | Self::ReplaceFile { .. }
+            | Self::RemoveFile(_)
+            | Self::ExpectDropCounters(_)
+            | Self::ExpectRecentCounters(_)
+            | Self::ExpectWatchCounters(_)
             | Self::ExpectSubscriptions(_)
             | Self::ExpectTcpStreams(_)
             | Self::ExpectProcesses(_)
@@ -517,8 +685,10 @@ impl Command {
             | Self::ExpectFileSelectionCounters(_)
             | Self::ExpectFileLifecycleCounters(_)
             | Self::ExpectFileAccess(_)
+            | Self::ExpectDocumentCounters(_)
             | Self::ExpectImageOwnerCounters(_)
             | Self::ExpectAssetCounters(_)
+            | Self::ExpectHashCounters(_)
             | Self::ExpectGrants(_)
             | Self::ExpectGrantCounters(_) => Capability::Both,
             // Semantic-only because the window runner does not implement them.
@@ -526,9 +696,10 @@ impl Command {
             // alternative of accepting a specification and then refusing a step
             // mid-run would report a failure that is about the harness rather
             // than about the application.
-            Self::Drag(..)
-            | Self::ReplaceText(_, _)
-            | Self::Submit(_) => Capability::Semantic,
+            Self::ReplaceText(_, _)
+            | Self::Submit(_)
+            | Self::AwaitTaskWaits(_)
+            | Self::ExpectTaskCounters(_) => Capability::Semantic,
         }
     }
 
@@ -539,15 +710,24 @@ impl Command {
                 | Self::HoverEnter(_)
                 | Self::HoverExit(_)
                 | Self::Drag(..)
+                | Self::PointerMove(..)
+                | Self::PointerLeave(_)
+                | Self::Wheel(..)
                 | Self::ReplaceText(_, _)
                 | Self::Focus(_)
                 | Self::PressKey(_)
+                | Self::Key(_)
                 | Self::AwaitTask
                 | Self::AwaitCount(_, _)
                 | Self::ClipboardText(_)
+                | Self::SystemTheme(_)
                 | Self::AwaitTicks(_)
                 | Self::Submit(_)
                 | Self::RevokeFileGrants
+                | Self::ReplaceFile { .. }
+                | Self::RemoveFile(_)
+                | Self::Drop(..)
+                | Self::DragFiles(..)
                 | Self::Scroll { .. }
         )
     }
@@ -571,6 +751,9 @@ pub enum Locator {
     CheckboxPrefix(String),
     ColumnName(String),
     DialogName(String),
+    TooltipName(String),
+    /// A presented region that answers a chord, in canonical spelling.
+    Shortcut(String),
     PanelName(String),
     RowName(String),
     ScrollName(String),
@@ -581,6 +764,12 @@ pub enum Locator {
     CanvasItemName(String),
     CanvasItemPrefix(String),
     TextInputName(String),
+    /// A split's divider, by the label its split gave it.
+    SeparatorName(String),
+    /// One tab of a tab strip, by its title.
+    TabName(String),
+    /// A drop target, by its label.
+    DropTargetName(String),
 }
 
 impl Locator {
@@ -609,6 +798,11 @@ impl fmt::Display for Locator {
             Self::CheckboxPrefix(value) => ("(checkbox-prefix", value),
             Self::ColumnName(value) => ("(role column :name", value),
             Self::DialogName(value) => ("(role dialog :name", value),
+            Self::TooltipName(value) => ("(role tooltip :name", value),
+            Self::SeparatorName(value) => ("(role separator :name", value),
+            Self::TabName(value) => ("(role tab :name", value),
+            Self::DropTargetName(value) => ("(role drop-target :name", value),
+            Self::Shortcut(value) => ("(shortcut", value),
             Self::PanelName(value) => ("(role panel :name", value),
             Self::RowName(value) => ("(role row :name", value),
             Self::ScrollName(value) => ("(role scroll :name", value),
@@ -757,6 +951,8 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
         }
         let verifies_scale = steps.iter().any(|step| {
             matches!(step.command, Command::ExpectCount(_, expected) | Command::ExpectCanvasPrimitives(_, expected) | Command::ExpectValueBytes(_, expected) | Command::ExpectImageBytes(_, expected) if expected as u64 == policy.scale)
+                || matches!(step.command, Command::ExpectRows(_, RowsExpectation { count: Some(count), .. }) if count == policy.scale)
+                || matches!(step.command, Command::ExpectTaskCounters(counters) if counters[3] == Some(policy.scale))
         });
         if !verifies_scale {
             return Err(error(
@@ -768,10 +964,39 @@ fn parse_spec(root: &SExpr) -> Result<Spec, ParseError> {
             ));
         }
     }
+    let grants = grants.unwrap_or_default();
+    // A step that changes files is only ever given a private copy to change.
+    let copied = grants
+        .iter()
+        .any(|grant| matches!(grant, Grant::DirectoryCopy(_)));
+    if let Some(step) = steps.iter().find(|step| {
+        matches!(
+            step.command,
+            Command::ReplaceFile { .. } | Command::RemoveFile(_)
+        )
+    }) && !copied
+    {
+        return Err(ParseError {
+            line: step.line,
+            message: format!(
+                "{} requires a (directory copy \"PATH\") grant",
+                step.command.kind()
+            ),
+        });
+    }
+    if grants.iter().any(|grant| {
+        matches!(grant, Grant::Recents(seeds) if seeds.iter().any(|seed| matches!(seed, RecentSeed::Copied(_))))
+    }) && !copied
+    {
+        return Err(error(
+            root,
+            "a (copied \"NAME\") recent requires a (directory copy \"PATH\") grant",
+        ));
+    }
     Ok(Spec {
         name,
         benchmark,
-        grants: grants.unwrap_or_default(),
+        grants,
         steps,
     })
 }
@@ -807,6 +1032,12 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
         // forms cannot be confused for one another.
         ("directory", 2) if list[1].atom() == Some("canceled") => Ok(Grant::DirectoryCanceled),
         ("directory", 2) => Ok(Grant::Directory(grant_path(&list[1], "directory")?)),
+        ("directory", 3) if list[1].atom() == Some("copy") => {
+            Ok(Grant::DirectoryCopy(grant_path(&list[2], "directory")?))
+        }
+        ("file", 2) if list[1].atom() == Some("canceled") => Ok(Grant::FileCanceled),
+        ("file", 2) if list[1].atom() == Some("recording") => Ok(Grant::FileRecording),
+        ("file", 2) => Ok(Grant::File(grant_path(&list[1], "file")?)),
         ("app-data", 2) => Ok(Grant::AppData(grant_path(&list[1], "app-data")?)),
         ("assets", 2) => Ok(Grant::Assets(grant_path(&list[1], "assets")?)),
         ("clipboard", 2) => match list[1].atom() {
@@ -874,19 +1105,82 @@ fn parse_grant(node: &SExpr, list: &[SExpr]) -> Result<Grant, ParseError> {
                 "system-monitor grant must be standard, unavailable, or (processes N)",
             )),
         },
+        ("theme", 2 | 3) => Ok(Grant::Theme(parse_theme(node, &list[1..])?)),
+        ("recents", count) if count >= 2 => {
+            let mut seeds = Vec::new();
+            for item in &list[1..] {
+                seeds.push(match item.list() {
+                    None => RecentSeed::Path(grant_path(item, "recents")?),
+                    Some([head, path]) if head.atom() == Some("each") => {
+                        RecentSeed::Each(grant_path(path, "recents")?, None)
+                    }
+                    Some([head, path, extension]) if head.atom() == Some("each") => {
+                        let extension = grant_string(extension, "recents")?;
+                        if !crate::files::valid_name(&extension) || extension.contains('.') {
+                            return Err(error(item, "an extension is one name, without a dot"));
+                        }
+                        RecentSeed::Each(grant_path(path, "recents")?, Some(extension))
+                    }
+                    Some([head, name]) if head.atom() == Some("copied") => {
+                        let name = grant_string(name, "recents")?;
+                        if !crate::files::valid_name(&name) {
+                            return Err(error(item, "a copied recent names one direct child"));
+                        }
+                        RecentSeed::Copied(name)
+                    }
+                    Some(_) => {
+                        return Err(error(
+                            item,
+                            "a recent is a path, (each \"DIR\" [\"EXT\"]), or (copied \"NAME\")",
+                        ));
+                    }
+                });
+            }
+            Ok(Grant::Recents(seeds))
+        }
         (
             "directory" | "app-data" | "assets" | "clipboard" | "audio" | "http-origin" | "tcp"
-            | "server" | "process" | "device" | "system-monitor",
+            | "server" | "process" | "device" | "system-monitor" | "theme" | "recents",
             _,
         ) => Err(error(node, format!("malformed {name} grant"))),
         _ => Err(error(
             node,
             format!(
                 "unsupported grant {name}; supported grants are app-data, audio, clipboard, \
-                 device, directory, http-origin, process, server, system-monitor, and tcp"
+                 device, directory, file, http-origin, process, recents, server, system-monitor, \
+                 tcp, and theme"
             ),
         )),
     }
+}
+
+/// `light` or `dark`, optionally followed by `reduced-motion`.
+fn parse_theme(node: &SExpr, values: &[SExpr]) -> Result<crate::appearance::Settings, ParseError> {
+    let dark = match values.first().and_then(SExpr::atom) {
+        Some("light") => false,
+        Some("dark") => true,
+        _ => return Err(error(node, "a theme is light or dark")),
+    };
+    let reduced_motion = match values.get(1).map(SExpr::atom) {
+        None => false,
+        Some(Some("reduced-motion")) => true,
+        Some(_) => {
+            return Err(error(
+                node,
+                "a theme takes only reduced-motion after its scheme",
+            ));
+        }
+    };
+    if values.len() > 2 {
+        return Err(error(
+            node,
+            "a theme takes only reduced-motion after its scheme",
+        ));
+    }
+    Ok(crate::appearance::Settings {
+        dark,
+        reduced_motion,
+    })
 }
 
 fn grant_string(node: &SExpr, name: &str) -> Result<String, ParseError> {
@@ -1071,6 +1365,17 @@ impl<'a> Keywords<'a> {
             .map(|(_, value)| *value)
     }
 
+    fn u64(&self, key: &str) -> Result<Option<u64>, ParseError> {
+        let Some(value) = self.expr(key) else {
+            return Ok(None);
+        };
+        value
+            .atom()
+            .and_then(|text| text.parse().ok())
+            .map(Some)
+            .ok_or_else(|| error(value, format!("{key} requires a non-negative integer")))
+    }
+
     fn u32_in(
         &self,
         key: &str,
@@ -1128,6 +1433,19 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             parse_i32(&values[3], "drag coordinate")?,
             parse_i32(&values[4], "drag coordinate")?,
             parse_i32(&values[5], "drag coordinate")?,
+        ),
+        "pointer-move" if values.len() == 4 => Command::PointerMove(
+            parse_locator(&values[1])?,
+            parse_i32(&values[2], "pointer coordinate")?,
+            parse_i32(&values[3], "pointer coordinate")?,
+        ),
+        "pointer-leave" if values.len() == 2 => Command::PointerLeave(parse_locator(&values[1])?),
+        "wheel" if values.len() == 6 => Command::Wheel(
+            parse_locator(&values[1])?,
+            parse_i32(&values[2], "wheel coordinate")?,
+            parse_i32(&values[3], "wheel coordinate")?,
+            parse_i32(&values[4], "wheel distance")?,
+            parse_i32(&values[5], "wheel distance")?,
         ),
         "replace-text" if values.len() == 3 => Command::ReplaceText(
             parse_locator(&values[1])?,
@@ -1240,6 +1558,22 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectBounds(locator, expectation)
         }
+        "expect-rows" if values.len() >= 2 => {
+            let locator = parse_locator(&values[1])?;
+            let keywords = parse_keywords(head, &values[2..], &[":count", ":first", ":mounted"])?;
+            let expectation = RowsExpectation {
+                count: keywords.u64(":count")?,
+                first: keywords.u64(":first")?,
+                mounted: keywords.u64(":mounted")?,
+            };
+            if expectation == RowsExpectation::default() {
+                return Err(error(
+                    node,
+                    "expect-rows requires at least one of :count, :first, :mounted",
+                ));
+            }
+            Command::ExpectRows(locator, expectation)
+        }
         "resize" if values.len() == 3 => {
             let dimension = |index: usize, name: &str| -> Result<u32, ParseError> {
                 values[index]
@@ -1249,7 +1583,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     .ok_or_else(|| {
                         error(
                             &values[index],
-                            &format!("resize {name} is 64 to 8192 logical pixels"),
+                            format!("resize {name} is 64 to 8192 logical pixels"),
                         )
                     })
             };
@@ -1291,11 +1625,27 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 timeout_ms: keywords.u32_in(":timeout-ms", 1..=60_000)?.unwrap_or(2_000),
             }
         }
+        "system-theme" if (2..=3).contains(&values.len()) => {
+            Command::SystemTheme(parse_theme(&values[0], &values[1..])?)
+        }
+        "expect-theme" if values.len() == 2 => Command::ExpectTheme(match values[1].atom() {
+            Some("light") => false,
+            Some("dark") => true,
+            _ => return Err(error(&values[1], "expect-theme requires light or dark")),
+        }),
         "clipboard-text" if values.len() == 2 => Command::ClipboardText(
             values[1]
                 .string()
                 .ok_or_else(|| error(&values[1], "clipboard-text requires a string"))?
                 .to_owned(),
+        ),
+        "await-task-waits" if values.len() == 2 => Command::AwaitTaskWaits(
+            values[1]
+                .atom()
+                .and_then(|atom| atom.parse().ok())
+                .ok_or_else(|| {
+                    error(&values[1], "await-task-waits requires a non-negative integer")
+                })?,
         ),
         "await-ticks" if values.len() == 2 => Command::AwaitTicks(
             values[1]
@@ -1373,6 +1723,28 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 };
             }
             Command::ExpectClipboardCounters(expected)
+        }
+        "expect-keyboard-counters" if values.len() == 5 => {
+            let mut expected = [0u64; 4];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "keyboard counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "keyboard counters must be non-negative integers"))?;
+            }
+            Command::ExpectKeyboardCounters(expected)
+        }
+        "expect-popover-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = value
+                    .atom()
+                    .ok_or_else(|| error(value, "popover counters must be integers"))?
+                    .parse()
+                    .map_err(|_| error(value, "popover counters must be non-negative integers"))?;
+            }
+            Command::ExpectPopoverCounters(expected)
         }
         "expect-sqlite-counters" if values.len() == 4 => {
             let mut expected = [0u64; 3];
@@ -1521,6 +1893,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             }
             Command::ExpectAssetCounters(expected)
         }
+        "expect-hash-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-hash-counters")? as u64;
+            }
+            Command::ExpectHashCounters(expected)
+        }
         "expect-file-selection-counters" if values.len() == 8 => {
             let mut expected = [0u64; 7];
             for (index, value) in values[1..].iter().enumerate() {
@@ -1553,9 +1932,101 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             Command::ExpectFileAccess(expected)
         }
         "revoke-file-grants" if values.len() == 1 => Command::RevokeFileGrants,
+        "replace-file" if values.len() == 3 => {
+            let name = values[1]
+                .string()
+                .filter(|name| crate::files::valid_name(name))
+                .ok_or_else(|| error(&values[1], "replace-file names one direct child"))?;
+            let source = values[2]
+                .string()
+                .filter(|source| !source.is_empty())
+                .ok_or_else(|| error(&values[2], "replace-file requires a source path"))?;
+            Command::ReplaceFile {
+                name: name.to_owned(),
+                source: source.to_owned(),
+            }
+        }
+        "remove-file" if values.len() == 2 => {
+            let name = values[1]
+                .string()
+                .filter(|name| crate::files::valid_name(name))
+                .ok_or_else(|| error(&values[1], "remove-file names one direct child"))?;
+            Command::RemoveFile(name.to_owned())
+        }
+        "drop" | "drag-files" if values.len() >= 3 => {
+            let locator = parse_locator(&values[1])?;
+            let paths = values[2..]
+                .iter()
+                .map(|value| grant_path(value, head))
+                .collect::<Result<Vec<_>, _>>()?;
+            if head == "drop" {
+                Command::Drop(locator, paths)
+            } else {
+                Command::DragFiles(locator, paths)
+            }
+        }
+        "expect-drop-counters" if values.len() == 4 => {
+            let mut expected = [0u64; 3];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-drop-counters")? as u64;
+            }
+            Command::ExpectDropCounters(expected)
+        }
+        "expect-recent-counters" if values.len() == 6 => {
+            let mut expected = [0u64; 5];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-recent-counters")? as u64;
+            }
+            Command::ExpectRecentCounters(expected)
+        }
+        "expect-watch-counters" if values.len() == 6 => {
+            let mut expected = [None; 5];
+            for (index, value) in values[1..].iter().enumerate() {
+                let atom = value
+                    .atom()
+                    .ok_or_else(|| error(value, "watch counters must be integers or _"))?;
+                expected[index] = if atom == "_" {
+                    None
+                } else {
+                    Some(atom.parse().map_err(|_| {
+                        error(value, "watch counters must be non-negative integers or _")
+                    })?)
+                };
+            }
+            Command::ExpectWatchCounters(expected)
+        }
+        "expect-task-counters" if values.len() == 7 => {
+            let mut expected = [None; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                let atom = value
+                    .atom()
+                    .ok_or_else(|| error(value, "task counters must be integers or _"))?;
+                expected[index] = if atom == "_" {
+                    None
+                } else {
+                    Some(atom.parse().map_err(|_| {
+                        error(value, "task counters must be non-negative integers or _")
+                    })?)
+                };
+            }
+            Command::ExpectTaskCounters(expected)
+        }
+        "expect-document-counters" if values.len() == 7 => {
+            let mut expected = [0u64; 6];
+            for (index, value) in values[1..].iter().enumerate() {
+                expected[index] = parse_non_negative(value, "expect-document-counters")? as u64;
+            }
+            Command::ExpectDocumentCounters(expected)
+        }
         "submit" if values.len() == 2 => Command::Submit(parse_locator(&values[1])?),
         "expect-visible" if values.len() == 2 => Command::ExpectVisible(parse_locator(&values[1])?),
         "expect-focused" if values.len() == 2 => Command::ExpectFocused(parse_locator(&values[1])?),
+        "expect-selected" if values.len() == 2 => {
+            Command::ExpectSelected(parse_locator(&values[1])?, true)
+        }
+        "expect-not-selected" if values.len() == 2 => {
+            Command::ExpectSelected(parse_locator(&values[1])?, false)
+        }
         "expect-not-visible" if values.len() == 2 => {
             Command::ExpectNotVisible(parse_locator(&values[1])?)
         }
@@ -1584,6 +2055,24 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                     )
                 })?;
             Command::ExpectCanvasPrimitives(parse_locator(&values[1])?, expected)
+        }
+        "expect-canvas-size" if values.len() == 4 => {
+            let pixels = |value: &SExpr| {
+                value
+                    .atom()
+                    .and_then(|text| text.parse::<u32>().ok())
+                    .ok_or_else(|| {
+                        error(
+                            value,
+                            "expect-canvas-size requires a width and height in logical pixels",
+                        )
+                    })
+            };
+            Command::ExpectCanvasSize(
+                parse_locator(&values[1])?,
+                pixels(&values[2])?,
+                pixels(&values[3])?,
+            )
         }
         "expect-value" if values.len() == 3 => Command::ExpectValue(
             parse_locator(&values[1])?,
@@ -1752,7 +2241,12 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         }
         "mark-metrics" if values.len() == 1 => Command::MarkMetrics,
         "click"
+        | "expect-selected"
+        | "expect-not-selected"
         | "drag"
+        | "pointer-move"
+        | "pointer-leave"
+        | "wheel"
         | "replace-text"
         | "focus"
         | "press-key"
@@ -1760,10 +2254,13 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "await-count"
         | "clipboard-text"
         | "await-ticks"
+        | "await-task-waits"
         | "expect-subscriptions"
         | "expect-tcp-streams"
         | "expect-processes"
         | "expect-clipboard-counters"
+        | "expect-popover-counters"
+        | "expect-keyboard-counters"
         | "expect-sqlite-counters"
         | "expect-http-counters"
         | "expect-tcp-counters"
@@ -1780,8 +2277,17 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-file-lifecycle-counters"
         | "expect-file-access"
         | "revoke-file-grants"
+        | "replace-file"
+        | "remove-file"
+        | "drop"
+        | "drag-files"
+        | "expect-drop-counters"
+        | "expect-recent-counters"
+        | "expect-document-counters"
+        | "expect-task-counters"
         | "expect-image-owner-counters"
         | "expect-asset-counters"
+        | "expect-hash-counters"
         // `expect-grants` is deliberately absent: it takes any number of
         // descriptions, so it can never be the known-step-wrong-arity case this
         // list exists to report.
@@ -1792,6 +2298,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "expect-not-visible"
         | "expect-count"
         | "expect-canvas-primitives"
+        | "expect-canvas-size"
         | "expect-before"
         | "expect-patch"
         | "expect-value"
@@ -1873,6 +2380,14 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             .string()
             .map(|value| Locator::CanvasItemPrefix(value.to_owned()))
             .ok_or_else(|| error(node, "canvas-item-prefix locator requires a string")),
+        Some("shortcut") if values.len() == 2 => {
+            let written = values[1]
+                .string()
+                .ok_or_else(|| error(node, "shortcut locator requires a chord string"))?;
+            crate::keyboard::canonical_chord(written)
+                .map(Locator::Shortcut)
+                .map_err(|detail| error(node, format!("shortcut locator: {detail}")))
+        }
         Some("button-prefix") if values.len() == 2 => values[1]
             .string()
             .map(|value| Locator::ButtonPrefix(value.to_owned()))
@@ -1906,6 +2421,46 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
                 .string()
                 .map(|value| Locator::DialogName(value.to_owned()))
                 .ok_or_else(|| error(node, "dialog name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("separator")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::SeparatorName(value.to_owned()))
+                .ok_or_else(|| error(node, "separator name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("drop-target")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::DropTargetName(value.to_owned()))
+                .ok_or_else(|| error(node, "drop target name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("tab")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::TabName(value.to_owned()))
+                .ok_or_else(|| error(node, "tab name must be a string"))
+        }
+        Some("role")
+            if values.len() == 4
+                && values[1].atom() == Some("tooltip")
+                && values[2].atom() == Some(":name") =>
+        {
+            values[3]
+                .string()
+                .map(|value| Locator::TooltipName(value.to_owned()))
+                .ok_or_else(|| error(node, "tooltip name must be a string"))
         }
         Some("role")
             if values.len() == 4
@@ -2009,7 +2564,7 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
         }
         Some("role") => Err(error(
             node,
-            "supported roles are button, canvas, canvas-item, checkbox, column, dialog, image, panel, row, scroll, textarea, textbox, and virtual-list",
+            "supported roles are button, canvas, canvas-item, checkbox, column, dialog, image, panel, row, scroll, separator, tab, textarea, textbox, tooltip, and virtual-list",
         )),
         Some(other) => Err(error(node, format!("unsupported locator {other}"))),
         None => Err(error(node, "locator requires a name")),
@@ -2205,6 +2760,11 @@ fn utf8_width(first: u8) -> Option<usize> {
 /// Reports the first offending step so the message names one concrete fix
 /// rather than a list. Shared by both runners and their tests.
 pub fn check_runner(spec: &Spec, runner: Runner) -> Result<(), String> {
+    if runner == Runner::Window && spec.grants.contains(&Grant::FileRecording) {
+        return Err(
+            "(file recording) is semantic-only; the window runner records no capture".to_owned(),
+        );
+    }
     if runner == Runner::Window && spec.benchmark.is_some() {
         return Err(
             "benchmark clauses are semantic-only; the window runner runs one lifecycle".to_owned(),
@@ -2230,6 +2790,67 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+
+    #[test]
+    fn drops_and_recent_lists_are_spoken_by_both_runners() {
+        let parsed = parse(
+            r#"(test "drop" (grants
+              (directory copy "fixture")
+              (recents "fixture/a.rgstats" (each "fixture") (each "fixture" "rgstats") (copied "b.rgstats")))
+            (steps
+              (drop (role drop-target :name "Window") "fixture/a.rgstats" "fixture/b.rgstats")
+              (drag-files (role drop-target :name "Window") "fixture/a.rgstats")
+              (remove-file "b.rgstats")
+              (expect-drop-counters 1 2 0)
+              (expect-recent-counters 1 0 0 0 3)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            parsed.grants[1],
+            Grant::Recents(vec![
+                RecentSeed::Path("fixture/a.rgstats".into()),
+                RecentSeed::Each("fixture".into(), None),
+                RecentSeed::Each("fixture".into(), Some("rgstats".into())),
+                RecentSeed::Copied("b.rgstats".into()),
+            ])
+        );
+        assert_eq!(
+            parsed.steps[0].command,
+            Command::Drop(
+                Locator::DropTargetName("Window".into()),
+                vec!["fixture/a.rgstats".into(), "fixture/b.rgstats".into()]
+            )
+        );
+        let capabilities: Vec<Capability> = parsed
+            .steps
+            .iter()
+            .map(|step| step.command.capability())
+            .collect();
+        assert_eq!(
+            capabilities,
+            vec![
+                Capability::Both,
+                Capability::Window,
+                Capability::Both,
+                Capability::Both,
+                Capability::Both
+            ]
+        );
+        for bad in [
+            // a dropped path stays inside the application
+            r#"(test "t" (steps (drop (role drop-target :name "W") "../x.rgstats")))"#,
+            r#"(test "t" (steps (drop (role drop-target :name "W"))))"#,
+            // changing files is for a private copy only
+            r#"(test "t" (steps (remove-file "a.rgstats")))"#,
+            r#"(test "t" (grants (recents (copied "a.rgstats"))) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (grants (recents)) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (grants (recents (twice "a"))) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (grants (recents (each "a" ".x"))) (steps (expect-visible (text "x"))))"#,
+            r#"(test "t" (steps (expect-drop-counters 1 2)))"#,
+        ] {
+            assert!(parse(bad).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn native_work_limits_are_window_only_and_strictly_parsed() {
@@ -2289,6 +2910,41 @@ mod tests {
             assert!(
                 parse(&format!("(test \"bad\" (steps ({command})))")).is_err(),
                 "{command}"
+            );
+        }
+    }
+
+    #[test]
+    fn tooltip_locators_and_popover_counters_are_claims_on_both_runners() {
+        let spec = parse(
+            r#"(test "note" (steps
+            (hover-enter (text "cell"))
+            (await-count (role tooltip :name "About the cell") 1)
+            (expect-popover-counters 1 0 0)))"#,
+        )
+        .unwrap();
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(matches!(
+            &spec.steps[1].command,
+            Command::AwaitCount(Locator::TooltipName(name), 1) if name == "About the cell"
+        ));
+        assert_eq!(
+            spec.steps[2].command,
+            Command::ExpectPopoverCounters([1, 0, 0])
+        );
+        assert!(!spec.steps[2].command.is_operation());
+        assert_eq!(
+            Locator::TooltipName("About the cell".into()).to_string(),
+            r#"(role tooltip :name "About the cell")"#
+        );
+        for bad in [
+            "(expect-popover-counters 1 0)",
+            "(expect-popover-counters 1 0 -1)",
+        ] {
+            assert!(
+                parse(&format!("(test \"bad\" (steps {bad}))")).is_err(),
+                "{bad}"
             );
         }
     }
@@ -2564,6 +3220,43 @@ mod tests {
     }
 
     #[test]
+    fn expect_rows_names_a_list_and_at_least_one_claim() {
+        let spec = parse(
+            r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows") :count 1000000 :first 0 :mounted 64)))"#,
+        )
+        .unwrap();
+        assert_eq!(
+            spec.steps[0].command,
+            Command::ExpectRows(
+                Locator::VirtualListName("Rows".into()),
+                RowsExpectation {
+                    count: Some(1_000_000),
+                    first: Some(0),
+                    mounted: Some(64),
+                }
+            )
+        );
+        assert!(
+            parse(r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows"))))"#)
+                .is_err()
+        );
+        assert!(
+            parse(
+                r#"(test "rows" (steps (expect-rows (role virtual-list :name "Rows") :count -1)))"#
+            )
+            .is_err()
+        );
+        // A provided list's logical extent verifies a benchmark's scale.
+        assert!(
+            parse(
+                r#"(test "rows" (benchmark :warmups 1 :samples 1 :iterations 1 :scale 1000 :initial-size 0 :change-size 1000)
+                     (steps (mark-metrics) (expect-rows (role virtual-list :name "Rows") :count 1000)))"#
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
     fn parses_named_virtual_list_region() {
         let spec =
             parse(r#"(test "virtual" (steps (expect-visible (role virtual-list :name "Rows"))))"#)
@@ -2583,6 +3276,13 @@ mod tests {
             Command::ExpectAssetCounters([1, 0, 1, 2, 0, 4096])
         );
         assert!(parse(r#"(test "assets" (steps (expect-asset-counters 1 2 3)))"#).is_err());
+        let case = parse(r#"(test "hashes" (steps (expect-hash-counters 2 1 4096)))"#)
+            .expect("hash counters parse");
+        assert_eq!(
+            case.steps[0].command,
+            Command::ExpectHashCounters([2, 1, 4096])
+        );
+        assert!(parse(r#"(test "hashes" (steps (expect-hash-counters 1 2)))"#).is_err());
     }
 
     #[test]
@@ -2652,8 +3352,11 @@ mod tests {
                    (server "fixture_server.py" 36379)
                    (process test-program)
                    (device virtual 100)
-                   (system-monitor processes 500))
-                 (steps (await-ticks 1)))"#,
+                   (system-monitor processes 500)
+                   (theme dark reduced-motion))
+                 (steps
+                   (system-theme light)
+                   (expect-theme light)))"#,
         )
         .expect("grants parse");
         assert_eq!(
@@ -2672,8 +3375,23 @@ mod tests {
                 Grant::Process("test-program".into()),
                 Grant::Device("virtual:100".into()),
                 Grant::SystemMonitor("processes:500".into()),
+                Grant::Theme(crate::appearance::Settings {
+                    dark: true,
+                    reduced_motion: true,
+                }),
             ]
         );
+        assert_eq!(
+            case.steps
+                .iter()
+                .map(|step| step.command.clone())
+                .collect::<Vec<_>>(),
+            vec![
+                Command::SystemTheme(crate::appearance::Settings::default()),
+                Command::ExpectTheme(false),
+            ]
+        );
+        assert!(parse(r#"(test "t" (grants (theme sepia)) (steps (expect-theme dark)))"#).is_err());
     }
 
     #[test]
@@ -2706,6 +3424,32 @@ mod tests {
                 .expect("quoted path parses")
                 .grants,
             vec![Grant::Directory("canceled".into())]
+        );
+    }
+
+    /// A file grant mirrors the directory vocabulary and occupies its own slot,
+    /// so a case may hold a folder and a file at once.
+    #[test]
+    fn a_file_grant_mirrors_the_directory_vocabulary() {
+        let case = parse(
+            r#"(test "f" (grants (file "fixture/one.rgstats") (directory "fixture")) (steps (await-ticks 1)))"#,
+        )
+        .expect("file and directory grants parse together");
+        assert_eq!(case.grants[0], Grant::File("fixture/one.rgstats".into()));
+        assert_eq!(case.grants[0].name(), "file");
+        assert_eq!(case.grants[0].path(), Some("fixture/one.rgstats"));
+        let canceled = parse(r#"(test "f" (grants (file canceled)) (steps (await-ticks 1)))"#)
+            .expect("canceled file chooser parses");
+        assert_eq!(canceled.grants, vec![Grant::FileCanceled]);
+        assert_eq!(canceled.grants[0].path(), None);
+        let duplicate = parse(
+            r#"(test "f" (grants (file canceled) (file "fixture/x")) (steps (await-ticks 1)))"#,
+        )
+        .unwrap_err();
+        assert!(duplicate.message.contains("duplicate file grant"));
+        assert!(
+            parse(r#"(test "f" (grants (file "../outside")) (steps (await-ticks 1)))"#).is_err(),
+            "a file path is held inside the application directory like any other"
         );
     }
 
@@ -2810,6 +3554,91 @@ mod tests {
         assert!(
             matches!(&spec.steps[1].command, Command::ExpectVisible(Locator::CanvasItemName(name)) if name == "Card")
         );
+    }
+
+    #[test]
+    fn parses_separators_tabs_and_selection_for_both_runners() {
+        let spec = parse(
+            r#"(test "shell" (steps
+            (drag (role separator :name "Divider") 3 200 -97 200)
+            (expect-value (role separator :name "Divider") "540")
+            (expect-selected (role tab :name "One"))
+            (expect-not-selected (role tab :name "Two"))))"#,
+        )
+        .unwrap();
+        assert!(
+            matches!(&spec.steps[0].command, Command::Drag(Locator::SeparatorName(name), 3, 200, -97, 200) if name == "Divider")
+        );
+        assert!(
+            matches!(&spec.steps[2].command, Command::ExpectSelected(Locator::TabName(name), true) if name == "One")
+        );
+        assert_eq!(spec.steps[3].command.kind(), "expect-not-selected");
+        assert_eq!(
+            Locator::SeparatorName("Divider".into()).to_string(),
+            "(role separator :name \"Divider\")"
+        );
+        // A drag, a divider's value, and a tab's selection are both runners'.
+        assert!(check_runner(&spec, Runner::Window).is_ok());
+        assert!(check_runner(&spec, Runner::Semantic).is_ok());
+    }
+
+    #[test]
+    fn parses_shortcut_keys_counters_and_locators_for_both_runners() {
+        let spec = parse(
+            r#"(test "keys" (steps
+            (key "shift-ctrl-k")
+            (expect-keyboard-counters 1 1 2 0)
+            (expect-count (shortcut "shift-ctrl-k") 1)))"#,
+        )
+        .unwrap();
+        assert_eq!(spec.steps[0].command, Command::Key("shift-ctrl-k".into()));
+        assert_eq!(
+            spec.steps[1].command,
+            Command::ExpectKeyboardCounters([1, 1, 2, 0])
+        );
+        // The locator names the chord as the host spells it.
+        assert!(matches!(
+            &spec.steps[2].command,
+            Command::ExpectCount(Locator::Shortcut(keys), 1) if keys == "ctrl-shift-k"
+        ));
+        for step in &spec.steps {
+            assert_eq!(step.command.capability(), Capability::Both);
+        }
+        assert!(spec.steps[0].command.is_operation());
+        for invalid in [
+            "(expect-keyboard-counters 1 1 2)",
+            "(expect-count (shortcut \"escape\") 1)",
+        ] {
+            let source = format!("(test \"keys\" (steps {invalid}))");
+            assert!(parse(&source).is_err(), "{invalid} must not parse");
+        }
+    }
+
+    #[test]
+    fn parses_canvas_hover_and_wheel_for_both_runners() {
+        let spec = parse(
+            r#"(test "canvas" (steps
+            (pointer-move (role canvas :name "Chart") 10 -4)
+            (pointer-leave (role canvas :name "Chart"))
+            (wheel (role canvas :name "Chart") 5 6 0 -120)))"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            &spec.steps[0].command,
+            Command::PointerMove(Locator::CanvasName(name), 10, -4) if name == "Chart"
+        ));
+        assert!(matches!(
+            &spec.steps[1].command,
+            Command::PointerLeave(Locator::CanvasName(name)) if name == "Chart"
+        ));
+        assert!(matches!(
+            &spec.steps[2].command,
+            Command::Wheel(Locator::CanvasName(name), 5, 6, 0, -120) if name == "Chart"
+        ));
+        for step in &spec.steps {
+            assert_eq!(step.command.capability(), Capability::Both);
+            assert!(step.command.is_operation());
+        }
     }
 
     #[test]
@@ -2950,10 +3779,7 @@ mod tests {
 
     #[test]
     fn typing_and_chords_parse() {
-        let spec =
-            parse(
-                r#"(test "s" (steps (type "hello") (key "secondary-a") (key "escape")))"#,
-            )
+        let spec = parse(r#"(test "s" (steps (type "hello") (key "secondary-a") (key "escape")))"#)
             .unwrap();
         assert_eq!(spec.steps[0].command, Command::Type("hello".to_owned()));
         assert_eq!(

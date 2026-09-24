@@ -1,0 +1,69 @@
+;; The shell of §6 in the real window: two captures open in tabs, the
+;; baseline's marked ◆, and the inspector beside the view. The window's own
+;; pointer drags the inspector's divider wider, and the keyboard folds it away
+;; and brings it back.
+(test "the window shows capture tabs and a resizable inspector"
+  (grants
+    (directory "fixture/compare"))
+  (steps
+    (settle)
+    (click (role button :name "Open folder"))
+    (await-task)
+    (settle)
+    (click (role button :name "Capture browse-100.rgstats"))
+    (await-task)
+    (settle)
+    (click (role button :name "Set as baseline"))
+    (click (role button :name "Interactions"))
+    (click (role button :name "Cycle r4 #7"))
+    (await-task)
+    (settle)
+    (click (role button :name "Open another capture"))
+    (settle)
+    (click (role button :name "Capture browse-100-aa.rgstats"))
+    (await-task)
+    (settle)
+    (expect-on-screen (role tab :name "◆ browse-100.rgstats"))
+    (expect-on-screen (role tab :name "browse-100-aa.rgstats"))
+    (expect-on-screen (role separator :name "Inspector divider"))
+    (expect-bounds (role column :name "Inspector") :min-width 355 :max-width 365)
+    (screenshot "tabs")
+    (click (role tab :name "◆ browse-100.rgstats"))
+    (settle)
+    (expect-on-screen (text "CYCLE r4 #7 · task · replace · measured"))
+    (screenshot "inspector")
+    (drag (role separator :name "Inspector divider") 2 300 -198 300)
+    (settle)
+    (expect-value (role separator :name "Inspector divider") "560")
+    (expect-bounds (role column :name "Inspector") :min-width 555 :max-width 565)
+    ; the drag renders the window and the inspector, whose cycle lays its
+    ; waterfall out for its width; every view is kept. The view beside it is
+    ; narrower, so after the frame the duration distribution hears its new
+    ; width, and that last turn renders the Interactions view and the
+    ; distribution and keeps the triggers table and the cycle list
+    (expect-canvas-size (role canvas :name "Duration distribution") 712 164)
+    (expect-component-work :rendered 2 :skipped 2 :mounted 0 :retired 0)
+    (screenshot "wide-inspector")
+    (focus (role separator :name "Inspector divider"))
+    (key "enter")
+    (settle)
+    (expect-value (role separator :name "Inspector divider") "collapsed")
+    (expect-not-visible (role column :name "Inspector"))
+    (expect-on-screen (role separator :name "Inspector divider"))
+    (screenshot "folded")
+    (key "enter")
+    (settle)
+    (expect-on-screen (role column :name "Inspector"))
+    (expect-bounds (role column :name "Inspector") :min-width 555 :max-width 565)
+    ; at its narrowest the inspector lays the cycle out for its width: names
+    ; give way to the figures and bars, and a span's allocations, releases,
+    ; and reallocations are a table each
+    (key "end")
+    (settle)
+    (expect-value (role separator :name "Inspector divider") "240")
+    (expect-on-screen (role row :name "Waterfall cycle"))
+    (screenshot "narrow-inspector")
+    (scroll (role scroll :name "Inspector scroll") :to (role row :name "Reallocation platform_lowering"))
+    (settle)
+    (expect-on-screen (role row :name "Reallocation platform_lowering"))
+    (screenshot "narrow-allocations")))

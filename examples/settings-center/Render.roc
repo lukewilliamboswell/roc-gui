@@ -11,26 +11,16 @@ Render := [].{
 	## so the scale has to separate a heading from a setting name from the line
 	## explaining it; when everything is within two points of everything else the
 	## eye has nothing to catch on.
-	muted : Gui.Color
-	muted = 0x9db4bf
-	faint : Gui.Color
-	faint = 0x6f8794
-	danger : Gui.Color
-	danger = 0xe08b8b
-	accent : Gui.Color
-	accent = 0x4d8fb5
-	chip : Gui.Color
-	chip = 0x1b2f39
-	chip_hover : Gui.Color
-	chip_hover = 0x25404e
-	chip_edge : Gui.Color
-	chip_edge = 0x48666b
-	on_accent : Gui.Color
-	on_accent = 0x10202a
-	chip_text : Gui.Color
-	chip_text = 0xd7e4ea
-	divider : Gui.Color
-	divider = 0x22343d
+	muted = 0x9db4bf.Gui.Color
+	faint = 0x6f8794.Gui.Color
+	danger = 0xe08b8b.Gui.Color
+	accent = 0x4d8fb5.Gui.Color
+	chip = 0x1b2f39.Gui.Color
+	chip_hover = 0x25404e.Gui.Color
+	chip_edge = 0x48666b.Gui.Color
+	on_accent = 0x10202a.Gui.Color
+	chip_text = 0xd7e4ea.Gui.Color
+	divider = 0x22343d.Gui.Color
 
 	## Title of the window.
 	title_size = 24.U32
@@ -128,7 +118,7 @@ Render := [].{
 							hover_bg: chip_hover,
 							border_width: 1,
 							border_color: chip_edge,
-							on_press: |current, _| Gui.update({ ..current, category: "", search: "" }),
+							on_press: |current, _| Gui.Action.update({ ..current, category: "", search: "" }),
 						}),
 					],
 				),
@@ -240,7 +230,7 @@ Render := [].{
 				} else {
 					chip_edge
 				},
-				on_press: |current, _| Gui.update({ ..current, category: value }),
+				on_press: |current, _| Gui.Action.update({ ..current, category: value }),
 			})
 		}
 		category_chips = [chip_for("All", "")].concat(
@@ -288,8 +278,8 @@ Render := [].{
 					width: Fill,
 					font_size: body_size,
 					placeholder: "Search every setting",
-					on_change: |current, event| Gui.update({ ..current, search: event.value }),
-					on_submit: |_, _| Gui.none,
+					on_change: |current, event| Gui.Action.update({ ..current, search: event.value }),
+					on_submit: |_, _| Gui.Action.none,
 				}),
 				Gui.row({ label: "Categories", width: Fill, gap: 6 }, category_chips),
 				Gui.row(
@@ -332,7 +322,7 @@ Render := [].{
 							0x48666b
 						},
 						placeholder: "Enter a profile name",
-						on_change: |current, event| Gui.update(Settings.edit_name(current, event.value)),
+						on_change: |current, event| Gui.Action.update(Settings.edit_name(current, event.value)),
 						on_submit: |current, _| Settings.apply_name(current),
 					}),
 				),
@@ -345,7 +335,7 @@ Render := [].{
 						font_size: body_size,
 						placeholder: "Notes shared by everyone using this profile",
 						height: Px(76),
-						on_input: |current, event| Gui.update(Settings.edit_notes(current, event.value)),
+						on_input: |current, event| Gui.Action.update(Settings.edit_notes(current, event.value)),
 					}),
 				),
 				hint("Saved profile: ${state.saved_name}"),
@@ -378,7 +368,7 @@ Render := [].{
 							hover_bg: chip_hover,
 							border_width: 1,
 							border_color: chip_edge,
-							on_press: |current, _| Gui.update(Settings.revert_name(current)),
+							on_press: |current, _| Gui.Action.update(Settings.revert_name(current)),
 						}),
 						Gui.row(
 							{ label: "Store actions", grow: True, justify: End, gap: 0 },
@@ -416,8 +406,8 @@ Render := [].{
 						width: Fill,
 						font_size: body_size,
 						enabled: False,
-						on_change: |current, event| Gui.update({ ..current, disabled_value: event.value }),
-						on_submit: |_, _| Gui.none,
+						on_change: |current, event| Gui.Action.update({ ..current, disabled_value: event.value }),
+						on_submit: |_, _| Gui.Action.none,
 					}),
 				),
 				hint(
@@ -463,7 +453,7 @@ Render := [].{
 					hover_bg: chip_hover,
 					border_width: 1,
 					border_color: chip_edge,
-					on_press: |current, _| Gui.update({ ..current, dialog_open: True, modal_draft: current.modal_value }),
+					on_press: |current, _| Gui.Action.update({ ..current, dialog_open: True, modal_draft: current.modal_value }),
 				}),
 			],
 		)
@@ -509,7 +499,7 @@ Render := [].{
 				[
 					content,
 					Gui.dialog(
-						{ label: "Rename workspace", on_dismiss: |current, _| Gui.update({ ..current, dialog_open: False }), gap: 14 },
+						{ label: "Rename workspace", on_dismiss: |current, _| Gui.Action.update({ ..current, dialog_open: False }), gap: 14 },
 						[
 							Gui.col({ width: Fill, font_size: panel_size + 2 }, [Gui.text("Rename this workspace")]),
 							field(
@@ -520,11 +510,11 @@ Render := [].{
 									width: Fill,
 									font_size: body_size,
 									placeholder: "Workspace name",
-									on_change: |current, event| Gui.update({ ..current, modal_draft: event.value }),
+									on_change: |current, event| Gui.Action.update({ ..current, modal_draft: event.value }),
 									on_submit: |current, _| if current.modal_draft.is_empty() {
-										Gui.none
+										Gui.Action.none
 									} else {
-										Gui.update({ ..current, dialog_open: False, modal_value: current.modal_draft })
+										Gui.Action.update({ ..current, dialog_open: False, modal_value: current.modal_draft })
 									},
 								}),
 							),
@@ -543,14 +533,14 @@ Render := [].{
 										hover_bg: chip_hover,
 										border_width: 1,
 										border_color: chip_edge,
-										on_press: |current, _| Gui.update({ ..current, dialog_open: False }),
+										on_press: |current, _| Gui.Action.update({ ..current, dialog_open: False }),
 									}),
 									Gui.button({
 										caption: "Rename",
 										label: "Confirm rename",
 										font_size: meta_size,
 										enabled: !state.modal_draft.is_empty(),
-										on_press: |current, _| Gui.update({ ..current, dialog_open: False, modal_value: current.modal_draft }),
+										on_press: |current, _| Gui.Action.update({ ..current, dialog_open: False, modal_value: current.modal_draft }),
 									}),
 								],
 							),

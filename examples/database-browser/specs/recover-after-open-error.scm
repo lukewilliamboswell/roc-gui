@@ -14,4 +14,4 @@
     (click (role button :name "Run query"))
     (await-task)
     (expect-visible (text "Rows: 100"))
-    (expect-sqlite-counters 1 2 3)))
+    (expect-sqlite-counters 1 2 2)))

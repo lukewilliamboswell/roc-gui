@@ -37,6 +37,7 @@ pub enum Kind {
     Sqlite,
     SystemMonitor,
     Tcp,
+    Watch,
 }
 
 impl Kind {
@@ -56,6 +57,7 @@ impl Kind {
             Self::Sqlite => "sqlite",
             Self::SystemMonitor => "system-monitor",
             Self::Tcp => "tcp",
+            Self::Watch => "watch",
         }
     }
 }
@@ -116,6 +118,11 @@ impl Enforcement {
 pub enum Origin {
     /// A person chose this resource in a surface owned by the operating system.
     TrustedSelection(Enforcement),
+    /// A person dragged this resource from outside the application and dropped
+    /// it on a drop target, a gesture the operating system's drag-and-drop
+    /// delivers rather than the application. It is consent of the same weight
+    /// as a choice in a chooser, recorded apart so evidence says which it was.
+    Dropped(Enforcement),
     /// A command-line flag provisioned it. Development and automation authority,
     /// which `docs/resource-access.adoc` requires be visibly identified as such
     /// and never represented as user consent.
@@ -130,6 +137,7 @@ impl Origin {
     pub fn name(self) -> &'static str {
         match self {
             Self::TrustedSelection(_) => "trusted-selection",
+            Self::Dropped(_) => "drop",
             Self::Provisioned => "provisioned",
             Self::Automatic => "automatic",
         }
@@ -140,27 +148,23 @@ impl Origin {
     /// neither can be brokered, and saying so here keeps the answer in one place.
     pub fn enforcement(self) -> Enforcement {
         match self {
-            Self::TrustedSelection(enforcement) => enforcement,
+            Self::TrustedSelection(enforcement) | Self::Dropped(enforcement) => enforcement,
             Self::Provisioned | Self::Automatic => Enforcement::ConsentOnly,
         }
     }
 }
 
-/// How long a grant is meant to last. Persistence is not yet offered by any
-/// resource; the variant exists so that when remembered grants land they are a
-/// value in this enum rather than a second lifetime model beside it.
+/// How long a grant is meant to last.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lifetime {
     /// Until the process ends or the handle is released.
     Session,
-}
-
-impl Lifetime {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Session => "session",
-        }
-    }
+    /// Remembered by the host in the application's recent list, so a later
+    /// run may reopen what it names without asking the person again. The
+    /// handle itself still ends with the session; what outlives it is the
+    /// host's record, which `crate::recents` owns and checks before it
+    /// grants anything from it.
+    Remembered,
 }
 
 /// What a handle may do. Shared across resources so that "read" means one thing
@@ -243,6 +247,14 @@ impl Grant {
         self.origin
     }
 
+    pub fn lifetime(&self) -> Lifetime {
+        self.lifetime
+    }
+
+    pub fn id(&self) -> GrantId {
+        self.id
+    }
+
     pub fn is_root(&self) -> bool {
         self.parent.is_none()
     }
@@ -283,6 +295,9 @@ impl Grant {
             },
             self.rights.names().join(",")
         );
+        if self.lifetime == Lifetime::Remembered {
+            text.push_str(" remembered");
+        }
         if self.revoked {
             text.push_str(" revoked");
         }
@@ -305,6 +320,10 @@ struct Registry {
     released: u64,
     revoked: u64,
     denied: u64,
+    /// Remembered roots revoked since the recent list last heard of it. A
+    /// person withdrawing a remembered grant withdraws the remembering too,
+    /// or it would come back the next time the application starts.
+    withdrawn_remembered: Vec<GrantId>,
 }
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
@@ -437,6 +456,26 @@ pub fn accept(kind: Kind, id: u64, needs: Rights) -> Result<Grant, Refusal> {
     })
 }
 
+/// Whether a grant, or its root, has been revoked, without accepting an
+/// operation against it. A resource that waits on behalf of a grant — a watch
+/// blocked until its file changes — asks this to end the wait, and a question
+/// asked while waiting is not a denied operation, so it counts nothing.
+pub fn is_revoked(kind: Kind, id: u64) -> bool {
+    with(
+        |registry| match registry.grants.get(&GrantId::new(kind, id)) {
+            Some(grant) => !grant.is_live() || registry.revoked_roots.contains(&grant.root),
+            None => false,
+        },
+    )
+}
+
+/// Whether a grant is still recorded: neither released by its handle's owner
+/// nor forgotten with its configuration. A watch asks this of what it watches,
+/// so a watch outlives nothing it could still report on.
+pub fn is_held(kind: Kind, id: u64) -> bool {
+    with(|registry| registry.grants.contains_key(&GrantId::new(kind, id)))
+}
+
 /// Revoke a grant and everything derived from it, at one instant. Operations
 /// accepted before this point follow their own commit rule; operations that
 /// reach [`accept`] afterwards fail, including from handles the application is
@@ -445,12 +484,15 @@ pub fn accept(kind: Kind, id: u64, needs: Rights) -> Result<Grant, Refusal> {
 ///
 /// Returns how many grants were revoked, which is the count the evidence uses.
 pub fn revoke(kind: Kind, id: u64) -> u64 {
-    with(|registry| {
+    let revoked = with(|registry| {
         let Some(target) = registry.grants.get(&GrantId::new(kind, id)).copied() else {
             return 0;
         };
         let root = target.root;
         registry.revoked_roots.insert(root);
+        if target.lifetime == Lifetime::Remembered {
+            registry.withdrawn_remembered.push(root);
+        }
         let mut count = 0;
         // Every descendant of this root, of whatever kind. A database snapshot
         // derived from a directory is revoked with the directory.
@@ -462,20 +504,38 @@ pub fn revoke(kind: Kind, id: u64) -> u64 {
         }
         registry.revoked += count;
         count
-    })
+    });
+    // A watch waiting on what was just withdrawn wakes now, not at its next
+    // poll, so the application hears of the withdrawal at the instant it
+    // happened.
+    crate::watch::end_withdrawn();
+    crate::recents::forget_withdrawn(take_withdrawn_remembered());
+    revoked
 }
 
 /// Revoke every root of one kind, and everything derived from those roots
 /// whatever kind it is. What a person means by "stop using my files" includes
 /// the database they opened from one.
 pub fn revoke_kind(kind: Kind) -> u64 {
-    with(|registry| {
+    let revoked = with(|registry| {
         let roots: Vec<GrantId> = registry
             .grants
             .values()
             .filter(|grant| grant.root.kind() == kind)
             .map(|grant| grant.root)
             .collect();
+        let remembered: Vec<GrantId> = registry
+            .grants
+            .values()
+            .filter(|grant| {
+                grant.root.kind() == kind
+                    && grant.parent.is_none()
+                    && grant.lifetime == Lifetime::Remembered
+                    && !grant.revoked
+            })
+            .map(|grant| grant.id)
+            .collect();
+        registry.withdrawn_remembered.extend(remembered);
         registry.revoked_roots.extend(roots);
         let mut count = 0;
         for grant in registry.grants.values_mut() {
@@ -486,7 +546,19 @@ pub fn revoke_kind(kind: Kind) -> u64 {
         }
         registry.revoked += count;
         count
-    })
+    });
+    // A watch waiting on what was just withdrawn wakes now, not at its next
+    // poll, so the application hears of the withdrawal at the instant it
+    // happened.
+    crate::watch::end_withdrawn();
+    crate::recents::forget_withdrawn(take_withdrawn_remembered());
+    revoked
+}
+
+/// The remembered roots revoked since this was last asked, for the recent list
+/// to forget.
+fn take_withdrawn_remembered() -> Vec<GrantId> {
+    with(|registry| std::mem::take(&mut registry.withdrawn_remembered))
 }
 
 /// Drop a grant because its handle is gone. Releasing is not revoking: the
@@ -498,6 +570,36 @@ pub fn release(kind: Kind, id: u64) {
             registry.released += 1;
         }
     });
+}
+
+/// Mark a live root as remembered, and every grant already derived from it,
+/// because they share its lifetime. Answers the grant as it now stands, or why
+/// it cannot be remembered: a derived grant is refused as `Rights`, since only
+/// authority that arrived from outside can be kept, and only by the one who
+/// was given it.
+pub fn remember(kind: Kind, id: u64) -> Result<Grant, Refusal> {
+    with(|registry| {
+        let target = GrantId::new(kind, id);
+        let grant = match registry.grants.get(&target) {
+            None => return Err(Refusal::Unknown),
+            Some(grant) if !grant.is_live() || registry.revoked_roots.contains(&grant.root) => {
+                return Err(Refusal::Revoked);
+            }
+            Some(grant) if grant.parent.is_some() || matches!(grant.origin, Origin::Automatic) => {
+                return Err(Refusal::Rights);
+            }
+            Some(grant) => *grant,
+        };
+        for held in registry.grants.values_mut() {
+            if held.root == grant.root {
+                held.lifetime = Lifetime::Remembered;
+            }
+        }
+        Ok(Grant {
+            lifetime: Lifetime::Remembered,
+            ..grant
+        })
+    })
 }
 
 /// Every live grant, ordered so the same registry always renders the same way.
@@ -538,25 +640,29 @@ pub fn forget_kind(kind: Kind) {
     });
 }
 
-/// Forget everything. The semantic runner mounts one application per lifecycle
-/// and a grant from a previous one must not be visible to the next.
+/// Clear process-wide grant state between isolated unit tests.
+#[cfg(test)]
 pub fn reset() {
     with(|registry| *registry = Registry::default());
+}
+
+/// The registry is one process-wide thing, as it is in production, so the
+/// tests that use it, here and in the modules built on it, take turns rather
+/// than each racing the others' `reset`. A failing test poisons the lock;
+/// recovering the guard keeps the failure reported as itself rather than as a
+/// cascade of poisoning in its neighbours.
+#[cfg(test)]
+pub(crate) fn test_turn() -> std::sync::MutexGuard<'static, ()> {
+    static TURN: Mutex<()> = Mutex::new(());
+    TURN.lock().unwrap_or_else(|error| error.into_inner())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The registry is one process-wide thing, as it is in production, so the
-    /// tests take turns with it rather than each racing the others' `reset`.
-    /// A failing test poisons the lock; recovering the guard keeps the failure
-    /// reported as itself rather than as a cascade of poisoning in its
-    /// neighbours.
-    static TURN: Mutex<()> = Mutex::new(());
-
     fn fresh() -> std::sync::MutexGuard<'static, ()> {
-        let guard = TURN.lock().unwrap_or_else(|error| error.into_inner());
+        let guard = test_turn();
         reset();
         guard
     }
@@ -788,6 +894,45 @@ mod tests {
                 .all(|entry| entry.describe().ends_with(" revoked")),
             "a revoked grant says so wherever it is read"
         );
+    }
+
+    #[test]
+    fn a_remembered_root_shares_its_lifetime_with_what_derives_from_it() {
+        let _turn = fresh();
+        record_root(
+            Kind::Document,
+            1,
+            Rights::READ.union(Rights::DERIVE),
+            Origin::Dropped(Enforcement::ConsentOnly),
+            Lifetime::Session,
+        );
+        let file = accept(Kind::Document, 1, Rights::READ).expect("file reads");
+        assert!(record_descendant(
+            Kind::Sqlite,
+            1,
+            Rights::READ.union(Rights::DERIVE),
+            file
+        ));
+        assert_eq!(
+            remember(Kind::Sqlite, 1),
+            Err(Refusal::Rights),
+            "only authority that arrived from outside is kept"
+        );
+        let kept = remember(Kind::Document, 1).expect("a dropped root is kept");
+        assert_eq!(kept.lifetime(), Lifetime::Remembered);
+        let database = accept(Kind::Sqlite, 1, Rights::READ).expect("database reads");
+        assert!(record_descendant(Kind::Watch, 1, Rights::READ, database));
+        assert_eq!(
+            enumerate().iter().map(Grant::describe).collect::<Vec<_>>(),
+            vec![
+                "document drop/consent-only root read,derive remembered",
+                "sqlite drop/consent-only derived read,derive remembered",
+                "watch drop/consent-only derived read remembered",
+            ]
+        );
+        revoke(Kind::Document, 1);
+        assert_eq!(remember(Kind::Document, 1), Err(Refusal::Revoked));
+        assert_eq!(remember(Kind::Document, 9), Err(Refusal::Unknown));
     }
 
     #[test]

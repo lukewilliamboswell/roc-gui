@@ -1,6 +1,8 @@
 import Host
 import Action
 import Elem
+import Event
+import Files
 import Key
 import KeyedSeq
 import Style
@@ -82,13 +84,21 @@ Internal := [].{
 
 	max_style_value = 16384
 
+	# One U64 per colour: an RGB value in the low 24 bits, the default as bit
+	# 24 alone, and an adaptive pair as its light value in bits 0-23, its dark
+	# value in bits 24-47, and bit 48. The host resolves a pair when it paints.
+	color : Style.Color -> U64
 	color = |value| match value {
 		Default => 0x01000000
-		Rgb(rgb) => if rgb <= 0x00ffffff {
-			rgb
-		} else {
-			crash "Gui RGB colors are at most 0xffffff"
-		}
+		Rgb(rgb) => rgb_bits(rgb)
+		Adaptive(pair) => 0x1000000000000 + rgb_bits(pair.dark) * 0x1000000 + rgb_bits(pair.light)
+	}
+
+	rgb_bits : U32 -> U64
+	rgb_bits = |rgb| if rgb <= 0x00ffffff {
+		rgb.to_u64()
+	} else {
+		crash "Gui RGB colors are at most 0xffffff"
 	}
 
 	length = |value| match value {
@@ -227,6 +237,78 @@ Internal := [].{
 		Host.node_dialog!({ builder, label: props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 	}
 
+	finish_popover! = |builder, props| {
+		if props.delay_ms > 60000 {
+			crash "Gui popover delay_ms is at most 60000 milliseconds"
+		}
+		style = style_args(props.style)
+		placement = match props.placement {
+			Below => 0
+			Above => 1
+			Start => 2
+			End => 3
+		}
+		hover_enter = match props.on_hover_enter {
+			None => False
+			Some(_) => True
+		}
+		hover_exit = match props.on_hover_exit {
+			None => False
+			Some(_) => True
+		}
+		shortcuts = props.shortcuts.map(
+			|binding| {
+				keys: binding.keys,
+				focus: match binding.scope {
+					Window => False
+					Focus => True
+				},
+			},
+		)
+		Host.node_popover!({ builder, label: props.label, placement, delay_ms: props.delay_ms, hover_enter, hover_exit, shortcuts, focus_serial: props.focus_serial, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+	}
+
+	finish_split! = |builder, props| {
+		style = style_args(props.style)
+		axis = match props.axis {
+			Horizontal => 0
+			Vertical => 1
+		}
+		side = match props.side {
+			Start => 0
+			End => 1
+		}
+		keys = props.keys.map(|binding| { keys: binding.keys, focus: True })
+		Host.node_split!({ builder, label: props.label, axis, side, size: props.size, min: props.min, max: props.max, collapsible: props.collapsible, collapsed: props.collapsed, thickness: props.thickness, keys, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+	}
+
+	finish_drop_target! = |builder, props| {
+		style = style_args(props.style)
+		types = props.types.map(|offered| { label: offered.label, extensions: offered.extensions, mime_types: offered.mime_types })
+		Host.node_drop_target!({ builder, label: props.label, types, drop_bg: color(props.drop_bg), drop_border: color(props.drop_border), gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+	}
+
+	## The files a drop delivers, as the application receives them: each
+	## granted file wrapped as the typed handle it is, and each refused item
+	## with its reason.
+	drop_event! : {} => Event.Drop
+	drop_event! = |{}| {
+		event = Host.drop_event!()
+		files = event.files.map(|dropped| { name: dropped.name, file: Files.File.Read.from_resource(dropped.file) })
+		refused = event.refused.map(
+			|item| {
+				reason = match item.reason {
+					0 => AccessDenied
+					1 => NotFile
+					3 => Unsupported
+					_ => Unavailable
+				}
+				{ name: item.name, reason }
+			},
+		)
+		{ files, refused }
+	}
+
 	finish_panel! = |builder, props| {
 		style = style_args(props.style)
 		Host.node_panel!({ builder, label: props.label, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
@@ -290,10 +372,24 @@ Internal := [].{
 		id
 	}
 
-	finish_list! = |builder, props| {
+	finish_list! = |builder, props, first, instance| {
 		style = style_args(props.style)
+		provided = match props.provider {
+			None => { count: 0, notify: False }
+			Some(provider) => {
+				count: provider.count,
+				notify: match provider.on_range {
+					None => False
+					Some(_) => True
+				},
+			}
+		}
 		id = Host.node_virtual_list!({
 			builder,
+			count: provided.count,
+			first,
+			instance,
+			notify: provided.notify,
 			name: props.label,
 			row_height: props.row_height,
 			row_gap: props.row_gap,
@@ -361,9 +457,12 @@ Internal := [].{
 		CloseColumn(U64, Elem.Frame),
 		CloseKeyedColumn(U64, Elem.Frame, List(Key), U64),
 		CloseDialog(U64, Elem.DialogNode(a)),
+		ClosePopover(U64, Elem.PopoverNode(a)),
+		CloseSplit(U64, Elem.SplitNode(a)),
+		CloseDropTarget(U64, Elem.DropTargetNode(a)),
 		ClosePanel(U64, Elem.PanelNode),
 		CloseScroll(Elem.ScrollNode(a)),
-		CloseList(U64, Elem.VirtualListNode(a)),
+		CloseList(U64, Elem.VirtualListNode(a), U64),
 		OpenItem(U64),
 		CloseItem(U64),
 		CloseBoundary(Box(BoundaryWork(a))),
@@ -432,6 +531,21 @@ Internal := [].{
 							builder = Host.children_begin!()
 							$work = queue_children($work.push(CloseDialog(builder, value.props)), value.children, builder)
 						}
+						Popover(value) => {
+							Host.scope_enter!(8, value.props.label, child_position)
+							builder = Host.children_begin!()
+							$work = queue_children($work.push(ClosePopover(builder, value.props)), value.children, builder)
+						}
+						Split(value) => {
+							Host.scope_enter!(9, value.props.label, child_position)
+							builder = Host.children_begin!()
+							$work = queue_children($work.push(CloseSplit(builder, value.props)), value.children, builder)
+						}
+						DropTarget(value) => {
+							Host.scope_enter!(10, value.props.label, child_position)
+							builder = Host.children_begin!()
+							$work = queue_children($work.push(CloseDropTarget(builder, value.props)), value.children, builder)
+						}
 						Panel(value) => {
 							Host.scope_enter!(3, value.props.label, child_position)
 							builder = Host.children_begin!()
@@ -442,7 +556,7 @@ Internal := [].{
 								if value.props.heading_weight != 0 and (value.props.heading_weight < 100 or value.props.heading_weight > 900) {
 									crash "Gui font_weight is 0 for the native default, or 100 through 900"
 								}
-								heading = Host.node_styled_text!({ value: value.props.heading, fg: color(value.props.heading_color), font_size: value.props.heading_size, font_weight: value.props.heading_weight, font_face: 0 })
+								heading = Host.node_styled_text!({ value: value.props.heading, fg: color(value.props.heading_color), font_size: value.props.heading_size, font_weight: value.props.heading_weight, font_face: 0, runs: [] })
 								Host.children_push!(builder, heading)
 							}
 							$work = queue_children($work.push(ClosePanel(builder, value.props)), value.children, builder)
@@ -454,12 +568,29 @@ Internal := [].{
 						VirtualList(value) => {
 							Host.scope_enter!(6, value.label, child_position)
 							builder = Host.children_begin!()
-							$work = $work.push(CloseList(builder, { ..value, items: [] }))
-							var $index = value.items.len()
-							while $index > 0 {
-								$index = $index - 1
-								row = value.items.get($index) ?? crash "missing virtual row"
-								$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(Box.box({ elem: row.content, position: 0 }))).push(OpenItem(row.key))
+							match value.provider {
+								None => {
+									$work = $work.push(CloseList(builder, { ..value, items: [] }, 0))
+									var $index = value.items.len()
+									while $index > 0 {
+										$index = $index - 1
+										row = value.items.get($index) ?? crash "missing virtual row"
+										$work = $work.push(Append(builder)).push(CloseItem(row.key)).push(Visit(Box.box({ elem: row.content, position: 0 }))).push(OpenItem(row.key))
+									}
+								}
+								Some(provider) => {
+									# The host owns the viewport, so it names the rows worth
+									# building: those near the viewport, or near a requested row.
+									window = rows_window!(provider, value.row_height, $active_boundary)
+									$work = $work.push(CloseList(builder, { ..value, items: [] }, window.first))
+									var $index = window.end
+									while $index > window.first {
+										$index = $index - 1
+										key = (provider.row_key)($index)
+										row = (provider.render_row)($index)
+										$work = $work.push(Append(builder)).push(CloseItem(key)).push(Visit(Box.box({ elem: row, position: 0 }))).push(OpenItem(key))
+									}
+								}
 							}
 						}
 						Component(bound) => {
@@ -552,12 +683,109 @@ Internal := [].{
 					$boundaries = record_route($boundaries, $active_boundary, route.id)
 					Host.scope_exit!()
 				}
+				ClosePopover(builder, props) => {
+					ids = finish_popover!(builder, props)
+					$root = ids.id
+					revision = (Box.unbox($boundaries.active)).revision
+					match props.on_hover_enter {
+						None => {}
+						Some(handler) => {
+							enter_route = { id: ids.hover_enter, boundary: $active_boundary, revision, fire: |current, _| handler(current, {}) }
+							$routes = Index.set($routes, enter_route.id, enter_route)
+							$boundaries = record_route($boundaries, $active_boundary, enter_route.id)
+						}
+					}
+					match props.on_hover_exit {
+						None => {}
+						Some(handler) => {
+							exit_route = { id: ids.hover_exit, boundary: $active_boundary, revision, fire: |current, _| handler(current, {}) }
+							$routes = Index.set($routes, exit_route.id, exit_route)
+							$boundaries = record_route($boundaries, $active_boundary, exit_route.id)
+						}
+					}
+					if !props.shortcuts.is_empty() {
+						# One route answers every shortcut of the region; the host
+						# names which one matched and the chord in its own spelling.
+						shortcut_route = {
+							id: ids.shortcut,
+							boundary: $active_boundary,
+							revision,
+							fire: |current, _| {
+								event = Host.shortcut_event!()
+								match props.shortcuts.get(event.index) {
+									Ok(binding) => (binding.on_press)(current, { keys: event.keys })
+									Err(_) => crash "host named a shortcut the region does not declare"
+								}
+							},
+						}
+						$routes = Index.set($routes, shortcut_route.id, shortcut_route)
+						$boundaries = record_route($boundaries, $active_boundary, shortcut_route.id)
+					}
+					Host.scope_exit!()
+				}
+				CloseSplit(builder, props) => {
+					ids = finish_split!(builder, props)
+					$root = ids.id
+					revision = (Box.unbox($boundaries.active)).revision
+					resize_route = {
+						id: ids.id,
+						boundary: $active_boundary,
+						revision,
+						fire: |current, _| {
+							event = Host.resize_event!()
+							(props.on_resize)(current, { size: event.size, collapsed: event.collapsed })
+						},
+					}
+					$routes = Index.set($routes, resize_route.id, resize_route)
+					$boundaries = record_route($boundaries, $active_boundary, resize_route.id)
+					if !props.keys.is_empty() {
+						# The divider's keys answer through the region route every
+						# shortcut uses; the host names the one that matched.
+						key_route = {
+							id: ids.shortcut,
+							boundary: $active_boundary,
+							revision,
+							fire: |current, _| {
+								event = Host.shortcut_event!()
+								match props.keys.get(event.index) {
+									Ok(binding) => (binding.on_press)(current, { keys: event.keys })
+									Err(_) => crash "host named a key the divider does not declare"
+								}
+							},
+						}
+						$routes = Index.set($routes, key_route.id, key_route)
+						$boundaries = record_route($boundaries, $active_boundary, key_route.id)
+					}
+					Host.scope_exit!()
+				}
+				CloseDropTarget(builder, props) => {
+					$root = finish_drop_target!(builder, props)
+					route = {
+						id: $root,
+						boundary: $active_boundary,
+						revision: (Box.unbox($boundaries.active)).revision,
+						fire: |current, _| (props.on_drop)(current, drop_event!({})),
+					}
+					$routes = Index.set($routes, route.id, route)
+					$boundaries = record_route($boundaries, $active_boundary, route.id)
+					Host.scope_exit!()
+				}
 				CloseScroll(props) => {
 					$root = finish_scroll!($root, props)
 					Host.scope_exit!()
 				}
-				CloseList(builder, props) => {
-					$root = finish_list!(builder, props)
+				CloseList(builder, props, first) => {
+					match props.provider {
+						None => {
+							$root = finish_list!(builder, props, 0, 0)
+						}
+						Some(provider) => {
+							$root = finish_list!(builder, props, first, $active_boundary)
+							route = { id: $root, boundary: $active_boundary, revision: (Box.unbox($boundaries.active)).revision, fire: |current, _| rows_event!(provider, current) }
+							$routes = Index.set($routes, route.id, route)
+							$boundaries = record_route($boundaries, $active_boundary, route.id)
+						}
+					}
 					Host.scope_exit!()
 				}
 			}
@@ -579,6 +807,55 @@ Internal := [].{
 		}
 	}
 
+	# Ask the host which rows of a provided list to build. `instance` is the
+	# list's own render boundary, whose lifetime carries its viewport.
+	rows_window! : Elem.RowProvider(a), U32, U64 => { first : U64, end : U64 }
+	rows_window! = |provider, row_height, instance| {
+		request = match provider.scroll_to {
+			None => { row: 0, align: 0, serial: 0 }
+			Some(wanted) => {
+				row: wanted.row,
+				align: match wanted.align {
+					Start => 1
+					Center => 2
+					End => 3
+					Nearest => 4
+				},
+				serial: wanted.serial,
+			}
+		}
+		window = Host.virtual_window!({ instance, count: provider.count, row_height, scroll_row: request.row, scroll_align: request.align, scroll_serial: request.serial })
+		if window.first > window.end or window.end > provider.count {
+			crash "host named rows outside a provided list"
+		}
+		window
+	}
+
+	# A viewport event either asks for the list's rows to be built again for a
+	# new range, reports the range to the application, or both. The list's
+	# boundary is transparent, so the application's action belongs to the list's
+	# owner; when it changes nothing, a pending rebuild still happens.
+	rows_event! : Elem.RowProvider(a), a => Action(a)
+	rows_event! = |provider, current| {
+		event = Host.virtual_rows_event!()
+		fallback = if event.refresh Action.refresh else Action.none
+		match provider.on_range {
+			Some(handler) if event.report => {
+				proposed = handler(current, { start: event.start, end: event.end })
+				Action.deferred(
+					|done| Action.resolve_work!(
+						proposed,
+						|resolved| match Action.inspect(resolved) {
+							NoChange => done(fallback)
+							_ => done(resolved)
+						},
+					),
+				)
+			}
+			_ => fallback
+		}
+	}
+
 	lower_leaf! : Elem(a), U64, Index(Route(a)), BuildingOwners(a) => Building(a)
 	lower_leaf! = |elem, active_boundary, routes, boundaries| match Elem.inspect(elem) {
 		Text(value) => {
@@ -592,7 +869,15 @@ Internal := [].{
 			if value.style.font_weight != 0 and (value.style.font_weight < 100 or value.style.font_weight > 900) {
 				crash "Gui font_weight is 0 for the native default, or 100 through 900"
 			}
-			id = Host.node_styled_text!({ value: value.value, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face) })
+			runs = value.spans.map(
+				|part| {
+					if part.font_weight != 0 and (part.font_weight < 100 or part.font_weight > 900) {
+						crash "Gui font_weight is 0 for the native default, or 100 through 900"
+					}
+					{ len: Str.count_utf8_bytes(part.text), fg: color(part.fg), bg: color(part.bg), font_weight: part.font_weight, underline: part.underline, monospace: part.monospace }
+				},
+			)
+			id = Host.node_styled_text!({ value: value.value, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face), runs })
 			{ root: id, routes, boundaries }
 		}
 		ActionButton(button_value) => {
@@ -605,7 +890,12 @@ Internal := [].{
 				None => False
 				Some(_) => True
 			}
-			ids = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, enabled: button_value.enabled, hover_enter, hover_exit, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
+			role = match button_value.role {
+				Button => 0
+				Tab => 1
+				SelectedTab => 2
+			}
+			ids = Host.node_action_button!({ caption: button_value.caption, label: button_value.label, role, enabled: button_value.enabled, hover_enter, hover_exit, gap: style.gap, padding_top: style.padding_top, padding_right: style.padding_right, padding_bottom: style.padding_bottom, padding_left: style.padding_left, width_kind: style.width_kind, width: style.width, height_kind: style.height_kind, height: style.height, min_width_kind: style.min_width_kind, min_width: style.min_width, min_height_kind: style.min_height_kind, min_height: style.min_height, max_width_kind: style.max_width_kind, max_width: style.max_width, max_height_kind: style.max_height_kind, max_height: style.max_height, grow: style.grow, bg: style.bg, hover_bg: style.hover_bg, active_bg: style.active_bg, disabled_bg: style.disabled_bg, disabled_fg: style.disabled_fg, focus_color: style.focus_color, fg: style.fg, border_color: style.border_color, border_top: style.border_top, border_right: style.border_right, border_bottom: style.border_bottom, border_left: style.border_left, radius: style.radius, font_size: style.font_size, font_weight: style.font_weight, shadow: style.shadow, shadow_y: style.shadow_y, shadow_color: style.shadow_color, shadow_alpha: style.shadow_alpha, font_face: style.font_face, text_overflow: style.text_overflow, overflow_x: style.overflow_x, overflow_y: style.overflow_y, align: style.align, justify: style.justify })
 			route = {
 				id: ids.id,
 				boundary: active_boundary,
@@ -745,29 +1035,64 @@ Internal := [].{
 			height = length(canvas_value.style.height)
 			primitives = canvas_value.primitives.map(
 				|primitive| match primitive {
-					Ellipse(shape) => { kind: 0, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0 }
-					Line(shape) => { kind: 1, key: shape.key, label: shape.label, x: shape.x1, y: shape.y1, width: 0, height: 0, x2: shape.x2, y2: shape.y2, fill: color(Default), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0 }
-					Rectangle(shape) => { kind: 2, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: shape.radius }
+					Ellipse(shape) => { kind: 0, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0, text: "", text_size: 0, align: 0 }
+					Line(shape) => { kind: 1, key: shape.key, label: shape.label, x: shape.x1, y: shape.y1, width: 0, height: 0, x2: shape.x2, y2: shape.y2, fill: color(Default), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: 0, text: "", text_size: 0, align: 0 }
+					Rectangle(shape) => { kind: 2, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: shape.height, x2: 0, y2: 0, fill: color(shape.fill), stroke: color(shape.stroke), stroke_width: shape.stroke_width, radius: shape.radius, text: "", text_size: 0, align: 0 }
+					Text(shape) => {
+						text_align = match shape.align {
+							Start => 0
+							Center => 1
+							End => 2
+						}
+						{ kind: 3, key: shape.key, label: shape.label, x: shape.x, y: shape.y, width: shape.width, height: 0, x2: 0, y2: 0, fill: color(shape.color), stroke: color(Default), stroke_width: 0, radius: 0, text: shape.value, text_size: shape.size, align: text_align }
+					}
 				},
 			)
-			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.style.grow, bg: color(canvas_value.style.bg), border_color: color(canvas_value.style.border_color), border_width: canvas_value.style.border_width, radius: canvas_value.style.radius })
+			hover = match canvas_value.on_hover {
+				Some(_) => True
+				None => False
+			}
+			wheel = match canvas_value.on_wheel {
+				Some(_) => True
+				None => False
+			}
+			sized = match canvas_value.on_size {
+				Some(_) => True
+				None => False
+			}
+			id = Host.node_canvas!({ label: canvas_value.label, primitives, width_kind: width.kind, width: width.value, height_kind: height.kind, height: height.value, grow: canvas_value.style.grow, bg: color(canvas_value.style.bg), border_color: color(canvas_value.style.border_color), border_width: canvas_value.style.border_width, radius: canvas_value.style.radius, hover, wheel, size: sized })
 			route = {
 				id,
 				boundary: active_boundary,
 				revision: (Box.unbox(boundaries.active)).revision,
 				fire: |current, _| {
 					event = Host.canvas_event!()
-					phase = match event.phase {
-						0 => Begin
-						1 => Move
-						2 => End
-						_ => crash "invalid canvas pointer phase"
-					}
 					target = match event.target {
 						0 => None
 						value => Some(value)
 					}
-					(canvas_value.on_pointer)(current, { phase, x: event.x, y: event.y, target })
+					match event.phase {
+						0 => (canvas_value.on_pointer)(current, { phase: Begin, x: event.x, y: event.y, target })
+						1 => (canvas_value.on_pointer)(current, { phase: Move, x: event.x, y: event.y, target })
+						2 => (canvas_value.on_pointer)(current, { phase: End, x: event.x, y: event.y, target })
+						3 => match canvas_value.on_hover {
+							Some(handler) => handler(current, { phase: Move, x: event.x, y: event.y, target })
+							None => crash "canvas hover delivered without a hover handler"
+						}
+						4 => match canvas_value.on_hover {
+							Some(handler) => handler(current, { phase: Leave, x: event.x, y: event.y, target })
+							None => crash "canvas hover delivered without a hover handler"
+						}
+						5 => match canvas_value.on_wheel {
+							Some(handler) => handler(current, { x: event.x, y: event.y, dx: event.dx, dy: event.dy, target })
+							None => crash "canvas wheel delivered without a wheel handler"
+						}
+						6 => match canvas_value.on_size {
+							Some(handler) => handler(current, { width: event.x.to_u32_wrap(), height: event.y.to_u32_wrap() })
+							None => crash "canvas size delivered without a size handler"
+						}
+						_ => crash "invalid canvas pointer phase"
+					}
 				},
 			}
 			{ root: id, routes: Index.set(routes, route.id, route), boundaries: record_route(boundaries, active_boundary, route.id) }
@@ -1148,7 +1473,7 @@ Internal := [].{
 		$steps
 	}
 
-	update_keyed! : BoundaryInfo(a), Elem.Frame, a, [None, Some(Box(Action.Worker(a)))], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_keyed! : BoundaryInfo(a), Elem.Frame, a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
 	update_keyed! = |owner, props, state, task, task_owner, render, routes, boundaries| {
 		Host.work_start!(2)
 		Host.component_work!(0, 1)
@@ -1353,31 +1678,75 @@ Internal := [].{
 		_ => {
 			source = Index.get(boundaries, origin) ?? crash "missing action owner"
 			levels = Action.owner_levels(action)
-			offset = if levels >= source.path.len() 0 else source.path.len() - levels - 1
-			owner = source.path.get(offset) ?? crash "missing delegated owner"
+			# A refresh renders its own boundary again and changes no state, so no
+			# ancestor snapshot is invalidated. Every other action changes state,
+			# which a transparent boundary does not hold: it passes to the nearest
+			# boundary above that does. An action's levels count the boundaries it
+			# was delegated through, and a transparent boundary never adapts one,
+			# so levels are counted over the boundaries that hold state: a row of a
+			# list delegates to its owner's parent exactly as if it had been built
+			# in the owner.
+			changes_state = match Action.inspect(action) {
+				Refresh => False
+				_ => True
+			}
+			is_transparent = |offset| transparent(boundaries, source.path.get(offset) ?? crash "missing delegated owner")
+			var $offset = if levels >= source.path.len() 0 else source.path.len() - levels - 1
+			if changes_state {
+				$offset = source.path.len() - 1
+				while $offset > 0 and is_transparent($offset) {
+					$offset = $offset - 1
+				}
+				var $remaining = levels
+				while $remaining > 0 and $offset > 0 {
+					$offset = $offset - 1
+					while $offset > 0 and is_transparent($offset) {
+						$offset = $offset - 1
+					}
+					$remaining = $remaining - 1
+				}
+			}
+			owner = source.path.get($offset) ?? crash "missing delegated owner"
 			target = Index.get(boundaries, owner) ?? crash "missing delegated component"
 			var $dirty = boundaries
-			for key in target.path {
-				info = Index.get($dirty, key) ?? crash "missing update ancestor"
-				if key != owner {
-					$dirty = Index.set($dirty, key, { ..info, memo: Unknown })
-					Host.component_work!(6, 1)
+			if changes_state {
+				for key in target.path {
+					info = Index.get($dirty, key) ?? crash "missing update ancestor"
+					if key != owner {
+						$dirty = Index.set($dirty, key, { ..info, memo: Unknown })
+						Host.component_work!(6, 1)
+					}
 				}
 			}
 			match Action.inspect(action) {
+				Refresh => update_boundary!(state, None, owner, owner, render, routes, $dirty)
 				Update(next) => update_boundary!(next, None, owner, owner, render, routes, $dirty)
 				Delegate(next) => update_boundary!(next, None, 0, 0, render, routes, $dirty)
-				Task(task) => update_boundary!(task.pending, Some(task.run), owner, owner, render, routes, $dirty)
+				Task(task) => update_boundary!(task.pending, Some({ key: task.key, run: task.run }), owner, owner, render, routes, $dirty)
+				Cancel(canceled) => {
+					Host.cancel_task!(owner, canceled.key)
+					update_boundary!(canceled.state, None, owner, owner, render, routes, $dirty)
+				}
 				_ => crash "action changed during dispatch"
 			}
 		}
 	}
 
-	enqueue_work! = |owner, worker| Host.enqueue_task!(
+	transparent : Index(BoundaryInfo(a)), U64 -> Bool
+	transparent = |boundaries, key| match Index.get(boundaries, key) {
+		Err(_) => False
+		Ok(info) => match info.bound {
+			None => False
+			Some(bound) => bound.transparent
+		}
+	}
+
+	enqueue_work! = |owner, task| Host.enqueue_task!(
 		owner,
+		task.key,
 		Box.box(
 			|| Action.worker_work!(
-				worker,
+				task.run,
 				|completion| Work.next(
 					|| {
 						Host.task_complete!(completion)
@@ -1388,7 +1757,7 @@ Internal := [].{
 		),
 	)
 
-	update_boundary! : a, [None, Some(Box(Action.Worker(a)))], U64, U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_boundary! : a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
 	update_boundary! = |state, task, task_owner, render_owner, render, routes, boundaries| {
 		owner = Index.get(boundaries, render_owner) ?? crash "missing render owner"
 		keyed = match owner.keyed {
@@ -1519,9 +1888,17 @@ Internal := [].{
 		Host.set_dispatch!(Box.box(dispatch!))
 	}
 
-	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Style.Color, foreground : Style.Color } => {}
-	start! = |initial, render, window| {
-		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground))
+	## The event the host sends once, as the window opens. No node has id 0.
+	open_route : U64
+	open_route = 0
+
+	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Style.Color, foreground : Style.Color }, [None, Some((a => Action(a)))] => {}
+	start! = |initial, render, window, on_open| {
+		opens = match on_open {
+			None => False
+			Some(_) => True
+		}
+		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground), opens)
 		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty, keyed: None }
 		Host.begin_render!(0)
 		run_work!(
@@ -1533,7 +1910,14 @@ Internal := [].{
 				|lowered| Work.flush(
 					|| {
 						Host.apply!(Mount({ root: lowered.root }))
-						install!(initial, render, lowered.routes, lowered.boundaries)
+						# The opening action answers the one event the host sends
+						# once the first state is shown, as the root's own route
+						# at its first revision: it can never be sent again.
+						routes = match on_open {
+							None => lowered.routes
+							Some(handler) => Index.set(lowered.routes, open_route, { id: open_route, boundary: 0, revision: revision(lowered.boundaries, 0), fire: |current, _| handler(current) })
+						}
+						install!(initial, render, routes, lowered.boundaries)
 						Work.done
 					},
 				),

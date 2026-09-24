@@ -9,7 +9,7 @@ release page carries that URL and the exact Roc nightly it was built with:
 
 [source,roc]
 ----
-app [State, main] { pf: platform "https://github.com/lukewilliamboswell/roc-gui/releases/download/v0.0.1/<bundle>.tar.zst", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "https://github.com/lukewilliamboswell/roc-gui/releases/download/v0.0.1/<bundle>.tar.zst", roc: "nightly-2026-09-23-c7852fd" }
 ----
 
 [source,sh]
@@ -23,9 +23,21 @@ already pointing at that platform, so they build without a checkout.
 
 == Work from a checkout instead
 
-Contributors, and anyone changing the host, build the platform locally. Install
-the Roc nightly named in the application's `app` header and Rust with Cargo, then
-run the commands from the repository root.
+Contributors build the platform locally. On Linux x86-64 or Apple silicon
+macOS, install Nix with flakes enabled, then enter the development shell from
+the repository root:
+
+[source,sh]
+----
+nix develop github:lukewilliamboswell/roc-blueprint/db71ab518d04dc24c5fa1fe1a2423fffdc87aad5
+blueprint shell
+----
+
+`Blueprint.roc` selects Roc from `roc-overlay` using `.roc-version`.
+`Blueprint.lock` pins the package sets and overlay. Rustup selects the toolchain
+in `rust-toolchain.toml`. On macOS and Windows, install the same Roc tag from
+`.roc-version` and the Rust toolchain directly. Branch application headers use
+the environment's compiler; release example headers contain the tested tag.
 
 The host archive is part of every Roc GUI executable. Build it first:
 
@@ -56,7 +68,7 @@ repository's `platform/main.roc` and use the same Roc nightly as the platform:
 
 [source,roc]
 ----
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-12-220fd47" }
+app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-23-c7852fd" }
 
 import pf.Gui
 

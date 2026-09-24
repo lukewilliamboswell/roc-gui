@@ -124,7 +124,11 @@ def main() -> int:
         return 0
     if args.captures is None or args.output is None:
         parser.error("--captures and --output are required unless --check is used")
+    from run_specs import COMPILER_BLOCKED
     for slug in EXAMPLES:
+        if f"examples/{slug}" in COMPILER_BLOCKED:
+            print(f"SKIP {slug}: {COMPILER_BLOCKED[f'examples/{slug}']}")
+            continue
         encode(captured_frames(args.captures.resolve(), slug), args.output.resolve() / f"{slug}.gif")
     return 0
 

@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - crates/host/**
-      - vendor/gpui/**
       - .gitattributes
       - Cargo.toml
       - Cargo.lock
@@ -13,6 +12,7 @@ on:
       - build.py
       - dependencies/gui-host-notices/**
       - scripts/cargo_build_evidence.py
+      - scripts/git_cargo_sources.py
       - scripts/gui_host_artifacts.py
       - scripts/host_notice_payload.py
       - scripts/host_build_identity.py
@@ -22,8 +22,6 @@ on:
       - scripts/windows_gnu_build.py
       - scripts/windows_gnu_coff.py
       - scripts/rust_license_inventory.py
-      - scripts/vendored_gpui.py
-      - scripts/test_vendored_gpui.py
       - scripts/toolchain_license_inventory.py
       - scripts/release_host_artifacts.py
       - scripts/test_host_release_policy.py
@@ -74,7 +72,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev
+          sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev
       - name: Install the Windows GNU host target
         if: runner.os == 'Windows'
         run: |
@@ -85,18 +83,14 @@ jobs:
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
           python3 scripts/test_no_tracked_machine_code.py
           python3 scripts/test_host_release_policy.py
+          python3 scripts/test_cargo_build_evidence.py
+          python3 scripts/test_git_cargo_sources.py
           python3 scripts/test_rust_license_inventory.py
           python3 scripts/test_toolchain_license_inventory.py
-          python3 scripts/test_vendored_gpui.py
       - name: Test and capture the production host
         run: |
           python3 scripts/run_cargo.py test --locked --package roc-gui-host
           python3 scripts/prepare_host_build.py --evidence "$RUNNER_TEMP/cargo-evidence" --output "$RUNNER_TEMP/host-output"
-      - name: Test GPUI dependency patches
-        if: runner.os == 'Linux'
-        run: |
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support accessed_entity_scope
-          python3 scripts/run_cargo.py test --locked --package gpui --lib --no-default-features --features wayland,test-support dirty_cached_parent
       - name: Compose notices, source companion, and tested host archive
         run: |
           python3 scripts/prepare_gui_host_release.py \

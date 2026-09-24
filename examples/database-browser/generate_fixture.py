@@ -19,6 +19,7 @@ try:
         database.executescript("""
             CREATE TABLE books(id INTEGER PRIMARY KEY, title TEXT NOT NULL, price REAL, cover BLOB, note TEXT);
             CREATE TABLE authors(id INTEGER PRIMARY KEY, name TEXT);
+            CREATE TABLE loans(id INTEGER PRIMARY KEY, book INTEGER NOT NULL, day INTEGER NOT NULL);
         """)
         database.executemany(
             "INSERT INTO books VALUES (?, ?, ?, ?, ?)",
@@ -28,6 +29,12 @@ try:
              for identifier in range(1, 10_001)),
         )
         database.executemany("INSERT INTO authors VALUES (?, ?)", ((1, "Ada"), (2, "Grace")))
+        # Ten times the host's row limit, so reading every loan takes pages.
+        database.executemany(
+            "INSERT INTO loans VALUES (?, ?, ?)",
+            ((identifier, (identifier * 7919) % 10_000 + 1, identifier // 40)
+             for identifier in range(1, 100_001)),
+        )
     generated.replace(destination)
 finally:
     generated.unlink(missing_ok=True)

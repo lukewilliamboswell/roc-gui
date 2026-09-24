@@ -7,7 +7,7 @@
 //! durations recorded here are therefore the element's own work, not a stage
 //! timed from outside and attributed inward.
 //!
-//! What GPUI 0.2.2 does not let the host own, this element does not claim:
+//! What GPUI does not let the host own, this element does not claim:
 //!
 //! - **Layout solve.** `Window::compute_layout` runs taffy once for the window,
 //!   from `AnyElement::prepaint_as_root` on GPUI's root element, between this
@@ -19,6 +19,12 @@
 //!   private to `gpui`, and `PlatformWindow::completed_frame` is not reachable
 //!   from a dependent crate. A Wayland frame callback would be the honest seam
 //!   and is not available on macOS. Presentation stays unavailable.
+//!
+//! The frame's interval and its cycles are begun here too. The draw starts when
+//! this element requests layout, and takes the recorded cycles whose patches
+//! reached native views since the previous draw began: those are the changes
+//! this frame is the first to draw. A frame dropped before paint returns them,
+//! so the frame that does draw them records them.
 //!
 //! Native work counters run independently of capture. Runtime::render supplies
 //! the baseline before constructing the root view element, and completing paint
@@ -40,6 +46,15 @@ pub struct FrameSpans {
     layout_request_ns: u64,
     prepaint_ns: u64,
     native_start: observatory::NativeWork,
+    draw: Option<observatory::FrameDraw>,
+}
+
+impl Drop for FrameSpans {
+    fn drop(&mut self) {
+        if let Some(draw) = self.draw.take() {
+            observatory::abandon_frame_draw(draw);
+        }
+    }
 }
 
 impl FrameSpans {
@@ -49,6 +64,7 @@ impl FrameSpans {
             layout_request_ns: 0,
             prepaint_ns: 0,
             native_start,
+            draw: None,
         }
     }
 }
@@ -87,6 +103,10 @@ impl Element for FrameSpans {
         if !observatory::active() {
             return (self.child.request_layout(window, cx), ());
         }
+        if let Some(previous) = self.draw.take() {
+            observatory::abandon_frame_draw(previous);
+        }
+        self.draw = Some(observatory::begin_frame_draw());
         let started = Instant::now();
         let layout_id = self.child.request_layout(window, cx);
         self.layout_request_ns = elapsed_ns(started);
@@ -130,10 +150,16 @@ impl Element for FrameSpans {
         self.child.paint(window, cx);
         let paint_ns = elapsed_ns(started);
         let native_work = observatory::complete_native_frame(self.native_start);
+        // A frame whose layout request began before recording did has no
+        // observed start, so it is not published with an invented one.
+        let Some(draw) = self.draw.take() else {
+            return;
+        };
         // The frame row is submitted from the stage that completes it, so a
         // frame abandoned before paint records nothing rather than a partial
         // row whose missing stage would have to be invented.
         observatory::gpui_frame(
+            draw,
             self.layout_request_ns,
             self.prepaint_ns,
             paint_ns,

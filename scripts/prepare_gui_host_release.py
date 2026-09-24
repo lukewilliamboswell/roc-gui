@@ -52,13 +52,27 @@ def verified_download(url, checksum, destination, size=None):
     return destination
 
 
-def crate_cache(evidence, cache):
+def crate_cache(evidence, cache, evidence_root=None):
     """Reuse verified Cargo archives or fetch their exact locked source bytes."""
     destination = cache / "crates"
     destination.mkdir(parents=True, exist_ok=True)
     cargo_home = Path(os.environ.get("CARGO_HOME", Path.home() / ".cargo"))
     for package in evidence["packages"]:
         if package["source"] is None:
+            continue
+        if package["source"].startswith("git+"):
+            from git_cargo_sources import validate_record
+            record = validate_record(package, package.get("git_source", {}))
+            filename = package["name"] + "-" + package["version"] + ".crate"
+            from host_notice_payload import checked_file
+            data = checked_file(evidence_root / "git-sources", filename,
+                                {"sha256": record["archive_sha256"], "size": record["size"]})
+            output = destination / filename
+            if output.is_symlink():
+                raise ValueError("invalid Git source cache entry")
+            if output.exists() and output.read_bytes() != data:
+                raise ValueError("cached Git archive differs from build evidence")
+            output.write_bytes(data)
             continue
         if (package["source"] != rust_license_inventory.REGISTRY
                 or not re.fullmatch(r"[A-Za-z0-9_-]+", package["name"])
@@ -111,7 +125,7 @@ def compose_notices(target, source, evidence_root, output, cache, root=ROOT):
     normalization = json.loads(normalization_path.read_text()) if normalization_path.exists() else None
     validate_packaged_outputs(json.loads((evidence_root / "build.json").read_text()), target, fingerprint, evidence["host"],
                               {name: (source / name).read_bytes() for name in HOST_FILES[target]}, normalization)
-    crates = crate_cache(evidence, cache)
+    crates = crate_cache(evidence, cache, evidence_root)
     toolchains = json.loads((policy / "toolchains.json").read_text())
     rust = toolchains["rust"]["targets"][target]
     zig = toolchains["zig"]
@@ -129,7 +143,7 @@ def compose_notices(target, source, evidence_root, output, cache, root=ROOT):
         candidate = stage / "candidate"
         candidate.mkdir()
         rust_license_inventory.collect(evidence_root / "selection.json", evidence_root / "Cargo.lock", crates,
-                                       stage / "crate-notices", policy / "manifest.json", True, policy / "review.json", True)
+                                       stage / "crate-notices", policy / "manifest.json", True, policy / "review.json", True, git_sources=json.loads((evidence_root / "git-sources.json").read_text()))
         toolchain_license_inventory.collect(policy / "toolchains.json", target, rust_archive, zig_archive,
                                             stage / "toolchain-notices", rust_target_archive)
         source_archive = candidate / f"gui-host-sources-{target}.tar"

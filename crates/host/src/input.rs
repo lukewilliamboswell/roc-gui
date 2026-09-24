@@ -121,6 +121,11 @@ impl TextInput {
         self.focus.clone()
     }
 
+    #[cfg(test)]
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
     /// The text the native editor displays, including an uncommitted preedit.
     #[cfg(test)]
     pub fn displayed_value(&self) -> &str {
@@ -268,7 +273,7 @@ impl TextInput {
             return;
         }
         self.selecting = true;
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         let index = self.index_at(event.position);
         if event.modifiers.shift {
             self.select_to(index, cx)
@@ -487,7 +492,12 @@ impl Render for TextInput {
 }
 
 pub fn bind_keys(cx: &mut App) {
-    cx.bind_keys([
+    cx.bind_keys(bindings());
+}
+
+/// The chords a focused text input takes for editing, in its own key context.
+pub fn bindings() -> Vec<KeyBinding> {
+    vec![
         KeyBinding::new("backspace", Backspace, Some("TextInput")),
         KeyBinding::new("delete", Delete, Some("TextInput")),
         KeyBinding::new("left", Left, Some("TextInput")),
@@ -498,7 +508,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("home", Home, Some("TextInput")),
         KeyBinding::new("end", End, Some("TextInput")),
         KeyBinding::new("enter", Submit, Some("TextInput")),
-    ]);
+    ]
 }
 
 #[cfg(test)]
@@ -722,8 +732,15 @@ impl Element for TextElement {
             window.paint_quad(selection);
         }
         let line = state.borrow_mut().take().unwrap();
-        line.paint(bounds.origin, bounds.size.height, window, cx)
-            .unwrap();
+        line.paint(
+            bounds.origin,
+            bounds.size.height,
+            gpui::TextAlign::Left,
+            None,
+            window,
+            cx,
+        )
+        .unwrap();
         if focus.is_focused(window)
             && let Some(cursor) = prepaint.cursor.take()
         {

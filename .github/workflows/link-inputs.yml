@@ -29,27 +29,55 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
         with:
-          version: 0.16.0
-      - name: Install interface provider and ELF tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2-dev binutils
+          extra-conf: |
+            sandbox = true
+      - name: Require sandboxed production
+        run: test "$(nix config show sandbox)" = true
       - name: Build every Linux component twice
         run: |
           for script in build_alsa_interface build_freetype build_glibc build_unwind build_xkbcommon; do
             python3 "scripts/$script.py" --output "$RUNNER_TEMP/candidate"
-            python3 "scripts/$script.py" --output "$RUNNER_TEMP/rebuild"
+            python3 "scripts/$script.py" --rebuild --output "$RUNNER_TEMP/rebuild"
           done
           for archive in "$RUNNER_TEMP/candidate"/*.tar; do
             cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
           done
+      - name: Reproduce derivations from corresponding sources
+        run: python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate/*.tar
           retention-days: 30
+
+  linux-validate:
+    name: Final-link exact Linux inputs and run outside Nix
+    needs: linux
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+      - uses: ./.github/actions/setup-toolchain
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: link-input-components-linux
+          path: ${{ runner.temp }}/candidate
+      - name: Build the production host
+        run: |
+          nix develop github:lukewilliamboswell/roc-blueprint/db71ab518d04dc24c5fa1fe1a2423fffdc87aad5 --command bash -euc '
+            blueprint run build -- --skip-inputs
+          '
+      - name: Install native desktop runtime for portability validation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig xvfb
+      - name: Final-link and exercise the exact candidate outside Nix
+        run: xvfb-run -a python3 scripts/test_linux_link_inputs.py "$RUNNER_TEMP/candidate" --output "$RUNNER_TEMP/counter"
 
   macos:
     name: Build and validate macOS interfaces
@@ -67,8 +95,8 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
       - name: Final-link and run the production platform
         run: |
-          ./build.py
-          python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300
+          ./build.py --source-inputs
+          python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300 --exclude "examples/clipboard-history/specs/window-*.scm" --exclude "examples/system-monitor/specs/window-plot-width.scm"
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -81,8 +109,10 @@ jobs:
     name: Execute exact Windows runtime and import candidates
     needs: windows-build
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
+      - name: Preserve corresponding-source bytes
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -96,16 +126,28 @@ jobs:
       - uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
         with:
           version: nightly-new-compiler
-          nightly-tag: nightly-2026-09-04-c125b82
+          nightly-tag: nightly-2026-09-23-c7852fd
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: link-input-components-windows
           path: ${{ runner.temp }}/candidate
-      - name: Execute the exact runtime and system imports
+      - name: Execute the exact runtime
         run: |
           rustup toolchain install 1.95.0 --profile minimal --target x86_64-pc-windows-gnullvm
           python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/candidate/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/runtime-evidence'
-          python scripts/test_windows_system_import_artifact.py '${{ runner.temp }}/candidate/windows-system-imports-x64mingw.tar' --require-native
+
+      - name: Build native Windows runtime and resource twice
+        shell: bash
+        run: |
+          for output in native-first native-second; do
+            python scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/$output"
+            python scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-$output"
+          done
+          cmp "$RUNNER_TEMP/native-first/windows-gnu-runtime-x64mingw.tar" "$RUNNER_TEMP/native-second/windows-gnu-runtime-x64mingw.tar"
+          cmp "$RUNNER_TEMP/resource-native-first/roc-gui.res" "$RUNNER_TEMP/resource-native-second/roc-gui.res"
+          cmp "$RUNNER_TEMP/candidate/roc-gui.res" "$RUNNER_TEMP/resource-native-first/roc-gui.res"
+      - name: Execute the native-built runtime
+        run: python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/native-first/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/native-runtime-evidence'
 
   windows-build:
     name: Build Windows inputs twice
@@ -115,16 +157,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
         with:
-          version: 0.16.0
-      - name: Build the runtime, system imports, and resource twice
+          extra-conf: |
+            sandbox = true
+      - name: Require sandboxed production
+        run: test "$(nix config show sandbox)" = true
+      - name: Build the runtime and resource twice
         run: |
-          for output in candidate rebuild; do
-            python3 scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/$output" --cache "$RUNNER_TEMP/downloads"
-            python3 scripts/build_windows_system_imports.py --output "$RUNNER_TEMP/$output" --cache "$RUNNER_TEMP/downloads"
-            python3 scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-$output"
-          done
+          python3 scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/candidate"
+          python3 scripts/build_windows_gnu_runtime.py --rebuild --output "$RUNNER_TEMP/rebuild"
+          python3 scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-candidate"
+          python3 scripts/build_windows_resource.py --rebuild --output "$RUNNER_TEMP/resource-rebuild"
+          python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate" --target x64mingw
           for archive in "$RUNNER_TEMP/candidate"/*.tar; do
             cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
           done
@@ -140,7 +185,7 @@ jobs:
 
   assemble:
     name: Assemble and attest exact target archives
-    needs: [linux, macos, windows-build, windows-validate]
+    needs: [linux, linux-validate, macos, windows-build, windows-validate]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

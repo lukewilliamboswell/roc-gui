@@ -89,7 +89,11 @@ authority_bar = |state| {
 				{ label: "Folder verdict", padding: 0, gap: 0, grow: True, justify: End, fg: reading.ink, font_size: Theme.meta },
 				[Gui.text(reading.verdict)],
 			),
-			quiet_key({ caption: "Choose folder…", label: "Choose database folder", on_press: |current, _| Browser.choose(current), width: Auto }),
+			Gui.popover(
+				{ label: "About the folder grant", placement: Below, bg: Theme.card, fg: Theme.ink, border_color: Theme.line, radius: Theme.radius, font_size: Theme.meta, max_width: Px(280) },
+				quiet_key({ caption: "Choose folder…", label: "Choose database folder", on_press: |current, _| Browser.choose(current), width: Auto }),
+				[Gui.text("The browser reads only the one folder you choose, and opens its databases read-only.")],
+			),
 		],
 	)
 }
@@ -198,6 +202,33 @@ cell = |text, ink, size, justify| Gui.row(
 	[Gui.text(text)],
 )
 
+## A result cell clips to its column, so the whole value, the column it sits
+## in, and its SQLite type are one hover away, in a note beside the cell. The
+## cell and its note share one name: the cell is a row, the note a tooltip.
+value_cell = |value, column, row, justify| {
+	name = "${column} in result row ${row.to_str()}"
+	Gui.popover(
+		{
+			label: name,
+			delay_ms: 400,
+			padding: 6,
+			gap: 2,
+			bg: Theme.card,
+			fg: Theme.ink,
+			border_color: Theme.line,
+			radius: Theme.radius,
+			font_size: Theme.body,
+			font_face: Theme.face,
+			max_width: Px(420),
+		},
+		cell(Query.value_text(value), Theme.ink, Theme.body, justify).label(name),
+		[
+			Gui.styled_text({ value: "${column} · ${Query.value_type(value)}", fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }),
+			Gui.text(Query.value_text(value)),
+		],
+	)
+}
+
 ## A ledger aligns its numbers on the right so the decimal points stack and a
 ## column reads down. Text stays on the left. A column's alignment is taken from
 ## the first row's value types and applied to the heading too, so the heading
@@ -218,7 +249,7 @@ gutter = |text| Gui.row(
 	[Gui.text(text)],
 )
 
-result_table = |result| {
+result_table = |result, offset, scroll_request| {
 	columns_justify = alignments(result)
 	header = Gui.row(
 		{
@@ -235,28 +266,77 @@ result_table = |result| {
 		},
 		[gutter("ROW")].concat(result.columns.map_with_index(|name, index| cell(name, Theme.dim, Theme.meta, columns_justify.get(index) ?? Start))),
 	)
-	rows = result.rows.map_with_index(
-		|row, index| {
-			key: index,
-			content: Gui.row(
-				{
-					width: Fill,
-					height: Px(Theme.row_height),
-					padding: 0,
-					padding_left: Px(Theme.inset),
-					gap: 0,
-					border_color: Theme.line,
-					border_width: 0,
-					border_bottom: Px(1),
-				},
-				[gutter("Result row ${index.to_str()}")].concat(row.map_with_index(|value, column| cell(Query.value_text(value), Theme.ink, Theme.body, columns_justify.get(column) ?? Start))),
-			),
+	# Only the rows near the viewport are ever built, so a page of ten thousand
+	# rows costs what a screenful does.
+	render_row : U64 -> Gui.Elem(Browser.State)
+	render_row = |index| Gui.row(
+		{
+			width: Fill,
+			height: Px(Theme.row_height),
+			padding: 0,
+			padding_left: Px(Theme.inset),
+			gap: 0,
+			border_color: Theme.line,
+			border_width: 0,
+			border_bottom: Px(1),
 		},
+		[gutter("Result row ${(offset + index).to_str()}")].concat((result.rows.get(index) ?? []).map_with_index(|value, column| value_cell(value, result.columns.get(column) ?? "", offset + index, columns_justify.get(column) ?? Start))),
 	)
 	Gui.col(
 		{ label: "Result table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
-		[header, Gui.virtual_list({ label: "Query rows", row_height: Theme.row_height, items: rows })],
+		[
+			header,
+			Gui.virtual_rows({
+				label: "Query rows",
+				row_height: Theme.row_height,
+				count: result.rows.len(),
+				render_row,
+				scroll_to: scroll_request,
+				on_range: Some(|current, rows| Gui.Action.update(Browser.show_rows(current, rows))),
+			}),
+		],
 	)
+}
+
+## Keys that move the result to its first or last row, and the rows the
+## viewport shows, numbered as the gutter numbers them.
+row_keys : Browser.State, Browser.Shown -> List(Gui.Elem(Browser.State))
+row_keys = |state, shown| {
+	count = shown.page.rows.len()
+	if count == 0 {
+		[]
+	} else {
+		on_screen = match state.on_screen {
+			Some(rows) if rows.end > rows.start => [meta("On screen ${(shown.offset + rows.start + 1).to_str()}–${(shown.offset + rows.end).to_str()}")]
+			_ => []
+		}
+		on_screen.concat(
+			[
+				quiet_key({ caption: "First row", label: "Scroll to first row", on_press: |current, _| Gui.Action.update(Browser.scroll_rows(current, 0, Start)), width: Auto }),
+				quiet_key({ caption: "Last row", label: "Scroll to last row", on_press: |current, _| Gui.Action.update(Browser.scroll_rows(current, count - 1, End)), width: Auto }),
+			],
+		)
+	}
+}
+
+## A result longer than one page names the rows on screen and turns to the
+## neighbouring pages. A result that fits in one page shows no pager at all.
+pager : Browser.State, Browser.Shown -> List(Gui.Elem(Browser.State))
+pager = |state, shown| match state.database {
+	Some(database) if shown.offset > 0 or shown.page.more => {
+		first = shown.offset + 1
+		last = shown.offset + shown.page.rows.len()
+		turn = |caption, offset| quiet_key({ caption, label: caption, on_press: |current, _| Browser.turn_page(current, database, shown, offset), width: Auto })
+		earlier = if shown.offset > 0 [turn("Previous page", if shown.offset > Browser.page_rows shown.offset - Browser.page_rows else 0)] else []
+		later = if shown.page.more [turn("Next page", last)] else []
+		[
+			Gui.row(
+				{ label: "Result pages", width: Fill, padding: 0, gap: Theme.inset, align: Center },
+				earlier.concat(later).concat([trailing_meta("Rows ${first.to_str()}–${last.to_str()}${if shown.page.more ", more follow" else ", end of result"}")]),
+			),
+		]
+	}
+	_ => []
 }
 
 query_bench = |state| {
@@ -267,7 +347,7 @@ query_bench = |state| {
 				label: "SQL query",
 				value: state.query,
 				placeholder: "SELECT * FROM books LIMIT 100",
-				on_input: |current, event| Gui.update(Browser.set_query(current, event.value)),
+				on_input: |current, event| Gui.Action.update(Browser.set_query(current, event.value)),
 				width: Fill,
 				height: Px(76),
 				padding: Theme.inset,
@@ -294,27 +374,40 @@ query_bench = |state| {
 						active_bg: Theme.accent_active,
 						fg: Theme.on_accent,
 					}),
-					trailing_meta(
+				]
+					.concat(
 						match state.status {
-							Busy(_) => "running…"
-							_ => "read-only handle on ${state.open_name}"
+							Querying(_) => [quiet_key({ caption: "Cancel", label: "Cancel query", on_press: |current, _| Browser.cancel_query(current), width: Auto })]
+							_ => []
 						},
+					)
+					.concat(
+						[
+							trailing_meta(
+								match state.status {
+									Busy(_) => "running…"
+									Querying(_) => "running…"
+									Canceled => "query cancelled"
+									_ => "read-only handle on ${state.open_name}"
+								},
+							),
+						],
 					),
-				],
 			),
 		]
 	}
-	result = match state.result {
+	result =match state.result {
 		None => [
 			Gui.row({ width: Fill, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.body }, [Gui.text("Run a query to inspect rows")]),
 		]
-		Some(value) => [
+		Some(shown) => [
 			Gui.row(
 				{ label: "Result summary", width: Fill, padding: 0, gap: Theme.inset, align: Center },
-				[meta("Columns: ${Str.join_with(value.columns, ", ")}"), trailing_meta("Rows: ${value.rows.len().to_str()}")],
+				[meta("Columns: ${Str.join_with(shown.page.columns, ", ")}"), trailing_meta("Rows: ${shown.page.rows.len().to_str()}")].concat(row_keys(state, shown)),
 			),
-			result_table(value),
 		]
+			.concat(pager(state, shown))
+			.concat([result_table(shown.page, shown.offset, state.rows_scroll)])
 	}
 	Gui.col(
 		{ label: "Query bench", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },

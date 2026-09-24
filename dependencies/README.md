@@ -71,8 +71,6 @@ digest verification, and native tests remain separate controls.
 - `windows-gnu-runtime.json` describes the MinGW startup, compiler runtime,
   unwinding, UBSan, and UCRT import producer. Windows supplies the DLL
   implementations at runtime.
-- `windows-system-imports.json` describes the complete per-DLL system import
-  producer. It remains separate from implementation-bearing GNU runtime inputs.
 - `freetype.json` describes the Linux FreeType producer.
 - `xkbcommon.json` describes the Linux xkbcommon and xkbcommon-X11 producer.
 - `glibc.json` describes Linux startup objects and libc/libm link stubs. The

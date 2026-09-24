@@ -1098,38 +1098,75 @@ unsafe impl<T> RocRelease<*mut T> for RocBoxSpineRelease<T> {
     }
 }
 
-/// Element type for __AnonStruct_b050404c6fb0b263
+/// Element type for __AnonStruct_a47a6e0f4ab34c8a
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB050404c6fb0b263 {
+pub struct AnonStructA47a6e0f4ab34c8a {
+    pub fg: u64,
+    pub runs: RocListWith<AnonStructFdc3cce9386720ed, false>,
     pub value: RocStr,
-    pub fg: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub font_face: u8,
 }
 
-/// Element type for __AnonStruct_b050404c6fb0b263
+/// Element type for __AnonStruct_a47a6e0f4ab34c8a
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB050404c6fb0b263 {
+pub struct AnonStructA47a6e0f4ab34c8a {
+    pub fg: u64,
+    pub runs: RocListWith<AnonStructFdc3cce9386720ed, false>,
     pub value: RocStr,
-    pub fg: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub font_face: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructB050404c6fb0b263>() == 40, "AnonStructB050404c6fb0b263 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructA47a6e0f4ab34c8a>() == 72, "AnonStructA47a6e0f4ab34c8a size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructB050404c6fb0b263>() == 8, "AnonStructB050404c6fb0b263 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructA47a6e0f4ab34c8a>() == 8, "AnonStructA47a6e0f4ab34c8a alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructB050404c6fb0b263>() == 28, "AnonStructB050404c6fb0b263 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructA47a6e0f4ab34c8a>() == 48, "AnonStructA47a6e0f4ab34c8a size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructB050404c6fb0b263>() == 4, "AnonStructB050404c6fb0b263 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructA47a6e0f4ab34c8a>() == 8, "AnonStructA47a6e0f4ab34c8a alignment mismatch");
+
+/// Element type for __AnonStruct_fdc3cce9386720ed
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructFdc3cce9386720ed {
+    pub bg: u64,
+    pub fg: u64,
+    pub len: u64,
+    pub font_weight: u32,
+    pub monospace: bool,
+    pub underline: bool,
+}
+
+/// Element type for __AnonStruct_fdc3cce9386720ed
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructFdc3cce9386720ed {
+    pub bg: u64,
+    pub fg: u64,
+    pub len: u64,
+    pub font_weight: u32,
+    pub monospace: bool,
+    pub underline: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructFdc3cce9386720ed>() == 32, "AnonStructFdc3cce9386720ed size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructFdc3cce9386720ed>() == 8, "AnonStructFdc3cce9386720ed alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructFdc3cce9386720ed>() == 32, "AnonStructFdc3cce9386720ed size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructFdc3cce9386720ed>() == 8, "AnonStructFdc3cce9386720ed alignment mismatch");
 
 /// Element type for __AnonStruct_ec521db91a8efd1f
 #[cfg(target_pointer_width = "32")]
@@ -1299,29 +1336,30 @@ const _: () = assert!(core::mem::size_of::<AnonStruct2c3712e02fef0cd>() == 16, "
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct2c3712e02fef0cd>() == 8, "AnonStruct2c3712e02fef0cd alignment mismatch");
 
-/// Element type for __AnonStruct_8f1f3c623bb69cc9
+/// Element type for __AnonStruct_b61da4ff1a34a156
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8f1f3c623bb69cc9 {
+pub struct AnonStructB61da4ff1a34a156 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1333,7 +1371,6 @@ pub struct AnonStruct8f1f3c623bb69cc9 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1351,29 +1388,30 @@ pub struct AnonStruct8f1f3c623bb69cc9 {
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_8f1f3c623bb69cc9
+/// Element type for __AnonStruct_b61da4ff1a34a156
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8f1f3c623bb69cc9 {
+pub struct AnonStructB61da4ff1a34a156 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1385,7 +1423,6 @@ pub struct AnonStruct8f1f3c623bb69cc9 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1404,37 +1441,72 @@ pub struct AnonStruct8f1f3c623bb69cc9 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8f1f3c623bb69cc9>() == 168, "AnonStruct8f1f3c623bb69cc9 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructB61da4ff1a34a156>() == 208, "AnonStructB61da4ff1a34a156 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8f1f3c623bb69cc9>() == 8, "AnonStruct8f1f3c623bb69cc9 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructB61da4ff1a34a156>() == 8, "AnonStructB61da4ff1a34a156 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8f1f3c623bb69cc9>() == 160, "AnonStruct8f1f3c623bb69cc9 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructB61da4ff1a34a156>() == 192, "AnonStructB61da4ff1a34a156 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8f1f3c623bb69cc9>() == 8, "AnonStruct8f1f3c623bb69cc9 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructB61da4ff1a34a156>() == 8, "AnonStructB61da4ff1a34a156 alignment mismatch");
 
-/// Element type for __AnonStruct_8888fd22414ee768
+/// Element type for __AnonStruct_10af2f3a422106e8
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8888fd22414ee768 {
-    pub child: u64,
-    pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
+pub struct AnonStruct10af2f3a422106e8 {
+    pub hover_enter: u64,
+    pub hover_exit: u64,
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+/// Element type for __AnonStruct_10af2f3a422106e8
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct10af2f3a422106e8 {
+    pub hover_enter: u64,
+    pub hover_exit: u64,
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct10af2f3a422106e8>() == 32, "AnonStruct10af2f3a422106e8 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct10af2f3a422106e8>() == 8, "AnonStruct10af2f3a422106e8 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct10af2f3a422106e8>() == 32, "AnonStruct10af2f3a422106e8 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct10af2f3a422106e8>() == 8, "AnonStruct10af2f3a422106e8 alignment mismatch");
+
+/// Element type for __AnonStruct_91244b23e2207007
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct91244b23e2207007 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub focus_serial: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub shortcuts: RocList<AnonStruct1d0ac13b7d648fa3>,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
+    pub delay_ms: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1446,7 +1518,155 @@ pub struct AnonStruct8888fd22414ee768 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub hover_enter: bool,
+    pub hover_exit: bool,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub placement: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+/// Element type for __AnonStruct_91244b23e2207007
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct91244b23e2207007 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub focus_serial: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub shortcuts: RocList<AnonStruct1d0ac13b7d648fa3>,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub delay_ms: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub hover_enter: bool,
+    pub hover_exit: bool,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub placement: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct91244b23e2207007>() == 240, "AnonStruct91244b23e2207007 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct91244b23e2207007>() == 8, "AnonStruct91244b23e2207007 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct91244b23e2207007>() == 216, "AnonStruct91244b23e2207007 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct91244b23e2207007>() == 8, "AnonStruct91244b23e2207007 alignment mismatch");
+
+/// Element type for __AnonStruct_1d0ac13b7d648fa3
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1d0ac13b7d648fa3 {
+    pub keys: RocStr,
+    pub focus: bool,
+}
+
+/// Element type for __AnonStruct_1d0ac13b7d648fa3
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1d0ac13b7d648fa3 {
+    pub keys: RocStr,
+    pub focus: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1d0ac13b7d648fa3>() == 32, "AnonStruct1d0ac13b7d648fa3 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1d0ac13b7d648fa3>() == 8, "AnonStruct1d0ac13b7d648fa3 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1d0ac13b7d648fa3>() == 16, "AnonStruct1d0ac13b7d648fa3 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1d0ac13b7d648fa3>() == 4, "AnonStruct1d0ac13b7d648fa3 alignment mismatch");
+
+/// Element type for __AnonStruct_df60cd23530654b2
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructDf60cd23530654b2 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub child: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub name: RocStr,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1465,29 +1685,30 @@ pub struct AnonStruct8888fd22414ee768 {
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_8888fd22414ee768
+/// Element type for __AnonStruct_df60cd23530654b2
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8888fd22414ee768 {
+pub struct AnonStructDf60cd23530654b2 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub child: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1499,7 +1720,6 @@ pub struct AnonStruct8888fd22414ee768 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1519,13 +1739,13 @@ pub struct AnonStruct8888fd22414ee768 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8888fd22414ee768>() == 168, "AnonStruct8888fd22414ee768 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructDf60cd23530654b2>() == 208, "AnonStructDf60cd23530654b2 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8888fd22414ee768>() == 8, "AnonStruct8888fd22414ee768 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructDf60cd23530654b2>() == 8, "AnonStructDf60cd23530654b2 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8888fd22414ee768>() == 160, "AnonStruct8888fd22414ee768 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructDf60cd23530654b2>() == 192, "AnonStructDf60cd23530654b2 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8888fd22414ee768>() == 8, "AnonStruct8888fd22414ee768 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructDf60cd23530654b2>() == 8, "AnonStructDf60cd23530654b2 alignment mismatch");
 
 /// Element type for __AnonStruct_becf162f14687660
 #[cfg(target_pointer_width = "32")]
@@ -1556,29 +1776,30 @@ const _: () = assert!(core::mem::size_of::<AnonStructBecf162f14687660>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructBecf162f14687660>() == 8, "AnonStructBecf162f14687660 alignment mismatch");
 
-/// Element type for __AnonStruct_30a73e46832c4aff
+/// Element type for __AnonStruct_3188ec42c5b5e0d3
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct30a73e46832c4aff {
+pub struct AnonStruct3188ec42c5b5e0d3 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub caption: RocStr,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1590,7 +1811,6 @@ pub struct AnonStruct30a73e46832c4aff {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1607,33 +1827,35 @@ pub struct AnonStruct30a73e46832c4aff {
     pub min_width_kind: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
+    pub role: u8,
     pub text_overflow: u8,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_30a73e46832c4aff
+/// Element type for __AnonStruct_3188ec42c5b5e0d3
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct30a73e46832c4aff {
+pub struct AnonStruct3188ec42c5b5e0d3 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub caption: RocStr,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1645,7 +1867,6 @@ pub struct AnonStruct30a73e46832c4aff {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1662,42 +1883,47 @@ pub struct AnonStruct30a73e46832c4aff {
     pub min_width_kind: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
+    pub role: u8,
     pub text_overflow: u8,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct30a73e46832c4aff>() == 184, "AnonStruct30a73e46832c4aff size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct3188ec42c5b5e0d3>() == 224, "AnonStruct3188ec42c5b5e0d3 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct30a73e46832c4aff>() == 8, "AnonStruct30a73e46832c4aff alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct3188ec42c5b5e0d3>() == 8, "AnonStruct3188ec42c5b5e0d3 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct30a73e46832c4aff>() == 160, "AnonStruct30a73e46832c4aff size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct3188ec42c5b5e0d3>() == 200, "AnonStruct3188ec42c5b5e0d3 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct30a73e46832c4aff>() == 4, "AnonStruct30a73e46832c4aff alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct3188ec42c5b5e0d3>() == 8, "AnonStruct3188ec42c5b5e0d3 alignment mismatch");
 
-/// Element type for __AnonStruct_8700bb3157333d89
+/// Element type for __AnonStruct_fad101fcce1ec1a3
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8700bb3157333d89 {
+pub struct AnonStructFad101fcce1ec1a3 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub count: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub first: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub instance: u64,
+    pub shadow_color: u64,
     pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1711,7 +1937,6 @@ pub struct AnonStruct8700bb3157333d89 {
     pub row_height: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1723,35 +1948,40 @@ pub struct AnonStruct8700bb3157333d89 {
     pub max_width_kind: u8,
     pub min_height_kind: u8,
     pub min_width_kind: u8,
+    pub notify: bool,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub text_overflow: u8,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_8700bb3157333d89
+/// Element type for __AnonStruct_fad101fcce1ec1a3
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8700bb3157333d89 {
+pub struct AnonStructFad101fcce1ec1a3 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub count: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub first: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub instance: u64,
+    pub shadow_color: u64,
     pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1765,7 +1995,6 @@ pub struct AnonStruct8700bb3157333d89 {
     pub row_height: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1777,6 +2006,7 @@ pub struct AnonStruct8700bb3157333d89 {
     pub max_width_kind: u8,
     pub min_height_kind: u8,
     pub min_width_kind: u8,
+    pub notify: bool,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub text_overflow: u8,
@@ -1784,40 +2014,41 @@ pub struct AnonStruct8700bb3157333d89 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8700bb3157333d89>() == 176, "AnonStruct8700bb3157333d89 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructFad101fcce1ec1a3>() == 240, "AnonStructFad101fcce1ec1a3 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8700bb3157333d89>() == 8, "AnonStruct8700bb3157333d89 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructFad101fcce1ec1a3>() == 8, "AnonStructFad101fcce1ec1a3 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8700bb3157333d89>() == 168, "AnonStruct8700bb3157333d89 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructFad101fcce1ec1a3>() == 224, "AnonStructFad101fcce1ec1a3 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8700bb3157333d89>() == 8, "AnonStruct8700bb3157333d89 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructFad101fcce1ec1a3>() == 8, "AnonStructFad101fcce1ec1a3 alignment mismatch");
 
-/// Element type for __AnonStruct_32380512021fa2b7
+/// Element type for __AnonStruct_751f7db6342b42f6
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct32380512021fa2b7 {
+pub struct AnonStruct751f7db6342b42f6 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub box_bg: u64,
+    pub box_border: u64,
+    pub box_checked_bg: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub mark_color: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub box_bg: u32,
-    pub box_border: u32,
-    pub box_checked_bg: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
-    pub mark_color: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1829,7 +2060,6 @@ pub struct AnonStruct32380512021fa2b7 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1849,32 +2079,33 @@ pub struct AnonStruct32380512021fa2b7 {
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_32380512021fa2b7
+/// Element type for __AnonStruct_751f7db6342b42f6
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct32380512021fa2b7 {
+pub struct AnonStruct751f7db6342b42f6 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub box_bg: u64,
+    pub box_border: u64,
+    pub box_checked_bg: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub mark_color: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub box_bg: u32,
-    pub box_border: u32,
-    pub box_checked_bg: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
-    pub mark_color: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1886,7 +2117,6 @@ pub struct AnonStruct32380512021fa2b7 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1907,38 +2137,39 @@ pub struct AnonStruct32380512021fa2b7 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct32380512021fa2b7>() == 176, "AnonStruct32380512021fa2b7 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct751f7db6342b42f6>() == 232, "AnonStruct751f7db6342b42f6 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct32380512021fa2b7>() == 8, "AnonStruct32380512021fa2b7 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct751f7db6342b42f6>() == 8, "AnonStruct751f7db6342b42f6 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct32380512021fa2b7>() == 164, "AnonStruct32380512021fa2b7 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct751f7db6342b42f6>() == 216, "AnonStruct751f7db6342b42f6 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct32380512021fa2b7>() == 4, "AnonStruct32380512021fa2b7 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct751f7db6342b42f6>() == 8, "AnonStruct751f7db6342b42f6 alignment mismatch");
 
-/// Element type for __AnonStruct_fd6767d07aac9300
+/// Element type for __AnonStruct_a0ad260b0f5e9c52
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructFd6767d07aac9300 {
+pub struct AnonStructA0ad260b0f5e9c52 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -1950,7 +2181,6 @@ pub struct AnonStructFd6767d07aac9300 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -1970,30 +2200,31 @@ pub struct AnonStructFd6767d07aac9300 {
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_fd6767d07aac9300
+/// Element type for __AnonStruct_a0ad260b0f5e9c52
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructFd6767d07aac9300 {
+pub struct AnonStructA0ad260b0f5e9c52 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -2005,7 +2236,6 @@ pub struct AnonStructFd6767d07aac9300 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -2026,37 +2256,38 @@ pub struct AnonStructFd6767d07aac9300 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructFd6767d07aac9300>() == 208, "AnonStructFd6767d07aac9300 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructA0ad260b0f5e9c52>() == 248, "AnonStructA0ad260b0f5e9c52 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructFd6767d07aac9300>() == 8, "AnonStructFd6767d07aac9300 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructA0ad260b0f5e9c52>() == 8, "AnonStructA0ad260b0f5e9c52 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructFd6767d07aac9300>() == 172, "AnonStructFd6767d07aac9300 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructA0ad260b0f5e9c52>() == 208, "AnonStructA0ad260b0f5e9c52 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructFd6767d07aac9300>() == 4, "AnonStructFd6767d07aac9300 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructA0ad260b0f5e9c52>() == 8, "AnonStructA0ad260b0f5e9c52 alignment mismatch");
 
-/// Element type for __AnonStruct_8ea95e8b24a76f41
+/// Element type for __AnonStruct_71144019e2d669fc
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8ea95e8b24a76f41 {
+pub struct AnonStruct71144019e2d669fc {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub bytes: RocListWith<u8, false>,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -2068,7 +2299,6 @@ pub struct AnonStruct8ea95e8b24a76f41 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -2089,29 +2319,30 @@ pub struct AnonStruct8ea95e8b24a76f41 {
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_8ea95e8b24a76f41
+/// Element type for __AnonStruct_71144019e2d669fc
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct8ea95e8b24a76f41 {
+pub struct AnonStruct71144019e2d669fc {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub bytes: RocListWith<u8, false>,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -2123,7 +2354,6 @@ pub struct AnonStruct8ea95e8b24a76f41 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -2145,138 +2375,688 @@ pub struct AnonStruct8ea95e8b24a76f41 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8ea95e8b24a76f41>() == 184, "AnonStruct8ea95e8b24a76f41 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct71144019e2d669fc>() == 224, "AnonStruct71144019e2d669fc size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8ea95e8b24a76f41>() == 8, "AnonStruct8ea95e8b24a76f41 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct71144019e2d669fc>() == 8, "AnonStruct71144019e2d669fc alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct8ea95e8b24a76f41>() == 160, "AnonStruct8ea95e8b24a76f41 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct71144019e2d669fc>() == 200, "AnonStruct71144019e2d669fc size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct8ea95e8b24a76f41>() == 4, "AnonStruct8ea95e8b24a76f41 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct71144019e2d669fc>() == 8, "AnonStruct71144019e2d669fc alignment mismatch");
 
-/// Element type for __AnonStruct_1cd73c88e8aa8818
+/// Element type for __AnonStruct_3b3f1dc02d4b4916
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct1cd73c88e8aa8818 {
+pub struct AnonStruct3b3f1dc02d4b4916 {
+    pub bg: u64,
+    pub border_color: u64,
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
-    pub bg: u32,
-    pub border_color: u32,
+    pub primitives: RocList<AnonStructF74678f34f8b3cbf>,
     pub border_width: u32,
     pub height: u32,
     pub radius: u32,
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub size: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_1cd73c88e8aa8818
+/// Element type for __AnonStruct_3b3f1dc02d4b4916
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct1cd73c88e8aa8818 {
+pub struct AnonStruct3b3f1dc02d4b4916 {
+    pub bg: u64,
+    pub border_color: u64,
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
-    pub bg: u32,
-    pub border_color: u32,
+    pub primitives: RocList<AnonStructF74678f34f8b3cbf>,
     pub border_width: u32,
     pub height: u32,
     pub radius: u32,
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub size: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct1cd73c88e8aa8818>() == 80, "AnonStruct1cd73c88e8aa8818 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct3b3f1dc02d4b4916>() == 88, "AnonStruct3b3f1dc02d4b4916 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct1cd73c88e8aa8818>() == 8, "AnonStruct1cd73c88e8aa8818 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct3b3f1dc02d4b4916>() == 8, "AnonStruct3b3f1dc02d4b4916 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct1cd73c88e8aa8818>() == 52, "AnonStruct1cd73c88e8aa8818 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct3b3f1dc02d4b4916>() == 64, "AnonStruct3b3f1dc02d4b4916 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct1cd73c88e8aa8818>() == 4, "AnonStruct1cd73c88e8aa8818 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct3b3f1dc02d4b4916>() == 8, "AnonStruct3b3f1dc02d4b4916 alignment mismatch");
 
-/// Element type for __AnonStruct_6d9cdb5c6eba22bc
+/// Element type for __AnonStruct_f74678f34f8b3cbf
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct6d9cdb5c6eba22bc {
+pub struct AnonStructF74678f34f8b3cbf {
+    pub fill: u64,
     pub key: u64,
+    pub stroke: u64,
     pub label: RocStr,
-    pub fill: u32,
+    pub text: RocStr,
     pub height: u32,
     pub radius: u32,
-    pub stroke: u32,
     pub stroke_width: u32,
+    pub text_size: u32,
     pub width: u32,
     pub x: i32,
     pub x2: i32,
     pub y: i32,
     pub y2: i32,
+    pub align: u8,
     pub kind: u8,
 }
 
-/// Element type for __AnonStruct_6d9cdb5c6eba22bc
+/// Element type for __AnonStruct_f74678f34f8b3cbf
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStruct6d9cdb5c6eba22bc {
+pub struct AnonStructF74678f34f8b3cbf {
+    pub fill: u64,
     pub key: u64,
+    pub stroke: u64,
     pub label: RocStr,
-    pub fill: u32,
+    pub text: RocStr,
     pub height: u32,
     pub radius: u32,
-    pub stroke: u32,
     pub stroke_width: u32,
+    pub text_size: u32,
     pub width: u32,
     pub x: i32,
     pub x2: i32,
     pub y: i32,
     pub y2: i32,
+    pub align: u8,
     pub kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStruct6d9cdb5c6eba22bc>() == 80, "AnonStruct6d9cdb5c6eba22bc size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructF74678f34f8b3cbf>() == 112, "AnonStructF74678f34f8b3cbf size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStruct6d9cdb5c6eba22bc>() == 8, "AnonStruct6d9cdb5c6eba22bc alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructF74678f34f8b3cbf>() == 8, "AnonStructF74678f34f8b3cbf alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStruct6d9cdb5c6eba22bc>() == 64, "AnonStruct6d9cdb5c6eba22bc size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructF74678f34f8b3cbf>() == 88, "AnonStructF74678f34f8b3cbf size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStruct6d9cdb5c6eba22bc>() == 8, "AnonStruct6d9cdb5c6eba22bc alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructF74678f34f8b3cbf>() == 8, "AnonStructF74678f34f8b3cbf alignment mismatch");
 
-/// Element type for __AnonStruct_b2e41b851da291a
+/// Element type for __AnonStruct_be98516b6662a57b
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB2e41b851da291a {
-    pub target: u64,
-    pub x: i32,
-    pub y: i32,
-    pub phase: u8,
+pub struct AnonStructBe98516b6662a57b {
+    pub end: u64,
+    pub first: u64,
 }
 
-/// Element type for __AnonStruct_b2e41b851da291a
+/// Element type for __AnonStruct_be98516b6662a57b
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructB2e41b851da291a {
+pub struct AnonStructBe98516b6662a57b {
+    pub end: u64,
+    pub first: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructBe98516b6662a57b>() == 16, "AnonStructBe98516b6662a57b size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructBe98516b6662a57b>() == 8, "AnonStructBe98516b6662a57b alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructBe98516b6662a57b>() == 16, "AnonStructBe98516b6662a57b size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructBe98516b6662a57b>() == 8, "AnonStructBe98516b6662a57b alignment mismatch");
+
+/// Element type for __AnonStruct_521b63caff3553f9
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct521b63caff3553f9 {
+    pub count: u64,
+    pub instance: u64,
+    pub scroll_row: u64,
+    pub scroll_serial: u64,
+    pub row_height: u32,
+    pub scroll_align: u8,
+}
+
+/// Element type for __AnonStruct_521b63caff3553f9
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct521b63caff3553f9 {
+    pub count: u64,
+    pub instance: u64,
+    pub scroll_row: u64,
+    pub scroll_serial: u64,
+    pub row_height: u32,
+    pub scroll_align: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct521b63caff3553f9>() == 40, "AnonStruct521b63caff3553f9 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct521b63caff3553f9>() == 8, "AnonStruct521b63caff3553f9 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct521b63caff3553f9>() == 40, "AnonStruct521b63caff3553f9 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct521b63caff3553f9>() == 8, "AnonStruct521b63caff3553f9 alignment mismatch");
+
+/// Element type for __AnonStruct_d56b0eabf62517b9
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructD56b0eabf62517b9 {
+    pub end: u64,
+    pub start: u64,
+    pub refresh: bool,
+    pub report: bool,
+}
+
+/// Element type for __AnonStruct_d56b0eabf62517b9
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructD56b0eabf62517b9 {
+    pub end: u64,
+    pub start: u64,
+    pub refresh: bool,
+    pub report: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructD56b0eabf62517b9>() == 24, "AnonStructD56b0eabf62517b9 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructD56b0eabf62517b9>() == 8, "AnonStructD56b0eabf62517b9 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructD56b0eabf62517b9>() == 24, "AnonStructD56b0eabf62517b9 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructD56b0eabf62517b9>() == 8, "AnonStructD56b0eabf62517b9 alignment mismatch");
+
+/// Element type for __AnonStruct_e7c8b7462a78f14b
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructE7c8b7462a78f14b {
     pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
+    pub x: i32,
+    pub y: i32,
+    pub phase: u8,
+}
+
+/// Element type for __AnonStruct_e7c8b7462a78f14b
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructE7c8b7462a78f14b {
+    pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
     pub x: i32,
     pub y: i32,
     pub phase: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructB2e41b851da291a>() == 24, "AnonStructB2e41b851da291a size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructE7c8b7462a78f14b>() == 32, "AnonStructE7c8b7462a78f14b size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructB2e41b851da291a>() == 8, "AnonStructB2e41b851da291a alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructE7c8b7462a78f14b>() == 8, "AnonStructE7c8b7462a78f14b alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructB2e41b851da291a>() == 24, "AnonStructB2e41b851da291a size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStructE7c8b7462a78f14b>() == 32, "AnonStructE7c8b7462a78f14b size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructB2e41b851da291a>() == 8, "AnonStructB2e41b851da291a alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStructE7c8b7462a78f14b>() == 8, "AnonStructE7c8b7462a78f14b alignment mismatch");
+
+/// Element type for __AnonStruct_bdcbe7a50e42954d
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructBdcbe7a50e42954d {
+    pub index: u64,
+    pub keys: RocStr,
+}
+
+/// Element type for __AnonStruct_bdcbe7a50e42954d
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructBdcbe7a50e42954d {
+    pub index: u64,
+    pub keys: RocStr,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructBdcbe7a50e42954d>() == 32, "AnonStructBdcbe7a50e42954d size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructBdcbe7a50e42954d>() == 8, "AnonStructBdcbe7a50e42954d alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructBdcbe7a50e42954d>() == 24, "AnonStructBdcbe7a50e42954d size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructBdcbe7a50e42954d>() == 8, "AnonStructBdcbe7a50e42954d alignment mismatch");
+
+/// Element type for __AnonStruct_1da781635f2f9fce
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1da781635f2f9fce {
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+/// Element type for __AnonStruct_1da781635f2f9fce
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct1da781635f2f9fce {
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1da781635f2f9fce>() == 16, "AnonStruct1da781635f2f9fce size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1da781635f2f9fce>() == 8, "AnonStruct1da781635f2f9fce alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct1da781635f2f9fce>() == 16, "AnonStruct1da781635f2f9fce size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct1da781635f2f9fce>() == 8, "AnonStruct1da781635f2f9fce alignment mismatch");
+
+/// Element type for __AnonStruct_e5ac0e79f166cfe4
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructE5ac0e79f166cfe4 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub keys: RocList<AnonStruct1d0ac13b7d648fa3>,
+    pub label: RocStr,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub size: u32,
+    pub thickness: u32,
+    pub width: u32,
+    pub align: u8,
+    pub axis: u8,
+    pub collapsed: bool,
+    pub collapsible: bool,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub side: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+/// Element type for __AnonStruct_e5ac0e79f166cfe4
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructE5ac0e79f166cfe4 {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub keys: RocList<AnonStruct1d0ac13b7d648fa3>,
+    pub label: RocStr,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub size: u32,
+    pub thickness: u32,
+    pub width: u32,
+    pub align: u8,
+    pub axis: u8,
+    pub collapsed: bool,
+    pub collapsible: bool,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub side: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructE5ac0e79f166cfe4>() == 248, "AnonStructE5ac0e79f166cfe4 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructE5ac0e79f166cfe4>() == 8, "AnonStructE5ac0e79f166cfe4 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructE5ac0e79f166cfe4>() == 224, "AnonStructE5ac0e79f166cfe4 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructE5ac0e79f166cfe4>() == 8, "AnonStructE5ac0e79f166cfe4 alignment mismatch");
+
+/// Element type for __AnonStruct_7dea1af4373e83a
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct7dea1af4373e83a {
+    pub size: u32,
+    pub collapsed: bool,
+}
+
+/// Element type for __AnonStruct_7dea1af4373e83a
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct7dea1af4373e83a {
+    pub size: u32,
+    pub collapsed: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct7dea1af4373e83a>() == 8, "AnonStruct7dea1af4373e83a size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct7dea1af4373e83a>() == 4, "AnonStruct7dea1af4373e83a alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct7dea1af4373e83a>() == 8, "AnonStruct7dea1af4373e83a size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct7dea1af4373e83a>() == 4, "AnonStruct7dea1af4373e83a alignment mismatch");
+
+/// Element type for __AnonStruct_80d05b419336b61b
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct80d05b419336b61b {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub drop_bg: u64,
+    pub drop_border: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub types: RocList<AnonStructDa3665c9cce9a3c>,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+/// Element type for __AnonStruct_80d05b419336b61b
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct80d05b419336b61b {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub drop_bg: u64,
+    pub drop_border: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub types: RocList<AnonStructDa3665c9cce9a3c>,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct80d05b419336b61b>() == 248, "AnonStruct80d05b419336b61b size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct80d05b419336b61b>() == 8, "AnonStruct80d05b419336b61b alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct80d05b419336b61b>() == 224, "AnonStruct80d05b419336b61b size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct80d05b419336b61b>() == 8, "AnonStruct80d05b419336b61b alignment mismatch");
+
+/// Element type for __AnonStruct_da3665c9cce9a3c
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructDa3665c9cce9a3c {
+    pub extensions: RocList<RocStr>,
+    pub label: RocStr,
+    pub mime_types: RocList<RocStr>,
+}
+
+/// Element type for __AnonStruct_da3665c9cce9a3c
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructDa3665c9cce9a3c {
+    pub extensions: RocList<RocStr>,
+    pub label: RocStr,
+    pub mime_types: RocList<RocStr>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructDa3665c9cce9a3c>() == 72, "AnonStructDa3665c9cce9a3c size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructDa3665c9cce9a3c>() == 8, "AnonStructDa3665c9cce9a3c alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructDa3665c9cce9a3c>() == 36, "AnonStructDa3665c9cce9a3c size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructDa3665c9cce9a3c>() == 4, "AnonStructDa3665c9cce9a3c alignment mismatch");
+
+/// Element type for __AnonStruct_5456361a272f3187
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct5456361a272f3187 {
+    pub files: RocList<AnonStructA295f39559baa24d>,
+    pub refused: RocList<AnonStruct6fe360748589880f>,
+}
+
+/// Element type for __AnonStruct_5456361a272f3187
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct5456361a272f3187 {
+    pub files: RocList<AnonStructA295f39559baa24d>,
+    pub refused: RocList<AnonStruct6fe360748589880f>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct5456361a272f3187>() == 48, "AnonStruct5456361a272f3187 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct5456361a272f3187>() == 8, "AnonStruct5456361a272f3187 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct5456361a272f3187>() == 24, "AnonStruct5456361a272f3187 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct5456361a272f3187>() == 4, "AnonStruct5456361a272f3187 alignment mismatch");
+
+/// Element type for __AnonStruct_a295f39559baa24d
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructA295f39559baa24d {
+    pub file: *mut u64,
+    pub name: RocStr,
+}
+
+/// Element type for __AnonStruct_a295f39559baa24d
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructA295f39559baa24d {
+    pub file: *mut u64,
+    pub name: RocStr,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructA295f39559baa24d>() == 32, "AnonStructA295f39559baa24d size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructA295f39559baa24d>() == 8, "AnonStructA295f39559baa24d alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructA295f39559baa24d>() == 16, "AnonStructA295f39559baa24d size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructA295f39559baa24d>() == 4, "AnonStructA295f39559baa24d alignment mismatch");
+
+/// Element type for __AnonStruct_6fe360748589880f
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct6fe360748589880f {
+    pub name: RocStr,
+    pub reason: u8,
+}
+
+/// Element type for __AnonStruct_6fe360748589880f
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct6fe360748589880f {
+    pub name: RocStr,
+    pub reason: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct6fe360748589880f>() == 32, "AnonStruct6fe360748589880f size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct6fe360748589880f>() == 8, "AnonStruct6fe360748589880f alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct6fe360748589880f>() == 16, "AnonStruct6fe360748589880f size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct6fe360748589880f>() == 4, "AnonStruct6fe360748589880f alignment mismatch");
 
 /// Element type for __AnonStruct_dc4c26f806dfc5bf
 #[cfg(target_pointer_width = "32")]
@@ -2307,30 +3087,31 @@ const _: () = assert!(core::mem::size_of::<AnonStructDc4c26f806dfc5bf>() == 24, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructDc4c26f806dfc5bf>() == 8, "AnonStructDc4c26f806dfc5bf alignment mismatch");
 
-/// Element type for __AnonStruct_e1a686ac8d2eb702
+/// Element type for __AnonStruct_2ffca3ac98d0c52c
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructE1a686ac8d2eb702 {
+pub struct AnonStruct2ffca3ac98d0c52c {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -2342,7 +3123,6 @@ pub struct AnonStructE1a686ac8d2eb702 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -2361,30 +3141,31 @@ pub struct AnonStructE1a686ac8d2eb702 {
     pub width_kind: u8,
 }
 
-/// Element type for __AnonStruct_e1a686ac8d2eb702
+/// Element type for __AnonStruct_2ffca3ac98d0c52c
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructE1a686ac8d2eb702 {
+pub struct AnonStruct2ffca3ac98d0c52c {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -2396,7 +3177,6 @@ pub struct AnonStructE1a686ac8d2eb702 {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -2416,13 +3196,13 @@ pub struct AnonStructE1a686ac8d2eb702 {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructE1a686ac8d2eb702>() == 208, "AnonStructE1a686ac8d2eb702 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct2ffca3ac98d0c52c>() == 248, "AnonStruct2ffca3ac98d0c52c size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructE1a686ac8d2eb702>() == 8, "AnonStructE1a686ac8d2eb702 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct2ffca3ac98d0c52c>() == 8, "AnonStruct2ffca3ac98d0c52c alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructE1a686ac8d2eb702>() == 172, "AnonStructE1a686ac8d2eb702 size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct2ffca3ac98d0c52c>() == 208, "AnonStruct2ffca3ac98d0c52c size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructE1a686ac8d2eb702>() == 4, "AnonStructE1a686ac8d2eb702 alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct2ffca3ac98d0c52c>() == 8, "AnonStruct2ffca3ac98d0c52c alignment mismatch");
 
 /// Element type for __AnonStruct_4c605145331877e7
 #[cfg(target_pointer_width = "32")]
@@ -2451,32 +3231,34 @@ const _: () = assert!(core::mem::size_of::<AnonStruct4c605145331877e7>() == 16, 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct4c605145331877e7>() == 4, "AnonStruct4c605145331877e7 alignment mismatch");
 
-/// Element type for __AnonStruct_d8780653fb52f85f
+/// Element type for __AnonStruct_89852815e920c968
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructD8780653fb52f85f {
+pub struct AnonStruct89852815e920c968 {
     pub columns: RocList<RocStr>,
     pub rows: RocList<RocList<AnonStructBff7bc5a4faa26ae>>,
+    pub more: bool,
 }
 
-/// Element type for __AnonStruct_d8780653fb52f85f
+/// Element type for __AnonStruct_89852815e920c968
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct AnonStructD8780653fb52f85f {
+pub struct AnonStruct89852815e920c968 {
     pub columns: RocList<RocStr>,
     pub rows: RocList<RocList<AnonStructBff7bc5a4faa26ae>>,
+    pub more: bool,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<AnonStructD8780653fb52f85f>() == 48, "AnonStructD8780653fb52f85f size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct89852815e920c968>() == 56, "AnonStruct89852815e920c968 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<AnonStructD8780653fb52f85f>() == 8, "AnonStructD8780653fb52f85f alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct89852815e920c968>() == 8, "AnonStruct89852815e920c968 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<AnonStructD8780653fb52f85f>() == 24, "AnonStructD8780653fb52f85f size mismatch");
+const _: () = assert!(core::mem::size_of::<AnonStruct89852815e920c968>() == 28, "AnonStruct89852815e920c968 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<AnonStructD8780653fb52f85f>() == 4, "AnonStructD8780653fb52f85f alignment mismatch");
+const _: () = assert!(core::mem::align_of::<AnonStruct89852815e920c968>() == 4, "AnonStruct89852815e920c968 alignment mismatch");
 
 /// Element type for __AnonStruct_bff7bc5a4faa26ae
 #[cfg(target_pointer_width = "32")]
@@ -2510,6 +3292,35 @@ const _: () = assert!(core::mem::align_of::<AnonStructBff7bc5a4faa26ae>() == 8, 
 const _: () = assert!(core::mem::size_of::<AnonStructBff7bc5a4faa26ae>() == 48, "AnonStructBff7bc5a4faa26ae size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStructBff7bc5a4faa26ae>() == 8, "AnonStructBff7bc5a4faa26ae alignment mismatch");
+
+/// Element type for __AnonStruct_ad07206fc55b9842
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructAd07206fc55b9842 {
+    pub page_rows: u64,
+    pub params: RocList<AnonStructBff7bc5a4faa26ae>,
+    pub sql: RocStr,
+}
+
+/// Element type for __AnonStruct_ad07206fc55b9842
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStructAd07206fc55b9842 {
+    pub page_rows: u64,
+    pub params: RocList<AnonStructBff7bc5a4faa26ae>,
+    pub sql: RocStr,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStructAd07206fc55b9842>() == 56, "AnonStructAd07206fc55b9842 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStructAd07206fc55b9842>() == 8, "AnonStructAd07206fc55b9842 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStructAd07206fc55b9842>() == 32, "AnonStructAd07206fc55b9842 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStructAd07206fc55b9842>() == 8, "AnonStructAd07206fc55b9842 alignment mismatch");
 
 /// Element type for __AnonStruct_2a44a28a63f85620
 #[cfg(target_pointer_width = "32")]
@@ -3005,6 +3816,93 @@ const _: () = assert!(core::mem::size_of::<AnonStruct770b9d9b3d3d255>() == 32, "
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<AnonStruct770b9d9b3d3d255>() == 8, "AnonStruct770b9d9b3d3d255 alignment mismatch");
 
+/// Element type for __AnonStruct_5d4fced1f96c13bb
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct5d4fced1f96c13bb {
+    pub names: RocList<RocStr>,
+    pub code: u8,
+    pub overflowed: bool,
+    pub replaced: bool,
+}
+
+/// Element type for __AnonStruct_5d4fced1f96c13bb
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct5d4fced1f96c13bb {
+    pub names: RocList<RocStr>,
+    pub code: u8,
+    pub overflowed: bool,
+    pub replaced: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct5d4fced1f96c13bb>() == 32, "AnonStruct5d4fced1f96c13bb size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct5d4fced1f96c13bb>() == 8, "AnonStruct5d4fced1f96c13bb alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct5d4fced1f96c13bb>() == 16, "AnonStruct5d4fced1f96c13bb size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct5d4fced1f96c13bb>() == 4, "AnonStruct5d4fced1f96c13bb alignment mismatch");
+
+/// Element type for __AnonStruct_3ef35cf67ee1fcb4
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct3ef35cf67ee1fcb4 {
+    pub key: u64,
+    pub name: RocStr,
+    pub directory: bool,
+    pub status: u8,
+}
+
+/// Element type for __AnonStruct_3ef35cf67ee1fcb4
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct3ef35cf67ee1fcb4 {
+    pub key: u64,
+    pub name: RocStr,
+    pub directory: bool,
+    pub status: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct3ef35cf67ee1fcb4>() == 40, "AnonStruct3ef35cf67ee1fcb4 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct3ef35cf67ee1fcb4>() == 8, "AnonStruct3ef35cf67ee1fcb4 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct3ef35cf67ee1fcb4>() == 24, "AnonStruct3ef35cf67ee1fcb4 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct3ef35cf67ee1fcb4>() == 8, "AnonStruct3ef35cf67ee1fcb4 alignment mismatch");
+
+/// Element type for __AnonStruct_45708337b22b1f51
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct45708337b22b1f51 {
+    pub code: u8,
+}
+
+/// Element type for __AnonStruct_45708337b22b1f51
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AnonStruct45708337b22b1f51 {
+    pub code: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<AnonStruct45708337b22b1f51>() == 1, "AnonStruct45708337b22b1f51 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<AnonStruct45708337b22b1f51>() == 1, "AnonStruct45708337b22b1f51 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<AnonStruct45708337b22b1f51>() == 1, "AnonStruct45708337b22b1f51 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<AnonStruct45708337b22b1f51>() == 1, "AnonStruct45708337b22b1f51 alignment mismatch");
+
 /// Element type for __AnonStruct_a2f37e1d5ed0e4cd
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
@@ -3162,6 +4060,133 @@ const _: () = assert!(core::mem::offset_of!(HostGlueSqliteOpenReadResult, tag) =
 /// Tag discriminant for Try.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostGlueSqliteWatchResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union HostGlueSqliteWatchResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct HostGlueSqliteWatchResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSqliteWatchResult {
+    pub _payload_alignment: [HostGlueSqliteWatchResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: HostGlueSqliteWatchResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSqliteWatchResult {
+    pub payload: HostGlueSqliteWatchResultPayload,
+    pub tag: HostGlueSqliteWatchResultTag,
+}
+
+impl HostGlueSqliteWatchResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `HostGlueSqliteWatchResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueSqliteWatchResult>() == 40, "HostGlueSqliteWatchResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueSqliteWatchResult>() == 8, "HostGlueSqliteWatchResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(HostGlueSqliteWatchResult, tag) == 32, "HostGlueSqliteWatchResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueSqliteWatchResult>() == 20, "HostGlueSqliteWatchResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueSqliteWatchResult>() == 4, "HostGlueSqliteWatchResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(HostGlueSqliteWatchResult, tag) == 16, "HostGlueSqliteWatchResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostGlueSqliteQueryResultTag {
     Err = 0,
     Ok = 1,
@@ -3171,7 +4196,7 @@ pub enum HostGlueSqliteQueryResultTag {
 #[derive(Clone, Copy)]
 pub union HostGlueSqliteQueryResultPayload {
     pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
-    pub ok: core::mem::ManuallyDrop<AnonStructD8780653fb52f85f>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct89852815e920c968>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -3185,7 +4210,7 @@ pub struct HostGlueSqliteQueryResultPayloadAlignment;
 #[derive(Clone, Copy)]
 pub struct HostGlueSqliteQueryResult {
     pub _payload_alignment: [HostGlueSqliteQueryResultPayloadAlignment; 0],
-    pub payload: [u8; 24],
+    pub payload: [u8; 28],
     pub tag: HostGlueSqliteQueryResultTag,
 }
 
@@ -3240,8 +4265,8 @@ impl HostGlueSqliteQueryResult {
     /// # Safety
     /// `self.tag` must be `HostGlueSqliteQueryResultTag::Ok` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructD8780653fb52f85f {
-        unsafe { &*(self.payload.as_ptr() as *const AnonStructD8780653fb52f85f) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct89852815e920c968 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct89852815e920c968) }
     }
 
     /// Borrow the `Ok` payload without creating another owner.
@@ -3249,8 +4274,8 @@ impl HostGlueSqliteQueryResult {
     /// # Safety
     /// `self.tag` must be `HostGlueSqliteQueryResultTag::Ok` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructD8780653fb52f85f {
-        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStructD8780653fb52f85f> as *const AnonStructD8780653fb52f85f) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct89852815e920c968 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct89852815e920c968> as *const AnonStruct89852815e920c968) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -3258,8 +4283,8 @@ impl HostGlueSqliteQueryResult {
     /// # Safety
     /// `self.tag` must be `HostGlueSqliteQueryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructD8780653fb52f85f {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructD8780653fb52f85f) }
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct89852815e920c968 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct89852815e920c968) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -3267,24 +4292,24 @@ impl HostGlueSqliteQueryResult {
     /// # Safety
     /// `self.tag` must be `HostGlueSqliteQueryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructD8780653fb52f85f {
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct89852815e920c968 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
     }
 
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueSqliteQueryResult>() == 56, "HostGlueSqliteQueryResult size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueSqliteQueryResult>() == 64, "HostGlueSqliteQueryResult size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueSqliteQueryResult>() == 8, "HostGlueSqliteQueryResult alignment mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(HostGlueSqliteQueryResult, tag) == 48, "HostGlueSqliteQueryResult tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(HostGlueSqliteQueryResult, tag) == 56, "HostGlueSqliteQueryResult tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueSqliteQueryResult>() == 28, "HostGlueSqliteQueryResult size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueSqliteQueryResult>() == 32, "HostGlueSqliteQueryResult size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueSqliteQueryResult>() == 4, "HostGlueSqliteQueryResult alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(HostGlueSqliteQueryResult, tag) == 24, "HostGlueSqliteQueryResult tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(HostGlueSqliteQueryResult, tag) == 28, "HostGlueSqliteQueryResult tag offset mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -7292,8 +8317,8 @@ pub enum InternalFilesPickDirectoryResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union InternalFilesPickDirectoryResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
-    pub ok: core::mem::ManuallyDrop<CanceledOrChosen>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>,
+    pub ok: core::mem::ManuallyDrop<CanceledOrChosenType249>,
 }
 
 #[cfg(target_pointer_width = "32")]
@@ -7326,8 +8351,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -7335,8 +8360,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7344,8 +8369,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7353,7 +8378,7 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -7362,8 +8387,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosen {
-        unsafe { &*(self.payload.as_ptr() as *const CanceledOrChosen) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType249 {
+        unsafe { &*(self.payload.as_ptr() as *const CanceledOrChosenType249) }
     }
 
     /// Borrow the `Ok` payload without creating another owner.
@@ -7371,8 +8396,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosen {
-        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrChosen> as *const CanceledOrChosen) }
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType249 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrChosenType249> as *const CanceledOrChosenType249) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -7380,8 +8405,8 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosen {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrChosen) }
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType249 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrChosenType249) }
     }
 
     /// Move the `Ok` payload out of one owned tag-union shell.
@@ -7389,7 +8414,7 @@ impl InternalFilesPickDirectoryResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesPickDirectoryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosen {
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType249 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
     }
 
@@ -7408,58 +8433,62 @@ const _: () = assert!(core::mem::align_of::<InternalFilesPickDirectoryResult>() 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(InternalFilesPickDirectoryResult, tag) == 20, "InternalFilesPickDirectoryResult tag offset mismatch");
 
-/// Tag discriminant for ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr.
+/// Tag discriminant for ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag {
+pub enum ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag {
     ListDirectoryErr = 0,
     OpenAppDataErr = 1,
     OpenReadDirectoryErr = 2,
     PickDirectoryErr = 3,
-    ReadFileErr = 4,
-    WriteFileErr = 5,
+    PickFileErr = 4,
+    ReadFileErr = 5,
+    WatchDirectoryErr = 6,
+    WriteFileErr = 7,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload {
+pub union ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload {
     pub list_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
     pub open_app_data_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
     pub open_read_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
     pub pick_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+    pub pick_file_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
     pub read_file_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
+    pub watch_directory_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
     pub write_file_err: core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported>,
 }
 
 #[cfg(target_pointer_width = "32")]
 #[repr(align(1))]
 #[derive(Clone, Copy)]
-pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayloadAlignment;
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayloadAlignment;
 
-/// Tag union: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr
+/// Tag union: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-    pub _payload_alignment: [ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayloadAlignment; 0],
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+    pub _payload_alignment: [ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayloadAlignment; 0],
     pub payload: [u8; 1],
-    pub tag: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag,
+    pub tag: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag,
 }
 
-/// Tag union: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr
+/// Tag union: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-    pub payload: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload,
-    pub tag: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag,
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+    pub payload: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload,
+    pub tag: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag,
 }
 
-impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
     /// Borrow the `ListDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ListDirectoryErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_list_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7468,7 +8497,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `ListDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ListDirectoryErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_list_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(&self.payload.list_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7477,7 +8506,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `ListDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_list_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7486,7 +8515,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `ListDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ListDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_list_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.list_directory_err) }
@@ -7495,7 +8524,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `OpenAppDataErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenAppDataErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_open_app_data_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7504,7 +8533,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `OpenAppDataErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenAppDataErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_open_app_data_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(&self.payload.open_app_data_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7513,7 +8542,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `OpenAppDataErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenAppDataErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_open_app_data_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7522,7 +8551,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `OpenAppDataErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenAppDataErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_open_app_data_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.open_app_data_err) }
@@ -7531,7 +8560,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `OpenReadDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_open_read_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7540,7 +8569,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `OpenReadDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenReadDirectoryErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_open_read_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(&self.payload.open_read_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7549,7 +8578,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `OpenReadDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_open_read_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7558,7 +8587,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `OpenReadDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenReadDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_open_read_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.open_read_directory_err) }
@@ -7567,7 +8596,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `PickDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickDirectoryErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_pick_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7576,7 +8605,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `PickDirectoryErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickDirectoryErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_pick_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(&self.payload.pick_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7585,7 +8614,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `PickDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_pick_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7594,16 +8623,52 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `PickDirectoryErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_pick_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.pick_directory_err) }
     }
 
+    /// Borrow the `PickFileErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickFileErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_pick_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Borrow the `PickFileErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickFileErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_pick_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.pick_file_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `PickFileErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_pick_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `PickFileErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_pick_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.pick_file_err) }
+    }
+
     /// Borrow the `ReadFileErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ReadFileErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_read_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7612,7 +8677,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `ReadFileErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ReadFileErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_read_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(&self.payload.read_file_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7621,7 +8686,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `ReadFileErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_read_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7630,16 +8695,52 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `ReadFileErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ReadFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_read_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.read_file_err) }
     }
 
+    /// Borrow the `WatchDirectoryErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WatchDirectoryErr` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_watch_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Borrow the `WatchDirectoryErr` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WatchDirectoryErr` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_watch_directory_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { &*(&self.payload.watch_directory_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `WatchDirectoryErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WatchDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_watch_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
+    }
+
+    /// Move the `WatchDirectoryErr` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WatchDirectoryErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_watch_directory_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.watch_directory_err) }
+    }
+
     /// Borrow the `WriteFileErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WriteFileErr` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_write_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7648,7 +8749,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Borrow the `WriteFileErr` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr` and the payload must still be initialized.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WriteFileErr` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_write_file_err_unchecked(&self) -> &AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { &*(&self.payload.write_file_err as *const core::mem::ManuallyDrop<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported> as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7657,7 +8758,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `WriteFileErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WriteFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_write_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported) }
@@ -7666,7 +8767,7 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     /// Move the `WriteFileErr` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WriteFileErr`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_write_file_err_unchecked(&mut self) -> AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.write_file_err) }
@@ -7675,17 +8776,17 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 2, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr size mismatch");
+const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>() == 2, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr alignment mismatch");
+const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>() == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr alignment mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr, tag) == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr, tag) == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 2, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr size mismatch");
+const _: () = assert!(core::mem::size_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>() == 2, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>() == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr alignment mismatch");
+const _: () = assert!(core::mem::align_of::<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>() == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr, tag) == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr, tag) == 1, "ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr tag offset mismatch");
 
 /// Tag union: AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported
 #[repr(u8)]
@@ -7716,14 +8817,14 @@ const _: () = assert!(core::mem::align_of::<AccessDeniedOrInvalidCapabilityOrInv
 /// Tag discriminant for CanceledOrChosen.
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CanceledOrChosenTag {
+pub enum CanceledOrChosenType249Tag {
     Canceled = 0,
     Chosen = 1,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union CanceledOrChosenPayload {
+pub union CanceledOrChosenType249Payload {
     pub canceled: [u8; 0],
     pub chosen: core::mem::ManuallyDrop<AnonStruct4869dafad3498788>,
 }
@@ -7731,32 +8832,32 @@ pub union CanceledOrChosenPayload {
 #[cfg(target_pointer_width = "32")]
 #[repr(align(4))]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosenPayloadAlignment;
+pub struct CanceledOrChosenType249PayloadAlignment;
 
 /// Tag union: CanceledOrChosen
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosen {
-    pub _payload_alignment: [CanceledOrChosenPayloadAlignment; 0],
+pub struct CanceledOrChosenType249 {
+    pub _payload_alignment: [CanceledOrChosenType249PayloadAlignment; 0],
     pub payload: [u8; 16],
-    pub tag: CanceledOrChosenTag,
+    pub tag: CanceledOrChosenType249Tag,
 }
 
 /// Tag union: CanceledOrChosen
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct CanceledOrChosen {
-    pub payload: CanceledOrChosenPayload,
-    pub tag: CanceledOrChosenTag,
+pub struct CanceledOrChosenType249 {
+    pub payload: CanceledOrChosenType249Payload,
+    pub tag: CanceledOrChosenType249Tag,
 }
 
-impl CanceledOrChosen {
+impl CanceledOrChosenType249 {
     /// Borrow the `Chosen` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenTag::Chosen` and the payload must still be initialized.
+    /// `self.tag` must be `CanceledOrChosenType249Tag::Chosen` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStruct4869dafad3498788 {
         unsafe { &*(self.payload.as_ptr() as *const AnonStruct4869dafad3498788) }
@@ -7765,7 +8866,7 @@ impl CanceledOrChosen {
     /// Borrow the `Chosen` payload without creating another owner.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenTag::Chosen` and the payload must still be initialized.
+    /// `self.tag` must be `CanceledOrChosenType249Tag::Chosen` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStruct4869dafad3498788 {
         unsafe { &*(&self.payload.chosen as *const core::mem::ManuallyDrop<AnonStruct4869dafad3498788> as *const AnonStruct4869dafad3498788) }
@@ -7774,7 +8875,7 @@ impl CanceledOrChosen {
     /// Move the `Chosen` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenTag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `CanceledOrChosenType249Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
     pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStruct4869dafad3498788 {
         unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4869dafad3498788) }
@@ -7783,7 +8884,7 @@ impl CanceledOrChosen {
     /// Move the `Chosen` payload out of one owned tag-union shell.
     ///
     /// # Safety
-    /// `self.tag` must be `CanceledOrChosenTag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    /// `self.tag` must be `CanceledOrChosenType249Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
     pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStruct4869dafad3498788 {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.chosen) }
@@ -7792,17 +8893,17 @@ impl CanceledOrChosen {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<CanceledOrChosen>() == 40, "CanceledOrChosen size mismatch");
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType249>() == 40, "CanceledOrChosenType249 size mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::align_of::<CanceledOrChosen>() == 8, "CanceledOrChosen alignment mismatch");
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType249>() == 8, "CanceledOrChosenType249 alignment mismatch");
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::offset_of!(CanceledOrChosen, tag) == 32, "CanceledOrChosen tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType249, tag) == 32, "CanceledOrChosenType249 tag offset mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<CanceledOrChosen>() == 20, "CanceledOrChosen size mismatch");
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType249>() == 20, "CanceledOrChosenType249 size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<CanceledOrChosen>() == 4, "CanceledOrChosen alignment mismatch");
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType249>() == 4, "CanceledOrChosenType249 alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::offset_of!(CanceledOrChosen, tag) == 16, "CanceledOrChosen tag offset mismatch");
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType249, tag) == 16, "CanceledOrChosenType249 tag offset mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -7815,7 +8916,7 @@ pub enum InternalFilesDirListResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union InternalFilesDirListResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>,
     pub ok: core::mem::ManuallyDrop<RocList<AnonStruct770b9d9b3d3d255>>,
 }
 
@@ -7849,8 +8950,8 @@ impl InternalFilesDirListResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirListResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -7858,8 +8959,8 @@ impl InternalFilesDirListResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirListResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7867,8 +8968,8 @@ impl InternalFilesDirListResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirListResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -7876,7 +8977,7 @@ impl InternalFilesDirListResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirListResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -8052,7 +9153,7 @@ pub enum InternalFilesDirOpenReadResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union InternalFilesDirOpenReadResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>,
     pub ok: core::mem::ManuallyDrop<*mut u64>,
 }
 
@@ -8086,8 +9187,8 @@ impl InternalFilesDirOpenReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirOpenReadResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -8095,8 +9196,8 @@ impl InternalFilesDirOpenReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirOpenReadResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -8104,8 +9205,8 @@ impl InternalFilesDirOpenReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirOpenReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -8113,7 +9214,7 @@ impl InternalFilesDirOpenReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirOpenReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -8179,7 +9280,7 @@ pub enum InternalFilesDirReadResultTag {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union InternalFilesDirReadResultPayload {
-    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr>,
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>,
     pub ok: core::mem::ManuallyDrop<RocListWith<u8, false>>,
 }
 
@@ -8213,8 +9314,8 @@ impl InternalFilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirReadResultTag::Err` and the payload must still be initialized.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Borrow the `Err` payload without creating another owner.
@@ -8222,8 +9323,8 @@ impl InternalFilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirReadResultTag::Err` and the payload must still be initialized.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -8231,8 +9332,8 @@ impl InternalFilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(target_pointer_width = "32")]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
-        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr) }
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
     }
 
     /// Move the `Err` payload out of one owned tag-union shell.
@@ -8240,7 +9341,7 @@ impl InternalFilesDirReadResult {
     /// # Safety
     /// `self.tag` must be `InternalFilesDirReadResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
     #[cfg(not(target_pointer_width = "32"))]
-    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
         unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
     }
 
@@ -8294,6 +9395,732 @@ const _: () = assert!(core::mem::size_of::<InternalFilesDirReadResult>() == 16, 
 const _: () = assert!(core::mem::align_of::<InternalFilesDirReadResult>() == 4, "InternalFilesDirReadResult alignment mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::offset_of!(InternalFilesDirReadResult, tag) == 12, "InternalFilesDirReadResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InternalFilesDirSha256ResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesDirSha256ResultPayload {
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>,
+    pub ok: core::mem::ManuallyDrop<RocStr>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256ResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256Result {
+    pub _payload_alignment: [InternalFilesDirSha256ResultPayloadAlignment; 0],
+    pub payload: [u8; 12],
+    pub tag: InternalFilesDirSha256ResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256Result {
+    pub payload: InternalFilesDirSha256ResultPayload,
+    pub tag: InternalFilesDirSha256ResultTag,
+}
+
+impl InternalFilesDirSha256Result {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocStr {
+        unsafe { &*(self.payload.as_ptr() as *const RocStr) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &RocStr {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<RocStr> as *const RocStr) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocStr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const RocStr) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirSha256ResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> RocStr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesDirSha256Result>() == 32, "InternalFilesDirSha256Result size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesDirSha256Result>() == 8, "InternalFilesDirSha256Result alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesDirSha256Result, tag) == 24, "InternalFilesDirSha256Result tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesDirSha256Result>() == 16, "InternalFilesDirSha256Result size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesDirSha256Result>() == 4, "InternalFilesDirSha256Result alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesDirSha256Result, tag) == 12, "InternalFilesDirSha256Result tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InternalFilesDirWatchResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesDirWatchResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct4c605145331877e7>,
+    pub ok: core::mem::ManuallyDrop<*mut u64>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirWatchResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirWatchResult {
+    pub _payload_alignment: [InternalFilesDirWatchResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: InternalFilesDirWatchResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirWatchResult {
+    pub payload: InternalFilesDirWatchResultPayload,
+    pub tag: InternalFilesDirWatchResultTag,
+}
+
+impl InternalFilesDirWatchResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct4c605145331877e7 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct4c605145331877e7> as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4c605145331877e7) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct4c605145331877e7 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &*mut u64 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<*mut u64> as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const *mut u64) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesDirWatchResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> *mut u64 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesDirWatchResult>() == 40, "InternalFilesDirWatchResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesDirWatchResult>() == 8, "InternalFilesDirWatchResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesDirWatchResult, tag) == 32, "InternalFilesDirWatchResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesDirWatchResult>() == 20, "InternalFilesDirWatchResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesDirWatchResult>() == 4, "InternalFilesDirWatchResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesDirWatchResult, tag) == 16, "InternalFilesDirWatchResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InternalFilesPickFileResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesPickFileResultPayload {
+    pub err: core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr>,
+    pub ok: core::mem::ManuallyDrop<CanceledOrChosenType292>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesPickFileResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesPickFileResult {
+    pub _payload_alignment: [InternalFilesPickFileResultPayloadAlignment; 0],
+    pub payload: [u8; 20],
+    pub tag: InternalFilesPickFileResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesPickFileResult {
+    pub payload: InternalFilesPickFileResultPayload,
+    pub tag: InternalFilesPickFileResultTag,
+}
+
+impl InternalFilesPickFileResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr> as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType292 {
+        unsafe { &*(self.payload.as_ptr() as *const CanceledOrChosenType292) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &CanceledOrChosenType292 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<CanceledOrChosenType292> as *const CanceledOrChosenType292) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType292 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const CanceledOrChosenType292) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesPickFileResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> CanceledOrChosenType292 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesPickFileResult>() == 48, "InternalFilesPickFileResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesPickFileResult>() == 8, "InternalFilesPickFileResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesPickFileResult, tag) == 40, "InternalFilesPickFileResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesPickFileResult>() == 24, "InternalFilesPickFileResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesPickFileResult>() == 4, "InternalFilesPickFileResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesPickFileResult, tag) == 20, "InternalFilesPickFileResult tag offset mismatch");
+
+/// Tag discriminant for CanceledOrChosen.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CanceledOrChosenType292Tag {
+    Canceled = 0,
+    Chosen = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union CanceledOrChosenType292Payload {
+    pub canceled: [u8; 0],
+    pub chosen: core::mem::ManuallyDrop<AnonStructA295f39559baa24d>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct CanceledOrChosenType292PayloadAlignment;
+
+/// Tag union: CanceledOrChosen
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CanceledOrChosenType292 {
+    pub _payload_alignment: [CanceledOrChosenType292PayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: CanceledOrChosenType292Tag,
+}
+
+/// Tag union: CanceledOrChosen
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CanceledOrChosenType292 {
+    pub payload: CanceledOrChosenType292Payload,
+    pub tag: CanceledOrChosenType292Tag,
+}
+
+impl CanceledOrChosenType292 {
+    /// Borrow the `Chosen` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrChosenType292Tag::Chosen` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStructA295f39559baa24d {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStructA295f39559baa24d) }
+    }
+
+    /// Borrow the `Chosen` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrChosenType292Tag::Chosen` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_chosen_unchecked(&self) -> &AnonStructA295f39559baa24d {
+        unsafe { &*(&self.payload.chosen as *const core::mem::ManuallyDrop<AnonStructA295f39559baa24d> as *const AnonStructA295f39559baa24d) }
+    }
+
+    /// Move the `Chosen` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrChosenType292Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStructA295f39559baa24d {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructA295f39559baa24d) }
+    }
+
+    /// Move the `Chosen` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `CanceledOrChosenType292Tag::Chosen`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_chosen_unchecked(&mut self) -> AnonStructA295f39559baa24d {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.chosen) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType292>() == 40, "CanceledOrChosenType292 size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType292>() == 8, "CanceledOrChosenType292 alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType292, tag) == 32, "CanceledOrChosenType292 tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<CanceledOrChosenType292>() == 20, "CanceledOrChosenType292 size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<CanceledOrChosenType292>() == 4, "CanceledOrChosenType292 alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(CanceledOrChosenType292, tag) == 16, "CanceledOrChosenType292 tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InternalFilesReopenFileResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesReopenFileResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct45708337b22b1f51>,
+    pub ok: core::mem::ManuallyDrop<AnonStructA295f39559baa24d>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenFileResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenFileResult {
+    pub _payload_alignment: [InternalFilesReopenFileResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: InternalFilesReopenFileResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenFileResult {
+    pub payload: InternalFilesReopenFileResultPayload,
+    pub tag: InternalFilesReopenFileResultTag,
+}
+
+impl InternalFilesReopenFileResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct45708337b22b1f51 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct45708337b22b1f51) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct45708337b22b1f51 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct45708337b22b1f51> as *const AnonStruct45708337b22b1f51) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct45708337b22b1f51 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct45708337b22b1f51) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct45708337b22b1f51 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructA295f39559baa24d {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStructA295f39559baa24d) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStructA295f39559baa24d {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStructA295f39559baa24d> as *const AnonStructA295f39559baa24d) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructA295f39559baa24d {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStructA295f39559baa24d) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenFileResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStructA295f39559baa24d {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesReopenFileResult>() == 40, "InternalFilesReopenFileResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesReopenFileResult>() == 8, "InternalFilesReopenFileResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesReopenFileResult, tag) == 32, "InternalFilesReopenFileResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesReopenFileResult>() == 20, "InternalFilesReopenFileResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesReopenFileResult>() == 4, "InternalFilesReopenFileResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesReopenFileResult, tag) == 16, "InternalFilesReopenFileResult tag offset mismatch");
+
+/// Tag discriminant for Try.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InternalFilesReopenDirectoryResultTag {
+    Err = 0,
+    Ok = 1,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union InternalFilesReopenDirectoryResultPayload {
+    pub err: core::mem::ManuallyDrop<AnonStruct45708337b22b1f51>,
+    pub ok: core::mem::ManuallyDrop<AnonStruct4869dafad3498788>,
+}
+
+#[cfg(target_pointer_width = "32")]
+#[repr(align(4))]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenDirectoryResultPayloadAlignment;
+
+/// Tag union: Try
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenDirectoryResult {
+    pub _payload_alignment: [InternalFilesReopenDirectoryResultPayloadAlignment; 0],
+    pub payload: [u8; 16],
+    pub tag: InternalFilesReopenDirectoryResultTag,
+}
+
+/// Tag union: Try
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenDirectoryResult {
+    pub payload: InternalFilesReopenDirectoryResultPayload,
+    pub tag: InternalFilesReopenDirectoryResultTag,
+}
+
+impl InternalFilesReopenDirectoryResult {
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Err` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct45708337b22b1f51 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct45708337b22b1f51) }
+    }
+
+    /// Borrow the `Err` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Err` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_err_unchecked(&self) -> &AnonStruct45708337b22b1f51 {
+        unsafe { &*(&self.payload.err as *const core::mem::ManuallyDrop<AnonStruct45708337b22b1f51> as *const AnonStruct45708337b22b1f51) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct45708337b22b1f51 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct45708337b22b1f51) }
+    }
+
+    /// Move the `Err` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Err`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_err_unchecked(&mut self) -> AnonStruct45708337b22b1f51 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.err) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Ok` and the payload must still be initialized.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct4869dafad3498788 {
+        unsafe { &*(self.payload.as_ptr() as *const AnonStruct4869dafad3498788) }
+    }
+
+    /// Borrow the `Ok` payload without creating another owner.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Ok` and the payload must still be initialized.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn borrow_payload_ok_unchecked(&self) -> &AnonStruct4869dafad3498788 {
+        unsafe { &*(&self.payload.ok as *const core::mem::ManuallyDrop<AnonStruct4869dafad3498788> as *const AnonStruct4869dafad3498788) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(target_pointer_width = "32")]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct4869dafad3498788 {
+        unsafe { core::ptr::read(self.payload.as_ptr() as *const AnonStruct4869dafad3498788) }
+    }
+
+    /// Move the `Ok` payload out of one owned tag-union shell.
+    ///
+    /// # Safety
+    /// `self.tag` must be `InternalFilesReopenDirectoryResultTag::Ok`. After this call, `self` is logically uninitialized and must not be read or destroyed.
+    #[cfg(not(target_pointer_width = "32"))]
+    pub unsafe fn take_payload_ok_unchecked(&mut self) -> AnonStruct4869dafad3498788 {
+        unsafe { core::mem::ManuallyDrop::take(&mut self.payload.ok) }
+    }
+
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesReopenDirectoryResult>() == 40, "InternalFilesReopenDirectoryResult size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesReopenDirectoryResult>() == 8, "InternalFilesReopenDirectoryResult alignment mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesReopenDirectoryResult, tag) == 32, "InternalFilesReopenDirectoryResult tag offset mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesReopenDirectoryResult>() == 20, "InternalFilesReopenDirectoryResult size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesReopenDirectoryResult>() == 4, "InternalFilesReopenDirectoryResult alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::offset_of!(InternalFilesReopenDirectoryResult, tag) == 16, "InternalFilesReopenDirectoryResult tag offset mismatch");
 
 /// Tag discriminant for Try.
 #[repr(u8)]
@@ -8669,6 +10496,39 @@ const _: () = assert!(core::mem::size_of::<HostGlueComponentResolveRetRecord>() 
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueComponentResolveRetRecord>() == 8, "HostGlueComponentResolveRetRecord alignment mismatch");
 
+/// Return type record for HostGlue.node_popover!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodePopoverRetRecord {
+    pub hover_enter: u64,
+    pub hover_exit: u64,
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+/// Return type record for HostGlue.node_popover!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodePopoverRetRecord {
+    pub hover_enter: u64,
+    pub hover_exit: u64,
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodePopoverRetRecord>() == 32, "HostGlueNodePopoverRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodePopoverRetRecord>() == 8, "HostGlueNodePopoverRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodePopoverRetRecord>() == 32, "HostGlueNodePopoverRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodePopoverRetRecord>() == 8, "HostGlueNodePopoverRetRecord alignment mismatch");
+
 /// Return type record for HostGlue.node_action_button!
 /// Fields ordered by compiler-emitted ABI offsets.
 #[cfg(target_pointer_width = "32")]
@@ -8707,6 +10567,8 @@ const _: () = assert!(core::mem::align_of::<HostGlueNodeActionButtonRetRecord>()
 #[derive(Clone, Copy)]
 pub struct HostGlueCanvasEventRetRecord {
     pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
     pub x: i32,
     pub y: i32,
     pub phase: u8,
@@ -8719,19 +10581,199 @@ pub struct HostGlueCanvasEventRetRecord {
 #[derive(Clone, Copy)]
 pub struct HostGlueCanvasEventRetRecord {
     pub target: u64,
+    pub dx: i32,
+    pub dy: i32,
     pub x: i32,
     pub y: i32,
     pub phase: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 24, "HostGlueCanvasEventRetRecord size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 32, "HostGlueCanvasEventRetRecord size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueCanvasEventRetRecord>() == 8, "HostGlueCanvasEventRetRecord alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 24, "HostGlueCanvasEventRetRecord size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueCanvasEventRetRecord>() == 32, "HostGlueCanvasEventRetRecord size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueCanvasEventRetRecord>() == 8, "HostGlueCanvasEventRetRecord alignment mismatch");
+
+/// Return type record for HostGlue.shortcut_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueShortcutEventRetRecord {
+    pub index: u64,
+    pub keys: RocStr,
+}
+
+/// Return type record for HostGlue.shortcut_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueShortcutEventRetRecord {
+    pub index: u64,
+    pub keys: RocStr,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueShortcutEventRetRecord>() == 32, "HostGlueShortcutEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueShortcutEventRetRecord>() == 8, "HostGlueShortcutEventRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueShortcutEventRetRecord>() == 24, "HostGlueShortcutEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueShortcutEventRetRecord>() == 8, "HostGlueShortcutEventRetRecord alignment mismatch");
+
+/// Return type record for HostGlue.node_split!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeSplitRetRecord {
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+/// Return type record for HostGlue.node_split!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeSplitRetRecord {
+    pub id: u64,
+    pub shortcut: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeSplitRetRecord>() == 16, "HostGlueNodeSplitRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeSplitRetRecord>() == 8, "HostGlueNodeSplitRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeSplitRetRecord>() == 16, "HostGlueNodeSplitRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeSplitRetRecord>() == 8, "HostGlueNodeSplitRetRecord alignment mismatch");
+
+/// Return type record for HostGlue.resize_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueResizeEventRetRecord {
+    pub size: u32,
+    pub collapsed: bool,
+}
+
+/// Return type record for HostGlue.resize_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueResizeEventRetRecord {
+    pub size: u32,
+    pub collapsed: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueResizeEventRetRecord>() == 8, "HostGlueResizeEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueResizeEventRetRecord>() == 4, "HostGlueResizeEventRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueResizeEventRetRecord>() == 8, "HostGlueResizeEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueResizeEventRetRecord>() == 4, "HostGlueResizeEventRetRecord alignment mismatch");
+
+/// Return type record for HostGlue.drop_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDropEventRetRecord {
+    pub files: RocList<AnonStructA295f39559baa24d>,
+    pub refused: RocList<AnonStruct6fe360748589880f>,
+}
+
+/// Return type record for HostGlue.drop_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueDropEventRetRecord {
+    pub files: RocList<AnonStructA295f39559baa24d>,
+    pub refused: RocList<AnonStruct6fe360748589880f>,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueDropEventRetRecord>() == 48, "HostGlueDropEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueDropEventRetRecord>() == 8, "HostGlueDropEventRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueDropEventRetRecord>() == 24, "HostGlueDropEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueDropEventRetRecord>() == 4, "HostGlueDropEventRetRecord alignment mismatch");
+
+/// Return type record for HostGlue.virtual_window!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueVirtualWindowRetRecord {
+    pub end: u64,
+    pub first: u64,
+}
+
+/// Return type record for HostGlue.virtual_window!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueVirtualWindowRetRecord {
+    pub end: u64,
+    pub first: u64,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueVirtualWindowRetRecord>() == 16, "HostGlueVirtualWindowRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueVirtualWindowRetRecord>() == 8, "HostGlueVirtualWindowRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueVirtualWindowRetRecord>() == 16, "HostGlueVirtualWindowRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueVirtualWindowRetRecord>() == 8, "HostGlueVirtualWindowRetRecord alignment mismatch");
+
+/// Return type record for HostGlue.virtual_rows_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueVirtualRowsEventRetRecord {
+    pub end: u64,
+    pub start: u64,
+    pub refresh: bool,
+    pub report: bool,
+}
+
+/// Return type record for HostGlue.virtual_rows_event!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueVirtualRowsEventRetRecord {
+    pub end: u64,
+    pub start: u64,
+    pub refresh: bool,
+    pub report: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueVirtualRowsEventRetRecord>() == 24, "HostGlueVirtualRowsEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueVirtualRowsEventRetRecord>() == 8, "HostGlueVirtualRowsEventRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueVirtualRowsEventRetRecord>() == 24, "HostGlueVirtualRowsEventRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueVirtualRowsEventRetRecord>() == 8, "HostGlueVirtualRowsEventRetRecord alignment mismatch");
 
 /// Return type record for HostGlue.node_text_input!
 /// Fields ordered by compiler-emitted ABI offsets.
@@ -8763,6 +10805,39 @@ const _: () = assert!(core::mem::align_of::<HostGlueNodeTextInputRetRecord>() ==
 const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputRetRecord>() == 24, "HostGlueNodeTextInputRetRecord size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextInputRetRecord>() == 8, "HostGlueNodeTextInputRetRecord alignment mismatch");
+
+/// Return type record for InternalFiles.watch_next!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWatchNextRetRecord {
+    pub names: RocList<RocStr>,
+    pub code: u8,
+    pub overflowed: bool,
+    pub replaced: bool,
+}
+
+/// Return type record for InternalFiles.watch_next!
+/// Fields ordered by compiler-emitted ABI offsets.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWatchNextRetRecord {
+    pub names: RocList<RocStr>,
+    pub code: u8,
+    pub overflowed: bool,
+    pub replaced: bool,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<InternalFilesWatchNextRetRecord>() == 32, "InternalFilesWatchNextRetRecord size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<InternalFilesWatchNextRetRecord>() == 8, "InternalFilesWatchNextRetRecord alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<InternalFilesWatchNextRetRecord>() == 16, "InternalFilesWatchNextRetRecord size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<InternalFilesWatchNextRetRecord>() == 4, "InternalFilesWatchNextRetRecord alignment mismatch");
 
 /// Arguments for HostGlue.node_text!
 /// Roc signature: Str => U64
@@ -8774,41 +10849,43 @@ pub struct HostGlueNodeTextArgs {
 }
 
 /// Arguments for HostGlue.node_styled_text!
-/// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, value : Str } => U64
+/// Roc signature: { fg : U64, font_face : U8, font_size : U32, font_weight : U32, runs : List({ bg : U64, fg : U64, font_weight : U32, len : U64, monospace : Bool, underline : Bool }), value : Str } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeStyledTextArgs {
+    pub fg: u64,
+    pub runs: RocListWith<AnonStructFdc3cce9386720ed, false>,
     pub value: RocStr,
-    pub fg: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub font_face: u8,
 }
 
 /// Arguments for HostGlue.node_styled_text!
-/// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, value : Str } => U64
+/// Roc signature: { fg : U64, font_face : U8, font_size : U32, font_weight : U32, runs : List({ bg : U64, fg : U64, font_weight : U32, len : U64, monospace : Bool, underline : Bool }), value : Str } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeStyledTextArgs {
+    pub fg: u64,
+    pub runs: RocListWith<AnonStructFdc3cce9386720ed, false>,
     pub value: RocStr,
-    pub fg: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub font_face: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 40, "HostGlueNodeStyledTextArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 72, "HostGlueNodeStyledTextArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeStyledTextArgs>() == 8, "HostGlueNodeStyledTextArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 28, "HostGlueNodeStyledTextArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeStyledTextArgs>() == 48, "HostGlueNodeStyledTextArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<HostGlueNodeStyledTextArgs>() == 4, "HostGlueNodeStyledTextArgs alignment mismatch");
+const _: () = assert!(core::mem::align_of::<HostGlueNodeStyledTextArgs>() == 8, "HostGlueNodeStyledTextArgs alignment mismatch");
 
 impl HostGlueNodeStyledTextArgs {
     /// Recursively decrement Roc-owned fields.
@@ -8817,6 +10894,7 @@ impl HostGlueNodeStyledTextArgs {
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
+        unsafe { value.runs.decref(roc_host); }
         unsafe { value.value.decref(roc_host); }
     }
 
@@ -8827,6 +10905,7 @@ impl HostGlueNodeStyledTextArgs {
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
+        unsafe { value.runs.incref(amount); }
         unsafe { value.value.incref(amount); }
     }
 }
@@ -8889,7 +10968,7 @@ impl HostGlueKeyedSeedArgs {
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
-        unsafe { decref_list_of_list_of_type4(value.keys, roc_host); }
+        unsafe { decref_list_of_list_of_type3(value.keys, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -9239,30 +11318,31 @@ pub struct HostGlueComponentEnterArgs {
 }
 
 /// Arguments for HostGlue.node_row!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeRowArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9274,7 +11354,6 @@ pub struct HostGlueNodeRowArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9293,30 +11372,31 @@ pub struct HostGlueNodeRowArgs {
 }
 
 /// Arguments for HostGlue.node_row!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeRowArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9328,7 +11408,6 @@ pub struct HostGlueNodeRowArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9347,11 +11426,11 @@ pub struct HostGlueNodeRowArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 168, "HostGlueNodeRowArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 208, "HostGlueNodeRowArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeRowArgs>() == 8, "HostGlueNodeRowArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 160, "HostGlueNodeRowArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeRowArgs>() == 192, "HostGlueNodeRowArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeRowArgs>() == 8, "HostGlueNodeRowArgs alignment mismatch");
 
@@ -9385,30 +11464,31 @@ unsafe impl RocRelease<HostGlueNodeRowArgs> for HostGlueNodeRowArgsRelease {
 }
 
 /// Arguments for HostGlue.node_column!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeColumnArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9420,7 +11500,6 @@ pub struct HostGlueNodeColumnArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9439,30 +11518,31 @@ pub struct HostGlueNodeColumnArgs {
 }
 
 /// Arguments for HostGlue.node_column!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeColumnArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9474,7 +11554,6 @@ pub struct HostGlueNodeColumnArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9493,11 +11572,11 @@ pub struct HostGlueNodeColumnArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 168, "HostGlueNodeColumnArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 208, "HostGlueNodeColumnArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeColumnArgs>() == 8, "HostGlueNodeColumnArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 160, "HostGlueNodeColumnArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeColumnArgs>() == 192, "HostGlueNodeColumnArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeColumnArgs>() == 8, "HostGlueNodeColumnArgs alignment mismatch");
 
@@ -9531,30 +11610,31 @@ unsafe impl RocRelease<HostGlueNodeColumnArgs> for HostGlueNodeColumnArgsRelease
 }
 
 /// Arguments for HostGlue.node_dialog!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeDialogArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9566,7 +11646,6 @@ pub struct HostGlueNodeDialogArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9585,30 +11664,31 @@ pub struct HostGlueNodeDialogArgs {
 }
 
 /// Arguments for HostGlue.node_dialog!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeDialogArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9620,7 +11700,6 @@ pub struct HostGlueNodeDialogArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9639,11 +11718,11 @@ pub struct HostGlueNodeDialogArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 168, "HostGlueNodeDialogArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 208, "HostGlueNodeDialogArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeDialogArgs>() == 8, "HostGlueNodeDialogArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 160, "HostGlueNodeDialogArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDialogArgs>() == 192, "HostGlueNodeDialogArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeDialogArgs>() == 8, "HostGlueNodeDialogArgs alignment mismatch");
 
@@ -9676,31 +11755,35 @@ unsafe impl RocRelease<HostGlueNodeDialogArgs> for HostGlueNodeDialogArgsRelease
     }
 }
 
-/// Arguments for HostGlue.node_panel!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Arguments for HostGlue.node_popover!
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, delay_ms : U32, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, focus_serial : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placement : U8, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, shortcuts : List({ focus : Bool, keys : Str }), text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64, shortcut : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct HostGlueNodePanelArgs {
+pub struct HostGlueNodePopoverArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub focus_serial: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
+    pub shortcuts: RocList<AnonStruct1d0ac13b7d648fa3>,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
+    pub delay_ms: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9712,7 +11795,163 @@ pub struct HostGlueNodePanelArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub hover_enter: bool,
+    pub hover_exit: bool,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub placement: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+/// Arguments for HostGlue.node_popover!
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, delay_ms : U32, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, focus_serial : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placement : U8, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, shortcuts : List({ focus : Bool, keys : Str }), text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64, shortcut : U64 }
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodePopoverArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub focus_serial: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub shortcuts: RocList<AnonStruct1d0ac13b7d648fa3>,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub delay_ms: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub hover_enter: bool,
+    pub hover_exit: bool,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub placement: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodePopoverArgs>() == 240, "HostGlueNodePopoverArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodePopoverArgs>() == 8, "HostGlueNodePopoverArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodePopoverArgs>() == 216, "HostGlueNodePopoverArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodePopoverArgs>() == 8, "HostGlueNodePopoverArgs alignment mismatch");
+
+impl HostGlueNodePopoverArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct1d0ac13b7d648fa3(value.shortcuts, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+        unsafe { value.shortcuts.incref(amount); }
+    }
+}
+
+pub struct HostGlueNodePopoverArgsRelease;
+
+unsafe impl RocRelease<HostGlueNodePopoverArgs> for HostGlueNodePopoverArgsRelease {
+    unsafe fn release(value: HostGlueNodePopoverArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+/// Arguments for HostGlue.node_panel!
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodePanelArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9731,30 +11970,31 @@ pub struct HostGlueNodePanelArgs {
 }
 
 /// Arguments for HostGlue.node_panel!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodePanelArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9766,7 +12006,6 @@ pub struct HostGlueNodePanelArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9785,11 +12024,11 @@ pub struct HostGlueNodePanelArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 168, "HostGlueNodePanelArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 208, "HostGlueNodePanelArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodePanelArgs>() == 8, "HostGlueNodePanelArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 160, "HostGlueNodePanelArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodePanelArgs>() == 192, "HostGlueNodePanelArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodePanelArgs>() == 8, "HostGlueNodePanelArgs alignment mismatch");
 
@@ -9823,30 +12062,31 @@ unsafe impl RocRelease<HostGlueNodePanelArgs> for HostGlueNodePanelArgsRelease {
 }
 
 /// Arguments for HostGlue.node_scroll!
-/// Roc signature: { active_bg : U32, align : U8, axis : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, child : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, axis : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, child : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeScrollArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub child: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9858,7 +12098,6 @@ pub struct HostGlueNodeScrollArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9878,30 +12117,31 @@ pub struct HostGlueNodeScrollArgs {
 }
 
 /// Arguments for HostGlue.node_scroll!
-/// Roc signature: { active_bg : U32, align : U8, axis : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, child : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, axis : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, child : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeScrollArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub child: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -9913,7 +12153,6 @@ pub struct HostGlueNodeScrollArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -9933,11 +12172,11 @@ pub struct HostGlueNodeScrollArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeScrollArgs>() == 168, "HostGlueNodeScrollArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeScrollArgs>() == 208, "HostGlueNodeScrollArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeScrollArgs>() == 8, "HostGlueNodeScrollArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeScrollArgs>() == 160, "HostGlueNodeScrollArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeScrollArgs>() == 192, "HostGlueNodeScrollArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeScrollArgs>() == 8, "HostGlueNodeScrollArgs alignment mismatch");
 
@@ -9971,30 +12210,31 @@ unsafe impl RocRelease<HostGlueNodeScrollArgs> for HostGlueNodeScrollArgsRelease
 }
 
 /// Arguments for HostGlue.node_action_button!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64 }
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, role : U8, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeActionButtonArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub caption: RocStr,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10006,7 +12246,6 @@ pub struct HostGlueNodeActionButtonArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10023,35 +12262,37 @@ pub struct HostGlueNodeActionButtonArgs {
     pub min_width_kind: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
+    pub role: u8,
     pub text_overflow: u8,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_action_button!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64 }
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, role : U8, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeActionButtonArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub caption: RocStr,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10063,7 +12304,6 @@ pub struct HostGlueNodeActionButtonArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10080,18 +12320,19 @@ pub struct HostGlueNodeActionButtonArgs {
     pub min_width_kind: u8,
     pub overflow_x: u8,
     pub overflow_y: u8,
+    pub role: u8,
     pub text_overflow: u8,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 184, "HostGlueNodeActionButtonArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 224, "HostGlueNodeActionButtonArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeActionButtonArgs>() == 8, "HostGlueNodeActionButtonArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 160, "HostGlueNodeActionButtonArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeActionButtonArgs>() == 200, "HostGlueNodeActionButtonArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<HostGlueNodeActionButtonArgs>() == 4, "HostGlueNodeActionButtonArgs alignment mismatch");
+const _: () = assert!(core::mem::align_of::<HostGlueNodeActionButtonArgs>() == 8, "HostGlueNodeActionButtonArgs alignment mismatch");
 
 impl HostGlueNodeActionButtonArgs {
     /// Recursively decrement Roc-owned fields.
@@ -10135,30 +12376,34 @@ pub struct HostGlueNodeVirtualItemArgs {
 }
 
 /// Arguments for HostGlue.node_virtual_list!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, row_gap : U32, row_height : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, count : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, first : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, instance : U64, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, notify : Bool, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, row_gap : U32, row_height : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeVirtualListArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub count: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub first: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub instance: u64,
+    pub shadow_color: u64,
     pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10172,7 +12417,6 @@ pub struct HostGlueNodeVirtualListArgs {
     pub row_height: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10184,6 +12428,7 @@ pub struct HostGlueNodeVirtualListArgs {
     pub max_width_kind: u8,
     pub min_height_kind: u8,
     pub min_width_kind: u8,
+    pub notify: bool,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub text_overflow: u8,
@@ -10191,30 +12436,34 @@ pub struct HostGlueNodeVirtualListArgs {
 }
 
 /// Arguments for HostGlue.node_virtual_list!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, row_gap : U32, row_height : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, count : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, first : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, instance : U64, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, notify : Bool, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, row_gap : U32, row_height : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeVirtualListArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
     pub builder: u64,
+    pub count: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub first: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub instance: u64,
+    pub shadow_color: u64,
     pub name: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10228,7 +12477,6 @@ pub struct HostGlueNodeVirtualListArgs {
     pub row_height: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10240,6 +12488,7 @@ pub struct HostGlueNodeVirtualListArgs {
     pub max_width_kind: u8,
     pub min_height_kind: u8,
     pub min_width_kind: u8,
+    pub notify: bool,
     pub overflow_x: u8,
     pub overflow_y: u8,
     pub text_overflow: u8,
@@ -10247,11 +12496,11 @@ pub struct HostGlueNodeVirtualListArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeVirtualListArgs>() == 176, "HostGlueNodeVirtualListArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeVirtualListArgs>() == 240, "HostGlueNodeVirtualListArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeVirtualListArgs>() == 8, "HostGlueNodeVirtualListArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeVirtualListArgs>() == 168, "HostGlueNodeVirtualListArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeVirtualListArgs>() == 224, "HostGlueNodeVirtualListArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeVirtualListArgs>() == 8, "HostGlueNodeVirtualListArgs alignment mismatch");
 
@@ -10285,33 +12534,34 @@ unsafe impl RocRelease<HostGlueNodeVirtualListArgs> for HostGlueNodeVirtualListA
 }
 
 /// Arguments for HostGlue.node_checkbox!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, box_bg : U32, box_border : U32, box_checked_bg : U32, checked : Bool, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, mark_color : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, box_bg : U64, box_border : U64, box_checked_bg : U64, checked : Bool, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, mark_color : U64, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeCheckboxArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub box_bg: u64,
+    pub box_border: u64,
+    pub box_checked_bg: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub mark_color: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub box_bg: u32,
-    pub box_border: u32,
-    pub box_checked_bg: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
-    pub mark_color: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10323,7 +12573,6 @@ pub struct HostGlueNodeCheckboxArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10344,33 +12593,34 @@ pub struct HostGlueNodeCheckboxArgs {
 }
 
 /// Arguments for HostGlue.node_checkbox!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, box_bg : U32, box_border : U32, box_checked_bg : U32, checked : Bool, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, mark_color : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, box_bg : U64, box_border : U64, box_checked_bg : U64, checked : Bool, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, mark_color : U64, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeCheckboxArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub box_bg: u64,
+    pub box_border: u64,
+    pub box_checked_bg: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub mark_color: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub box_bg: u32,
-    pub box_border: u32,
-    pub box_checked_bg: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
-    pub mark_color: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10382,7 +12632,6 @@ pub struct HostGlueNodeCheckboxArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10403,13 +12652,13 @@ pub struct HostGlueNodeCheckboxArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 176, "HostGlueNodeCheckboxArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 232, "HostGlueNodeCheckboxArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCheckboxArgs>() == 8, "HostGlueNodeCheckboxArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 164, "HostGlueNodeCheckboxArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCheckboxArgs>() == 216, "HostGlueNodeCheckboxArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<HostGlueNodeCheckboxArgs>() == 4, "HostGlueNodeCheckboxArgs alignment mismatch");
+const _: () = assert!(core::mem::align_of::<HostGlueNodeCheckboxArgs>() == 8, "HostGlueNodeCheckboxArgs alignment mismatch");
 
 impl HostGlueNodeCheckboxArgs {
     /// Recursively decrement Roc-owned fields.
@@ -10441,31 +12690,32 @@ unsafe impl RocRelease<HostGlueNodeCheckboxArgs> for HostGlueNodeCheckboxArgsRel
 }
 
 /// Arguments for HostGlue.node_textarea!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeTextareaArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10477,7 +12727,6 @@ pub struct HostGlueNodeTextareaArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10498,31 +12747,32 @@ pub struct HostGlueNodeTextareaArgs {
 }
 
 /// Arguments for HostGlue.node_textarea!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeTextareaArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10534,7 +12784,6 @@ pub struct HostGlueNodeTextareaArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10555,13 +12804,13 @@ pub struct HostGlueNodeTextareaArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 208, "HostGlueNodeTextareaArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 248, "HostGlueNodeTextareaArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextareaArgs>() == 8, "HostGlueNodeTextareaArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 172, "HostGlueNodeTextareaArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextareaArgs>() == 208, "HostGlueNodeTextareaArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<HostGlueNodeTextareaArgs>() == 4, "HostGlueNodeTextareaArgs alignment mismatch");
+const _: () = assert!(core::mem::align_of::<HostGlueNodeTextareaArgs>() == 8, "HostGlueNodeTextareaArgs alignment mismatch");
 
 impl HostGlueNodeTextareaArgs {
     /// Recursively decrement Roc-owned fields.
@@ -10597,30 +12846,31 @@ unsafe impl RocRelease<HostGlueNodeTextareaArgs> for HostGlueNodeTextareaArgsRel
 }
 
 /// Arguments for HostGlue.node_image!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U32, disabled_fg : U32, fg : U32, fit : U8, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U64, disabled_fg : U64, fg : U64, fit : U8, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeImageArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub bytes: RocListWith<u8, false>,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10632,7 +12882,6 @@ pub struct HostGlueNodeImageArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10654,30 +12903,31 @@ pub struct HostGlueNodeImageArgs {
 }
 
 /// Arguments for HostGlue.node_image!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U32, disabled_fg : U32, fg : U32, fit : U8, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U64, disabled_fg : U64, fg : U64, fit : U8, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeImageArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub bytes: RocListWith<u8, false>,
     pub label: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10689,7 +12939,6 @@ pub struct HostGlueNodeImageArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10711,13 +12960,13 @@ pub struct HostGlueNodeImageArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 184, "HostGlueNodeImageArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 224, "HostGlueNodeImageArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeImageArgs>() == 8, "HostGlueNodeImageArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 160, "HostGlueNodeImageArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeImageArgs>() == 200, "HostGlueNodeImageArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<HostGlueNodeImageArgs>() == 4, "HostGlueNodeImageArgs alignment mismatch");
+const _: () = assert!(core::mem::align_of::<HostGlueNodeImageArgs>() == 8, "HostGlueNodeImageArgs alignment mismatch");
 
 impl HostGlueNodeImageArgs {
     /// Recursively decrement Roc-owned fields.
@@ -10751,53 +13000,59 @@ unsafe impl RocRelease<HostGlueNodeImageArgs> for HostGlueNodeImageArgsRelease {
 }
 
 /// Arguments for HostGlue.node_canvas!
-/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, size : Bool, wheel : Bool, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeCanvasArgs {
+    pub bg: u64,
+    pub border_color: u64,
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
-    pub bg: u32,
-    pub border_color: u32,
+    pub primitives: RocList<AnonStructF74678f34f8b3cbf>,
     pub border_width: u32,
     pub height: u32,
     pub radius: u32,
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub size: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
 /// Arguments for HostGlue.node_canvas!
-/// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+/// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, size : Bool, wheel : Bool, width : U32, width_kind : U8 } => U64
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeCanvasArgs {
+    pub bg: u64,
+    pub border_color: u64,
     pub label: RocStr,
-    pub primitives: RocList<AnonStruct6d9cdb5c6eba22bc>,
-    pub bg: u32,
-    pub border_color: u32,
+    pub primitives: RocList<AnonStructF74678f34f8b3cbf>,
     pub border_width: u32,
     pub height: u32,
     pub radius: u32,
     pub width: u32,
     pub grow: bool,
     pub height_kind: u8,
+    pub hover: bool,
+    pub size: bool,
+    pub wheel: bool,
     pub width_kind: u8,
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 80, "HostGlueNodeCanvasArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 88, "HostGlueNodeCanvasArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeCanvasArgs>() == 8, "HostGlueNodeCanvasArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 52, "HostGlueNodeCanvasArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeCanvasArgs>() == 64, "HostGlueNodeCanvasArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<HostGlueNodeCanvasArgs>() == 4, "HostGlueNodeCanvasArgs alignment mismatch");
+const _: () = assert!(core::mem::align_of::<HostGlueNodeCanvasArgs>() == 8, "HostGlueNodeCanvasArgs alignment mismatch");
 
 impl HostGlueNodeCanvasArgs {
     /// Recursively decrement Roc-owned fields.
@@ -10807,7 +13062,7 @@ impl HostGlueNodeCanvasArgs {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.label.decref(roc_host); }
-        unsafe { decref_list_of_anon_struct6d9cdb5c6eba22bc(value.primitives, roc_host); }
+        unsafe { decref_list_of_anon_struct_f74678f34f8b3cbf(value.primitives, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -10830,32 +13085,201 @@ unsafe impl RocRelease<HostGlueNodeCanvasArgs> for HostGlueNodeCanvasArgsRelease
     }
 }
 
-/// Arguments for HostGlue.node_text_input!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+/// Arguments for HostGlue.node_split!
+/// Roc signature: { active_bg : U64, align : U8, axis : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, collapsed : Bool, collapsible : Bool, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, keys : List({ focus : Bool, keys : Str }), label : Str, max : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min : U32, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, side : U8, size : U32, text_overflow : U8, thickness : U32, width : U32, width_kind : U8 } => { id : U64, shortcut : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(target_pointer_width = "32")]
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct HostGlueNodeTextInputArgs {
+pub struct HostGlueNodeSplitArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub keys: RocList<AnonStruct1d0ac13b7d648fa3>,
     pub label: RocStr,
-    pub placeholder: RocStr,
-    pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
+    pub max: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub size: u32,
+    pub thickness: u32,
+    pub width: u32,
+    pub align: u8,
+    pub axis: u8,
+    pub collapsed: bool,
+    pub collapsible: bool,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub side: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+/// Arguments for HostGlue.node_split!
+/// Roc signature: { active_bg : U64, align : U8, axis : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, collapsed : Bool, collapsible : Bool, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, keys : List({ focus : Bool, keys : Str }), label : Str, max : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min : U32, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, side : U8, size : U32, text_overflow : U8, thickness : U32, width : U32, width_kind : U8 } => { id : U64, shortcut : U64 }
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeSplitArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub keys: RocList<AnonStruct1d0ac13b7d648fa3>,
+    pub label: RocStr,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub size: u32,
+    pub thickness: u32,
+    pub width: u32,
+    pub align: u8,
+    pub axis: u8,
+    pub collapsed: bool,
+    pub collapsible: bool,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub side: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeSplitArgs>() == 248, "HostGlueNodeSplitArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeSplitArgs>() == 8, "HostGlueNodeSplitArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeSplitArgs>() == 224, "HostGlueNodeSplitArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeSplitArgs>() == 8, "HostGlueNodeSplitArgs alignment mismatch");
+
+impl HostGlueNodeSplitArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_list_of_anon_struct1d0ac13b7d648fa3(value.keys, roc_host); }
+        unsafe { value.label.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.keys.incref(amount); }
+        unsafe { value.label.incref(amount); }
+    }
+}
+
+pub struct HostGlueNodeSplitArgsRelease;
+
+unsafe impl RocRelease<HostGlueNodeSplitArgs> for HostGlueNodeSplitArgsRelease {
+    unsafe fn release(value: HostGlueNodeSplitArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+/// Arguments for HostGlue.node_drop_target!
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, drop_bg : U64, drop_border : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, types : List({ extensions : List(Str), label : Str, mime_types : List(Str) }), width : U32, width_kind : U8 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeDropTargetArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub drop_bg: u64,
+    pub drop_border: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub types: RocList<AnonStructDa3665c9cce9a3c>,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10867,7 +13291,228 @@ pub struct HostGlueNodeTextInputArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+/// Arguments for HostGlue.node_drop_target!
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, drop_bg : U64, drop_border : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, types : List({ extensions : List(Str), label : Str, mime_types : List(Str) }), width : U32, width_kind : U8 } => U64
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeDropTargetArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub builder: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub drop_bg: u64,
+    pub drop_border: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub types: RocList<AnonStructDa3665c9cce9a3c>,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
+    pub shadow_y: u32,
+    pub width: u32,
+    pub align: u8,
+    pub font_face: u8,
+    pub grow: bool,
+    pub height_kind: u8,
+    pub justify: u8,
+    pub max_height_kind: u8,
+    pub max_width_kind: u8,
+    pub min_height_kind: u8,
+    pub min_width_kind: u8,
+    pub overflow_x: u8,
+    pub overflow_y: u8,
+    pub text_overflow: u8,
+    pub width_kind: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDropTargetArgs>() == 248, "HostGlueNodeDropTargetArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeDropTargetArgs>() == 8, "HostGlueNodeDropTargetArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueNodeDropTargetArgs>() == 224, "HostGlueNodeDropTargetArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueNodeDropTargetArgs>() == 8, "HostGlueNodeDropTargetArgs alignment mismatch");
+
+impl HostGlueNodeDropTargetArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct_da3665c9cce9a3c(value.types, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+        unsafe { value.types.incref(amount); }
+    }
+}
+
+pub struct HostGlueNodeDropTargetArgsRelease;
+
+unsafe impl RocRelease<HostGlueNodeDropTargetArgs> for HostGlueNodeDropTargetArgsRelease {
+    unsafe fn release(value: HostGlueNodeDropTargetArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+/// Arguments for HostGlue.virtual_window!
+/// Roc signature: { count : U64, instance : U64, row_height : U32, scroll_align : U8, scroll_row : U64, scroll_serial : U64 } => { end : U64, first : U64 }
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueVirtualWindowArgs {
+    pub count: u64,
+    pub instance: u64,
+    pub scroll_row: u64,
+    pub scroll_serial: u64,
+    pub row_height: u32,
+    pub scroll_align: u8,
+}
+
+/// Arguments for HostGlue.virtual_window!
+/// Roc signature: { count : U64, instance : U64, row_height : U32, scroll_align : U8, scroll_row : U64, scroll_serial : U64 } => { end : U64, first : U64 }
+/// Refcounted fields are owned by the hosted function.
+#[cfg(not(target_pointer_width = "32"))]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueVirtualWindowArgs {
+    pub count: u64,
+    pub instance: u64,
+    pub scroll_row: u64,
+    pub scroll_serial: u64,
+    pub row_height: u32,
+    pub scroll_align: u8,
+}
+
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::size_of::<HostGlueVirtualWindowArgs>() == 40, "HostGlueVirtualWindowArgs size mismatch");
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(core::mem::align_of::<HostGlueVirtualWindowArgs>() == 8, "HostGlueVirtualWindowArgs alignment mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::size_of::<HostGlueVirtualWindowArgs>() == 40, "HostGlueVirtualWindowArgs size mismatch");
+#[cfg(target_pointer_width = "32")]
+const _: () = assert!(core::mem::align_of::<HostGlueVirtualWindowArgs>() == 8, "HostGlueVirtualWindowArgs alignment mismatch");
+
+impl HostGlueVirtualWindowArgs {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct HostGlueVirtualWindowArgsRelease;
+
+unsafe impl RocRelease<HostGlueVirtualWindowArgs> for HostGlueVirtualWindowArgsRelease {
+    unsafe fn release(value: HostGlueVirtualWindowArgs, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+/// Arguments for HostGlue.node_text_input!
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+/// Refcounted fields are owned by the hosted function.
+#[cfg(target_pointer_width = "32")]
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueNodeTextInputArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
+    pub label: RocStr,
+    pub placeholder: RocStr,
+    pub value: RocStr,
+    pub border_bottom: u32,
+    pub border_left: u32,
+    pub border_right: u32,
+    pub border_top: u32,
+    pub font_size: u32,
+    pub font_weight: u32,
+    pub gap: u32,
+    pub height: u32,
+    pub max_height: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub min_width: u32,
+    pub padding_bottom: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_top: u32,
+    pub radius: u32,
+    pub shadow: u32,
+    pub shadow_alpha: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10887,31 +13532,32 @@ pub struct HostGlueNodeTextInputArgs {
 }
 
 /// Arguments for HostGlue.node_text_input!
-/// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+/// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
 /// Refcounted fields are owned by the hosted function.
 #[cfg(not(target_pointer_width = "32"))]
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueNodeTextInputArgs {
+    pub active_bg: u64,
+    pub bg: u64,
+    pub border_color: u64,
+    pub disabled_bg: u64,
+    pub disabled_fg: u64,
+    pub fg: u64,
+    pub focus_color: u64,
+    pub hover_bg: u64,
+    pub shadow_color: u64,
     pub label: RocStr,
     pub placeholder: RocStr,
     pub value: RocStr,
-    pub active_bg: u32,
-    pub bg: u32,
     pub border_bottom: u32,
-    pub border_color: u32,
     pub border_left: u32,
     pub border_right: u32,
     pub border_top: u32,
-    pub disabled_bg: u32,
-    pub disabled_fg: u32,
-    pub fg: u32,
-    pub focus_color: u32,
     pub font_size: u32,
     pub font_weight: u32,
     pub gap: u32,
     pub height: u32,
-    pub hover_bg: u32,
     pub max_height: u32,
     pub max_width: u32,
     pub min_height: u32,
@@ -10923,7 +13569,6 @@ pub struct HostGlueNodeTextInputArgs {
     pub radius: u32,
     pub shadow: u32,
     pub shadow_alpha: u32,
-    pub shadow_color: u32,
     pub shadow_y: u32,
     pub width: u32,
     pub align: u8,
@@ -10943,13 +13588,13 @@ pub struct HostGlueNodeTextInputArgs {
 }
 
 #[cfg(target_pointer_width = "64")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 208, "HostGlueNodeTextInputArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 248, "HostGlueNodeTextInputArgs size mismatch");
 #[cfg(target_pointer_width = "64")]
 const _: () = assert!(core::mem::align_of::<HostGlueNodeTextInputArgs>() == 8, "HostGlueNodeTextInputArgs alignment mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 172, "HostGlueNodeTextInputArgs size mismatch");
+const _: () = assert!(core::mem::size_of::<HostGlueNodeTextInputArgs>() == 208, "HostGlueNodeTextInputArgs size mismatch");
 #[cfg(target_pointer_width = "32")]
-const _: () = assert!(core::mem::align_of::<HostGlueNodeTextInputArgs>() == 4, "HostGlueNodeTextInputArgs alignment mismatch");
+const _: () = assert!(core::mem::align_of::<HostGlueNodeTextInputArgs>() == 8, "HostGlueNodeTextInputArgs alignment mismatch");
 
 impl HostGlueNodeTextInputArgs {
     /// Recursively decrement Roc-owned fields.
@@ -10994,14 +13639,32 @@ pub struct HostGlueSqliteOpenReadArgs {
     pub arg1: RocStr,
 }
 
+/// Arguments for HostGlue.sqlite_open_file_read!
+/// Roc signature: Resource.Handle([FileReadResource]) => Try(Resource.Handle([SqliteReadResource]), { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSqliteOpenFileReadArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for HostGlue.sqlite_watch!
+/// Roc signature: Resource.Handle([SqliteReadResource]) => Try(Resource.Handle([WatchResource]), { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueSqliteWatchArgs {
+    pub arg0: *mut u64,
+}
+
 /// Arguments for HostGlue.sqlite_query!
-/// Roc signature: Resource.Handle([SqliteReadResource]), Str => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
+/// Roc signature: Resource.Handle([SqliteReadResource]), { page_rows : U64, params : List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str }), sql : Str } => Try({ columns : List(Str), more : Bool, rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueSqliteQueryArgs {
     pub arg0: *mut u64,
-    pub arg1: RocStr,
+    pub arg1: AnonStructAd07206fc55b9842,
 }
 
 /// Arguments for InternalFiles.read_utf8!
@@ -11349,13 +14012,24 @@ pub struct HostGlueSetDispatchArgs {
 }
 
 /// Arguments for HostGlue.enqueue_task!
-/// Roc signature: U64, Box(U64 => {}) => {}
+/// Roc signature: U64, Str, Box(U64 => {}) => {}
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostGlueEnqueueTaskArgs {
     pub arg0: u64,
-    pub arg1: RocErasedCallable,
+    pub arg1: RocStr,
+    pub arg2: RocErasedCallable,
+}
+
+/// Arguments for HostGlue.cancel_task!
+/// Roc signature: U64, Str => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueCancelTaskArgs {
+    pub arg0: u64,
+    pub arg1: RocStr,
 }
 
 /// Arguments for HostGlue.task_complete!
@@ -11495,7 +14169,7 @@ pub struct HostGlueWorkEndArgs {
 }
 
 /// Arguments for HostGlue.window_config!
-/// Roc signature: Str, U32, U32, U32, U32 => {}
+/// Roc signature: Str, U32, U32, U64, U64, Bool => {}
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11503,12 +14177,31 @@ pub struct HostGlueWindowConfigArgs {
     pub arg0: RocStr,
     pub arg1: u32,
     pub arg2: u32,
-    pub arg3: u32,
-    pub arg4: u32,
+    pub arg3: u64,
+    pub arg4: u64,
+    pub arg5: bool,
+}
+
+/// Arguments for HostGlue.appearance_next_change!
+/// Roc signature: U8 => U8
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAppearanceNextChangeArgs {
+    pub arg0: u8,
+}
+
+/// Arguments for HostGlue.appearance_prefer!
+/// Roc signature: U8 => {}
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct HostGlueAppearancePreferArgs {
+    pub arg0: u8,
 }
 
 /// Arguments for InternalFiles.dir_list!
-/// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11517,7 +14210,7 @@ pub struct InternalFilesDirListArgs {
 }
 
 /// Arguments for InternalFiles.dir_open_read!
-/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11527,7 +14220,7 @@ pub struct InternalFilesDirOpenReadArgs {
 }
 
 /// Arguments for InternalFiles.dir_read!
-/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
 /// Refcounted fields are owned by the hosted function.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -11536,34 +14229,167 @@ pub struct InternalFilesDirReadArgs {
     pub arg1: RocStr,
 }
 
+/// Arguments for InternalFiles.pick_file!
+/// Roc signature: List({ extensions : List(Str), label : Str, mime_types : List(Str) }) => Try([Canceled, Chosen({ file : Resource.Handle([FileReadResource]), name : Str })], [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesPickFileArgs {
+    pub arg0: RocList<AnonStructDa3665c9cce9a3c>,
+}
+
+/// Arguments for InternalFiles.file_read!
+/// Roc signature: Resource.Handle([FileReadResource]) => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesFileReadArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for InternalFiles.dir_sha256!
+/// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirSha256Args {
+    pub arg0: *mut u64,
+    pub arg1: RocStr,
+}
+
+/// Arguments for InternalFiles.file_sha256!
+/// Roc signature: Resource.Handle([FileReadResource]) => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesFileSha256Args {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for InternalFiles.dir_watch!
+/// Roc signature: Resource.Handle([DirReadResource]) => Try(Resource.Handle([WatchResource]), { code : U8, message : Str })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesDirWatchArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for InternalFiles.watch_next!
+/// Roc signature: Resource.Handle([WatchResource]) => { code : U8, names : List(Str), overflowed : Bool, replaced : Bool }
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWatchNextArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for InternalFiles.watch_cancel!
+/// Roc signature: Resource.Handle([WatchResource]) => Bool
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesWatchCancelArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for InternalFiles.reopen_file!
+/// Roc signature: U64 => Try({ file : Resource.Handle([FileReadResource]), name : Str }, { code : U8 })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenFileArgs {
+    pub arg0: u64,
+}
+
+/// Arguments for InternalFiles.reopen_directory!
+/// Roc signature: U64 => Try({ directory : Resource.Handle([DirReadResource]), name : Str }, { code : U8 })
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesReopenDirectoryArgs {
+    pub arg0: u64,
+}
+
+/// Arguments for InternalFiles.forget_recent!
+/// Roc signature: U64 => Bool
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesForgetRecentArgs {
+    pub arg0: u64,
+}
+
+/// Arguments for InternalFiles.remember_file!
+/// Roc signature: Resource.Handle([FileReadResource]) => U8
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesRememberFileArgs {
+    pub arg0: *mut u64,
+}
+
+/// Arguments for InternalFiles.remember_directory!
+/// Roc signature: Resource.Handle([DirReadResource]) => U8
+/// Refcounted fields are owned by the hosted function.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct InternalFilesRememberDirectoryArgs {
+    pub arg0: *mut u64,
+}
+
 // Platform Type Aliases
 
-pub type HostGlueNodeStyledTextArg0 = AnonStructB050404c6fb0b263;
+pub type HostGlueNodeStyledTextArg0 = AnonStructA47a6e0f4ab34c8a;
+pub type HostGlueNodeStyledTextArg0Runs = AnonStructFdc3cce9386720ed;
 pub type HostGlueKeyedSeedArg0 = AnonStructEc521db91a8efd1f;
 pub type HostGlueKeyedEditBeginArg0 = AnonStruct805ea43d90e5fb6e;
 pub type HostGlueKeyedInsertBeforeArg0 = AnonStruct1f2ff78011a2f7cd;
 pub type HostGlueKeyedMoveBeforeArg0 = AnonStruct8e6ae4c4e7aeda0d;
 pub type HostGlueKeyedSetArg0 = AnonStruct73b63742301b46aa;
 pub type HostGlueComponentResolve = AnonStruct2c3712e02fef0cd;
-pub type HostGlueNodeRowArg0 = AnonStruct8f1f3c623bb69cc9;
-pub type HostGlueNodeColumnArg0 = AnonStruct8f1f3c623bb69cc9;
-pub type HostGlueNodeDialogArg0 = AnonStruct8f1f3c623bb69cc9;
-pub type HostGlueNodePanelArg0 = AnonStruct8f1f3c623bb69cc9;
-pub type HostGlueNodeScrollArg0 = AnonStruct8888fd22414ee768;
-pub type HostGlueNodeActionButtonArg0 = AnonStruct30a73e46832c4aff;
+pub type HostGlueNodeRowArg0 = AnonStructB61da4ff1a34a156;
+pub type HostGlueNodeColumnArg0 = AnonStructB61da4ff1a34a156;
+pub type HostGlueNodeDialogArg0 = AnonStructB61da4ff1a34a156;
+pub type HostGlueNodePopoverArg0 = AnonStruct91244b23e2207007;
+pub type HostGlueNodePopoverArg0Shortcuts = AnonStruct1d0ac13b7d648fa3;
+pub type HostGlueNodePopover = AnonStruct10af2f3a422106e8;
+pub type HostGlueNodePanelArg0 = AnonStructB61da4ff1a34a156;
+pub type HostGlueNodeScrollArg0 = AnonStructDf60cd23530654b2;
+pub type HostGlueNodeActionButtonArg0 = AnonStruct3188ec42c5b5e0d3;
 pub type HostGlueNodeActionButton = AnonStructBecf162f14687660;
-pub type HostGlueNodeVirtualListArg0 = AnonStruct8700bb3157333d89;
-pub type HostGlueNodeCheckboxArg0 = AnonStruct32380512021fa2b7;
-pub type HostGlueNodeTextareaArg0 = AnonStructFd6767d07aac9300;
-pub type HostGlueNodeImageArg0 = AnonStruct8ea95e8b24a76f41;
-pub type HostGlueNodeCanvasArg0 = AnonStruct1cd73c88e8aa8818;
-pub type HostGlueNodeCanvasArg0Primitives = AnonStruct6d9cdb5c6eba22bc;
-pub type HostGlueCanvasEvent = AnonStructB2e41b851da291a;
-pub type HostGlueNodeTextInputArg0 = AnonStructE1a686ac8d2eb702;
+pub type HostGlueNodeVirtualListArg0 = AnonStructFad101fcce1ec1a3;
+pub type HostGlueNodeCheckboxArg0 = AnonStruct751f7db6342b42f6;
+pub type HostGlueNodeTextareaArg0 = AnonStructA0ad260b0f5e9c52;
+pub type HostGlueNodeImageArg0 = AnonStruct71144019e2d669fc;
+pub type HostGlueNodeCanvasArg0 = AnonStruct3b3f1dc02d4b4916;
+pub type HostGlueNodeCanvasArg0Primitives = AnonStructF74678f34f8b3cbf;
+pub type HostGlueCanvasEvent = AnonStructE7c8b7462a78f14b;
+pub type HostGlueShortcutEvent = AnonStructBdcbe7a50e42954d;
+pub type HostGlueNodeSplitArg0 = AnonStructE5ac0e79f166cfe4;
+pub type HostGlueNodeSplitArg0Keys = AnonStruct1d0ac13b7d648fa3;
+pub type HostGlueNodeSplit = AnonStruct1da781635f2f9fce;
+pub type HostGlueResizeEvent = AnonStruct7dea1af4373e83a;
+pub type HostGlueNodeDropTargetArg0 = AnonStruct80d05b419336b61b;
+pub type HostGlueNodeDropTargetArg0Types = AnonStructDa3665c9cce9a3c;
+pub type HostGlueDropEvent = AnonStruct5456361a272f3187;
+pub type HostGlueDropEventFiles = AnonStructA295f39559baa24d;
+pub type HostGlueDropEventRefused = AnonStruct6fe360748589880f;
+pub type HostGlueVirtualWindowArg0 = AnonStruct521b63caff3553f9;
+pub type HostGlueVirtualWindow = AnonStructBe98516b6662a57b;
+pub type HostGlueVirtualRowsEvent = AnonStructD56b0eabf62517b9;
+pub type HostGlueNodeTextInputArg0 = AnonStruct2ffca3ac98d0c52c;
 pub type HostGlueNodeTextInput = AnonStructDc4c26f806dfc5bf;
 pub type HostGlueSqliteOpenReadErr = AnonStruct4c605145331877e7;
+pub type HostGlueSqliteOpenFileReadResult = HostGlueSqliteOpenReadResult;
+pub type HostGlueSqliteOpenFileReadResultPayload = HostGlueSqliteOpenReadResultPayload;
+pub type HostGlueSqliteOpenFileReadResultTag = HostGlueSqliteOpenReadResultTag;
+pub type HostGlueSqliteOpenFileReadErr = AnonStruct4c605145331877e7;
+pub type HostGlueSqliteWatchErr = AnonStruct4c605145331877e7;
+pub type HostGlueSqliteQueryArg1 = AnonStructAd07206fc55b9842;
+pub type HostGlueSqliteQueryArg1Params = AnonStructBff7bc5a4faa26ae;
 pub type HostGlueSqliteQueryErr = AnonStruct4c605145331877e7;
-pub type HostGlueSqliteQueryOk = AnonStructD8780653fb52f85f;
+pub type HostGlueSqliteQueryOk = AnonStruct89852815e920c968;
 pub type HostGlueSqliteQueryOkRows = AnonStructBff7bc5a4faa26ae;
 pub type InternalFilesAppDataErr = AnonStruct4c605145331877e7;
 pub type InternalFilesReadUtf8Err = AnonStruct4c605145331877e7;
@@ -11727,64 +14553,140 @@ pub type HostGlueHttpSendErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvali
 pub type HostGlueHttpSendOk = AnonStructBe6bcbc15f8a1360;
 pub type HostGlueHttpSendOkHeaders = AnonStruct77eaba63dfee299d;
 pub type HostGlueHttpAcquireErr = AccessDeniedOrBodyTooLargeOrConnectFailedOrInvalidCapabilityOrInvalidHeaderOrInvalidRequestOrInvalidUrlOrRedirectLimitOrRevokedOrTimeoutOrUnsupportedScheme;
-pub type InternalFilesPickDirectoryErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
-pub type InternalFilesPickDirectoryErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
-pub type InternalFilesPickDirectoryErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type InternalFilesPickDirectoryErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesPickDirectoryErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesPickDirectoryErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
 pub type InternalFilesPickDirectoryErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickDirectoryErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickDirectoryErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickDirectoryErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickDirectoryErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickDirectoryErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickDirectoryErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesPickDirectoryErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type InternalFilesPickDirectoryOk = CanceledOrChosen;
-pub type InternalFilesPickDirectoryOkPayload = CanceledOrChosenPayload;
-pub type InternalFilesPickDirectoryOkTag = CanceledOrChosenTag;
+pub type InternalFilesPickDirectoryOk = CanceledOrChosenType249;
+pub type InternalFilesPickDirectoryOkPayload = CanceledOrChosenType249Payload;
+pub type InternalFilesPickDirectoryOkTag = CanceledOrChosenType249Tag;
 pub type InternalFilesPickDirectoryOkChosen = AnonStruct4869dafad3498788;
-pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type CanceledOrChosen = CanceledOrChosenType249;
+pub type CanceledOrChosenPayload = CanceledOrChosenType249Payload;
+pub type CanceledOrChosenTag = CanceledOrChosenType249Tag;
 pub type CanceledOrChosenChosen = AnonStruct4869dafad3498788;
-pub type InternalFilesDirListErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
-pub type InternalFilesDirListErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
-pub type InternalFilesDirListErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type InternalFilesDirListErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesDirListErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesDirListErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
 pub type InternalFilesDirListErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirListErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirListErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirListErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirListErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirListErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirListErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirListErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirListOk = AnonStruct770b9d9b3d3d255;
-pub type InternalFilesDirOpenReadErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
-pub type InternalFilesDirOpenReadErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
-pub type InternalFilesDirOpenReadErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type InternalFilesDirOpenReadErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesDirOpenReadErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesDirOpenReadErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
 pub type InternalFilesDirOpenReadErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirOpenReadErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirOpenReadErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirOpenReadErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirOpenReadErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirOpenReadErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirOpenReadErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirOpenReadErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
-pub type InternalFilesDirReadErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr;
-pub type InternalFilesDirReadErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrPayload;
-pub type InternalFilesDirReadErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag;
+pub type InternalFilesDirReadErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesDirReadErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesDirReadErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
 pub type InternalFilesDirReadErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirReadErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirReadErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirReadErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirReadErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirReadErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirReadErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
 pub type InternalFilesDirReadErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileArg0 = AnonStructDa3665c9cce9a3c;
+pub type InternalFilesPickFileErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesPickFileErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesPickFileErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
+pub type InternalFilesPickFileErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesPickFileOk = CanceledOrChosenType292;
+pub type InternalFilesPickFileOkPayload = CanceledOrChosenType292Payload;
+pub type InternalFilesPickFileOkTag = CanceledOrChosenType292Tag;
+pub type InternalFilesPickFileOkChosen = AnonStructA295f39559baa24d;
+pub type InternalFilesFileReadResult = InternalFilesDirReadResult;
+pub type InternalFilesFileReadResultPayload = InternalFilesDirReadResultPayload;
+pub type InternalFilesFileReadResultTag = InternalFilesDirReadResultTag;
+pub type InternalFilesFileReadErr = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesFileReadErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesFileReadErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
+pub type InternalFilesFileReadErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileReadErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileReadErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileReadErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileReadErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileReadErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileReadErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileReadErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256Err = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesDirSha256ErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesDirSha256ErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
+pub type InternalFilesDirSha256ErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirSha256ErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256Result = InternalFilesDirSha256Result;
+pub type InternalFilesFileSha256ResultPayload = InternalFilesDirSha256ResultPayload;
+pub type InternalFilesFileSha256ResultTag = InternalFilesDirSha256ResultTag;
+pub type InternalFilesFileSha256Err = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr;
+pub type InternalFilesFileSha256ErrPayload = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrPayload;
+pub type InternalFilesFileSha256ErrTag = ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag;
+pub type InternalFilesFileSha256ErrListDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrOpenAppDataErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrOpenReadDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrPickDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrPickFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrReadFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrWatchDirectoryErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesFileSha256ErrWriteFileErr = AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8OrIoOrNotDirectoryOrNotFoundOrResourceLimitOrRevokedOrUnavailableOrUnsupported;
+pub type InternalFilesDirWatchErr = AnonStruct4c605145331877e7;
+pub type InternalFilesWatchNext = AnonStruct5d4fced1f96c13bb;
+pub type InternalFilesRecent = AnonStruct3ef35cf67ee1fcb4;
+pub type InternalFilesReopenFileErr = AnonStruct45708337b22b1f51;
+pub type InternalFilesReopenFileOk = AnonStructA295f39559baa24d;
+pub type InternalFilesReopenDirectoryErr = AnonStruct45708337b22b1f51;
+pub type InternalFilesReopenDirectoryOk = AnonStruct4869dafad3498788;
 
 // Generated Refcount Helpers
 
-impl AnonStructB050404c6fb0b263 {
+impl AnonStructA47a6e0f4ab34c8a {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
+        unsafe { value.runs.decref(roc_host); }
         unsafe { value.value.decref(roc_host); }
     }
 
@@ -11795,14 +14697,46 @@ impl AnonStructB050404c6fb0b263 {
     /// be balanced by later decrefs.
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
+        unsafe { value.runs.incref(amount); }
         unsafe { value.value.incref(amount); }
     }
 }
 
-pub struct AnonStructB050404c6fb0b263Release;
+pub struct AnonStructA47a6e0f4ab34c8aRelease;
 
-unsafe impl RocRelease<AnonStructB050404c6fb0b263> for AnonStructB050404c6fb0b263Release {
-    unsafe fn release(value: AnonStructB050404c6fb0b263, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructA47a6e0f4ab34c8a> for AnonStructA47a6e0f4ab34c8aRelease {
+    unsafe fn release(value: AnonStructA47a6e0f4ab34c8a, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructFdc3cce9386720ed {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStructFdc3cce9386720edRelease;
+
+unsafe impl RocRelease<AnonStructFdc3cce9386720ed> for AnonStructFdc3cce9386720edRelease {
+    unsafe fn release(value: AnonStructFdc3cce9386720ed, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -11814,7 +14748,7 @@ impl AnonStructEc521db91a8efd1f {
     /// `self` must own one live Roc reference for each refcounted field.
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
-        unsafe { decref_list_of_list_of_type4(value.keys, roc_host); }
+        unsafe { decref_list_of_list_of_type3(value.keys, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -11989,7 +14923,7 @@ unsafe impl RocRelease<AnonStruct2c3712e02fef0cd> for AnonStruct2c3712e02fef0cdR
     }
 }
 
-impl AnonStruct8f1f3c623bb69cc9 {
+impl AnonStructB61da4ff1a34a156 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12010,15 +14944,106 @@ impl AnonStruct8f1f3c623bb69cc9 {
     }
 }
 
-pub struct AnonStruct8f1f3c623bb69cc9Release;
+pub struct AnonStructB61da4ff1a34a156Release;
 
-unsafe impl RocRelease<AnonStruct8f1f3c623bb69cc9> for AnonStruct8f1f3c623bb69cc9Release {
-    unsafe fn release(value: AnonStruct8f1f3c623bb69cc9, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructB61da4ff1a34a156> for AnonStructB61da4ff1a34a156Release {
+    unsafe fn release(value: AnonStructB61da4ff1a34a156, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct8888fd22414ee768 {
+impl AnonStruct10af2f3a422106e8 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct10af2f3a422106e8Release;
+
+unsafe impl RocRelease<AnonStruct10af2f3a422106e8> for AnonStruct10af2f3a422106e8Release {
+    unsafe fn release(value: AnonStruct10af2f3a422106e8, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct91244b23e2207007 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct1d0ac13b7d648fa3(value.shortcuts, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+        unsafe { value.shortcuts.incref(amount); }
+    }
+}
+
+pub struct AnonStruct91244b23e2207007Release;
+
+unsafe impl RocRelease<AnonStruct91244b23e2207007> for AnonStruct91244b23e2207007Release {
+    unsafe fn release(value: AnonStruct91244b23e2207007, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct1d0ac13b7d648fa3 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.keys.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.keys.incref(amount); }
+    }
+}
+
+pub struct AnonStruct1d0ac13b7d648fa3Release;
+
+unsafe impl RocRelease<AnonStruct1d0ac13b7d648fa3> for AnonStruct1d0ac13b7d648fa3Release {
+    unsafe fn release(value: AnonStruct1d0ac13b7d648fa3, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructDf60cd23530654b2 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12039,10 +15064,10 @@ impl AnonStruct8888fd22414ee768 {
     }
 }
 
-pub struct AnonStruct8888fd22414ee768Release;
+pub struct AnonStructDf60cd23530654b2Release;
 
-unsafe impl RocRelease<AnonStruct8888fd22414ee768> for AnonStruct8888fd22414ee768Release {
-    unsafe fn release(value: AnonStruct8888fd22414ee768, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructDf60cd23530654b2> for AnonStructDf60cd23530654b2Release {
+    unsafe fn release(value: AnonStructDf60cd23530654b2, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -12078,7 +15103,7 @@ unsafe impl RocRelease<AnonStructBecf162f14687660> for AnonStructBecf162f1468766
     }
 }
 
-impl AnonStruct30a73e46832c4aff {
+impl AnonStruct3188ec42c5b5e0d3 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12101,15 +15126,15 @@ impl AnonStruct30a73e46832c4aff {
     }
 }
 
-pub struct AnonStruct30a73e46832c4affRelease;
+pub struct AnonStruct3188ec42c5b5e0d3Release;
 
-unsafe impl RocRelease<AnonStruct30a73e46832c4aff> for AnonStruct30a73e46832c4affRelease {
-    unsafe fn release(value: AnonStruct30a73e46832c4aff, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct3188ec42c5b5e0d3> for AnonStruct3188ec42c5b5e0d3Release {
+    unsafe fn release(value: AnonStruct3188ec42c5b5e0d3, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct8700bb3157333d89 {
+impl AnonStructFad101fcce1ec1a3 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12130,15 +15155,15 @@ impl AnonStruct8700bb3157333d89 {
     }
 }
 
-pub struct AnonStruct8700bb3157333d89Release;
+pub struct AnonStructFad101fcce1ec1a3Release;
 
-unsafe impl RocRelease<AnonStruct8700bb3157333d89> for AnonStruct8700bb3157333d89Release {
-    unsafe fn release(value: AnonStruct8700bb3157333d89, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructFad101fcce1ec1a3> for AnonStructFad101fcce1ec1a3Release {
+    unsafe fn release(value: AnonStructFad101fcce1ec1a3, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct32380512021fa2b7 {
+impl AnonStruct751f7db6342b42f6 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12159,15 +15184,15 @@ impl AnonStruct32380512021fa2b7 {
     }
 }
 
-pub struct AnonStruct32380512021fa2b7Release;
+pub struct AnonStruct751f7db6342b42f6Release;
 
-unsafe impl RocRelease<AnonStruct32380512021fa2b7> for AnonStruct32380512021fa2b7Release {
-    unsafe fn release(value: AnonStruct32380512021fa2b7, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct751f7db6342b42f6> for AnonStruct751f7db6342b42f6Release {
+    unsafe fn release(value: AnonStruct751f7db6342b42f6, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStructFd6767d07aac9300 {
+impl AnonStructA0ad260b0f5e9c52 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12192,15 +15217,15 @@ impl AnonStructFd6767d07aac9300 {
     }
 }
 
-pub struct AnonStructFd6767d07aac9300Release;
+pub struct AnonStructA0ad260b0f5e9c52Release;
 
-unsafe impl RocRelease<AnonStructFd6767d07aac9300> for AnonStructFd6767d07aac9300Release {
-    unsafe fn release(value: AnonStructFd6767d07aac9300, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructA0ad260b0f5e9c52> for AnonStructA0ad260b0f5e9c52Release {
+    unsafe fn release(value: AnonStructA0ad260b0f5e9c52, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct8ea95e8b24a76f41 {
+impl AnonStruct71144019e2d669fc {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12223,15 +15248,15 @@ impl AnonStruct8ea95e8b24a76f41 {
     }
 }
 
-pub struct AnonStruct8ea95e8b24a76f41Release;
+pub struct AnonStruct71144019e2d669fcRelease;
 
-unsafe impl RocRelease<AnonStruct8ea95e8b24a76f41> for AnonStruct8ea95e8b24a76f41Release {
-    unsafe fn release(value: AnonStruct8ea95e8b24a76f41, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct71144019e2d669fc> for AnonStruct71144019e2d669fcRelease {
+    unsafe fn release(value: AnonStruct71144019e2d669fc, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct1cd73c88e8aa8818 {
+impl AnonStruct3b3f1dc02d4b4916 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12239,7 +15264,7 @@ impl AnonStruct1cd73c88e8aa8818 {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.label.decref(roc_host); }
-        unsafe { decref_list_of_anon_struct6d9cdb5c6eba22bc(value.primitives, roc_host); }
+        unsafe { decref_list_of_anon_struct_f74678f34f8b3cbf(value.primitives, roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -12254,15 +15279,15 @@ impl AnonStruct1cd73c88e8aa8818 {
     }
 }
 
-pub struct AnonStruct1cd73c88e8aa8818Release;
+pub struct AnonStruct3b3f1dc02d4b4916Release;
 
-unsafe impl RocRelease<AnonStruct1cd73c88e8aa8818> for AnonStruct1cd73c88e8aa8818Release {
-    unsafe fn release(value: AnonStruct1cd73c88e8aa8818, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct3b3f1dc02d4b4916> for AnonStruct3b3f1dc02d4b4916Release {
+    unsafe fn release(value: AnonStruct3b3f1dc02d4b4916, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStruct6d9cdb5c6eba22bc {
+impl AnonStructF74678f34f8b3cbf {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12270,6 +15295,7 @@ impl AnonStruct6d9cdb5c6eba22bc {
     pub unsafe fn decref(self, roc_host: &RocHost) {
         let value = self;
         unsafe { value.label.decref(roc_host); }
+        unsafe { value.text.decref(roc_host); }
     }
 
     /// Increment Roc-owned fields.
@@ -12280,18 +15306,19 @@ impl AnonStruct6d9cdb5c6eba22bc {
     pub unsafe fn incref(self, amount: isize) {
         let value = self;
         unsafe { value.label.incref(amount); }
+        unsafe { value.text.incref(amount); }
     }
 }
 
-pub struct AnonStruct6d9cdb5c6eba22bcRelease;
+pub struct AnonStructF74678f34f8b3cbfRelease;
 
-unsafe impl RocRelease<AnonStruct6d9cdb5c6eba22bc> for AnonStruct6d9cdb5c6eba22bcRelease {
-    unsafe fn release(value: AnonStruct6d9cdb5c6eba22bc, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructF74678f34f8b3cbf> for AnonStructF74678f34f8b3cbfRelease {
+    unsafe fn release(value: AnonStructF74678f34f8b3cbf, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
 
-impl AnonStructB2e41b851da291a {
+impl AnonStructBe98516b6662a57b {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12314,10 +15341,380 @@ impl AnonStructB2e41b851da291a {
     }
 }
 
-pub struct AnonStructB2e41b851da291aRelease;
+pub struct AnonStructBe98516b6662a57bRelease;
 
-unsafe impl RocRelease<AnonStructB2e41b851da291a> for AnonStructB2e41b851da291aRelease {
-    unsafe fn release(value: AnonStructB2e41b851da291a, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStructBe98516b6662a57b> for AnonStructBe98516b6662a57bRelease {
+    unsafe fn release(value: AnonStructBe98516b6662a57b, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct521b63caff3553f9 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct521b63caff3553f9Release;
+
+unsafe impl RocRelease<AnonStruct521b63caff3553f9> for AnonStruct521b63caff3553f9Release {
+    unsafe fn release(value: AnonStruct521b63caff3553f9, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructD56b0eabf62517b9 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStructD56b0eabf62517b9Release;
+
+unsafe impl RocRelease<AnonStructD56b0eabf62517b9> for AnonStructD56b0eabf62517b9Release {
+    unsafe fn release(value: AnonStructD56b0eabf62517b9, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructE7c8b7462a78f14b {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStructE7c8b7462a78f14bRelease;
+
+unsafe impl RocRelease<AnonStructE7c8b7462a78f14b> for AnonStructE7c8b7462a78f14bRelease {
+    unsafe fn release(value: AnonStructE7c8b7462a78f14b, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructBdcbe7a50e42954d {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.keys.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.keys.incref(amount); }
+    }
+}
+
+pub struct AnonStructBdcbe7a50e42954dRelease;
+
+unsafe impl RocRelease<AnonStructBdcbe7a50e42954d> for AnonStructBdcbe7a50e42954dRelease {
+    unsafe fn release(value: AnonStructBdcbe7a50e42954d, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct1da781635f2f9fce {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct1da781635f2f9fceRelease;
+
+unsafe impl RocRelease<AnonStruct1da781635f2f9fce> for AnonStruct1da781635f2f9fceRelease {
+    unsafe fn release(value: AnonStruct1da781635f2f9fce, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructE5ac0e79f166cfe4 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_list_of_anon_struct1d0ac13b7d648fa3(value.keys, roc_host); }
+        unsafe { value.label.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.keys.incref(amount); }
+        unsafe { value.label.incref(amount); }
+    }
+}
+
+pub struct AnonStructE5ac0e79f166cfe4Release;
+
+unsafe impl RocRelease<AnonStructE5ac0e79f166cfe4> for AnonStructE5ac0e79f166cfe4Release {
+    unsafe fn release(value: AnonStructE5ac0e79f166cfe4, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct7dea1af4373e83a {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct7dea1af4373e83aRelease;
+
+unsafe impl RocRelease<AnonStruct7dea1af4373e83a> for AnonStruct7dea1af4373e83aRelease {
+    unsafe fn release(value: AnonStruct7dea1af4373e83a, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct80d05b419336b61b {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.label.decref(roc_host); }
+        unsafe { decref_list_of_anon_struct_da3665c9cce9a3c(value.types, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.label.incref(amount); }
+        unsafe { value.types.incref(amount); }
+    }
+}
+
+pub struct AnonStruct80d05b419336b61bRelease;
+
+unsafe impl RocRelease<AnonStruct80d05b419336b61b> for AnonStruct80d05b419336b61bRelease {
+    unsafe fn release(value: AnonStruct80d05b419336b61b, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructDa3665c9cce9a3c {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_list_of_str(value.extensions, roc_host); }
+        unsafe { value.label.decref(roc_host); }
+        unsafe { decref_list_of_str(value.mime_types, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.extensions.incref(amount); }
+        unsafe { value.label.incref(amount); }
+        unsafe { value.mime_types.incref(amount); }
+    }
+}
+
+pub struct AnonStructDa3665c9cce9a3cRelease;
+
+unsafe impl RocRelease<AnonStructDa3665c9cce9a3c> for AnonStructDa3665c9cce9a3cRelease {
+    unsafe fn release(value: AnonStructDa3665c9cce9a3c, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct5456361a272f3187 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_list_of_anon_struct_a295f39559baa24d(value.files, roc_host); }
+        unsafe { decref_list_of_anon_struct6fe360748589880f(value.refused, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.files.incref(amount); }
+        unsafe { value.refused.incref(amount); }
+    }
+}
+
+pub struct AnonStruct5456361a272f3187Release;
+
+unsafe impl RocRelease<AnonStruct5456361a272f3187> for AnonStruct5456361a272f3187Release {
+    unsafe fn release(value: AnonStruct5456361a272f3187, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructA295f39559baa24d {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_box_with(value.file as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { incref_box(value.file as RocBox, amount); }
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct AnonStructA295f39559baa24dRelease;
+
+unsafe impl RocRelease<AnonStructA295f39559baa24d> for AnonStructA295f39559baa24dRelease {
+    unsafe fn release(value: AnonStructA295f39559baa24d, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct6fe360748589880f {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct AnonStruct6fe360748589880fRelease;
+
+unsafe impl RocRelease<AnonStruct6fe360748589880f> for AnonStruct6fe360748589880fRelease {
+    unsafe fn release(value: AnonStruct6fe360748589880f, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -12353,7 +15750,7 @@ unsafe impl RocRelease<AnonStructDc4c26f806dfc5bf> for AnonStructDc4c26f806dfc5b
     }
 }
 
-impl AnonStructE1a686ac8d2eb702 {
+impl AnonStruct2ffca3ac98d0c52c {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12378,10 +15775,10 @@ impl AnonStructE1a686ac8d2eb702 {
     }
 }
 
-pub struct AnonStructE1a686ac8d2eb702Release;
+pub struct AnonStruct2ffca3ac98d0c52cRelease;
 
-unsafe impl RocRelease<AnonStructE1a686ac8d2eb702> for AnonStructE1a686ac8d2eb702Release {
-    unsafe fn release(value: AnonStructE1a686ac8d2eb702, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct2ffca3ac98d0c52c> for AnonStruct2ffca3ac98d0c52cRelease {
+    unsafe fn release(value: AnonStruct2ffca3ac98d0c52c, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -12464,6 +15861,55 @@ unsafe impl RocRelease<AnonStruct4c605145331877e7> for AnonStruct4c605145331877e
     }
 }
 
+impl HostGlueSqliteWatchResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            HostGlueSqliteWatchResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            HostGlueSqliteWatchResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            HostGlueSqliteWatchResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            HostGlueSqliteWatchResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct HostGlueSqliteWatchResultRelease;
+
+unsafe impl RocRelease<HostGlueSqliteWatchResult> for HostGlueSqliteWatchResultRelease {
+    unsafe fn release(value: HostGlueSqliteWatchResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl HostGlueSqliteQueryResult {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -12513,7 +15959,7 @@ unsafe impl RocRelease<HostGlueSqliteQueryResult> for HostGlueSqliteQueryResultR
     }
 }
 
-impl AnonStructD8780653fb52f85f {
+impl AnonStruct89852815e920c968 {
     /// Recursively decrement Roc-owned fields.
     ///
     /// # Safety
@@ -12536,10 +15982,10 @@ impl AnonStructD8780653fb52f85f {
     }
 }
 
-pub struct AnonStructD8780653fb52f85fRelease;
+pub struct AnonStruct89852815e920c968Release;
 
-unsafe impl RocRelease<AnonStructD8780653fb52f85f> for AnonStructD8780653fb52f85fRelease {
-    unsafe fn release(value: AnonStructD8780653fb52f85f, roc_host: &RocHost) {
+unsafe impl RocRelease<AnonStruct89852815e920c968> for AnonStruct89852815e920c968Release {
+    unsafe fn release(value: AnonStruct89852815e920c968, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -12571,6 +16017,37 @@ pub struct AnonStructBff7bc5a4faa26aeRelease;
 
 unsafe impl RocRelease<AnonStructBff7bc5a4faa26ae> for AnonStructBff7bc5a4faa26aeRelease {
     unsafe fn release(value: AnonStructBff7bc5a4faa26ae, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStructAd07206fc55b9842 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_list_of_anon_struct_bff7bc5a4faa26ae(value.params, roc_host); }
+        unsafe { value.sql.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.params.incref(amount); }
+        unsafe { value.sql.incref(amount); }
+    }
+}
+
+pub struct AnonStructAd07206fc55b9842Release;
+
+unsafe impl RocRelease<AnonStructAd07206fc55b9842> for AnonStructAd07206fc55b9842Release {
+    unsafe fn release(value: AnonStructAd07206fc55b9842, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -14626,7 +18103,7 @@ unsafe impl RocRelease<InternalFilesPickDirectoryResult> for InternalFilesPickDi
     }
 }
 
-impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr {
+impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -14635,27 +18112,35 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
         let mut value = self;
         let _ = roc_host;
         match value.tag {
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ListDirectoryErr => {
                 let payload = unsafe { value.take_payload_list_directory_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenAppDataErr => {
                 let payload = unsafe { value.take_payload_open_app_data_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenReadDirectoryErr => {
                 let payload = unsafe { value.take_payload_open_read_directory_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickDirectoryErr => {
                 let payload = unsafe { value.take_payload_pick_directory_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickFileErr => {
+                let payload = unsafe { value.take_payload_pick_file_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ReadFileErr => {
                 let payload = unsafe { value.take_payload_read_file_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WatchDirectoryErr => {
+                let payload = unsafe { value.take_payload_watch_directory_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WriteFileErr => {
                 let payload = unsafe { value.take_payload_write_file_err_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
@@ -14671,27 +18156,35 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
         let value = self;
         let _ = amount;
         match value.tag {
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ListDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ListDirectoryErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_list_directory_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenAppDataErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenAppDataErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_open_app_data_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::OpenReadDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::OpenReadDirectoryErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_open_read_directory_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::PickDirectoryErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickDirectoryErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_pick_directory_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::ReadFileErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::PickFileErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_pick_file_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::ReadFileErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_read_file_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
-            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrTag::WriteFileErr => {
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WatchDirectoryErr => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_watch_directory_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrTag::WriteFileErr => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_write_file_err_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
@@ -14699,10 +18192,10 @@ impl ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrR
     }
 }
 
-pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrRelease;
+pub struct ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrRelease;
 
-unsafe impl RocRelease<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr> for ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErrRelease {
-    unsafe fn release(value: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrReadFileErrOrWriteFileErr, roc_host: &RocHost) {
+unsafe impl RocRelease<ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr> for ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErrRelease {
+    unsafe fn release(value: ListDirectoryErrOrOpenAppDataErrOrOpenReadDirectoryErrOrPickDirectoryErrOrPickFileErrOrReadFileErrOrWatchDirectoryErrOrWriteFileErr, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -14736,7 +18229,7 @@ unsafe impl RocRelease<AccessDeniedOrInvalidCapabilityOrInvalidNameOrInvalidUtf8
     }
 }
 
-impl CanceledOrChosen {
+impl CanceledOrChosenType249 {
     /// Recursively decrement Roc-owned payloads.
     ///
     /// # Safety
@@ -14745,8 +18238,8 @@ impl CanceledOrChosen {
         let mut value = self;
         let _ = roc_host;
         match value.tag {
-            CanceledOrChosenTag::Canceled => {},
-            CanceledOrChosenTag::Chosen => {
+            CanceledOrChosenType249Tag::Canceled => {},
+            CanceledOrChosenType249Tag::Chosen => {
                 let payload = unsafe { value.take_payload_chosen_unchecked() };
                 unsafe { payload.decref(roc_host); }
             },
@@ -14762,8 +18255,8 @@ impl CanceledOrChosen {
         let value = self;
         let _ = amount;
         match value.tag {
-            CanceledOrChosenTag::Canceled => {},
-            CanceledOrChosenTag::Chosen => {
+            CanceledOrChosenType249Tag::Canceled => {},
+            CanceledOrChosenType249Tag::Chosen => {
                 let payload = unsafe { core::ptr::read(value.borrow_payload_chosen_unchecked()) };
                 unsafe { payload.incref(amount); }
             },
@@ -14771,10 +18264,10 @@ impl CanceledOrChosen {
     }
 }
 
-pub struct CanceledOrChosenRelease;
+pub struct CanceledOrChosenType249Release;
 
-unsafe impl RocRelease<CanceledOrChosen> for CanceledOrChosenRelease {
-    unsafe fn release(value: CanceledOrChosen, roc_host: &RocHost) {
+unsafe impl RocRelease<CanceledOrChosenType249> for CanceledOrChosenType249Release {
+    unsafe fn release(value: CanceledOrChosenType249, roc_host: &RocHost) {
         unsafe { value.decref(roc_host); }
     }
 }
@@ -15056,6 +18549,383 @@ unsafe impl RocRelease<InternalFilesDirReadResult> for InternalFilesDirReadResul
     }
 }
 
+impl InternalFilesDirSha256Result {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesDirSha256ResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesDirSha256ResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesDirSha256ResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesDirSha256ResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesDirSha256ResultRelease;
+
+unsafe impl RocRelease<InternalFilesDirSha256Result> for InternalFilesDirSha256ResultRelease {
+    unsafe fn release(value: InternalFilesDirSha256Result, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl InternalFilesDirWatchResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesDirWatchResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesDirWatchResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { decref_box_with(payload as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesDirWatchResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesDirWatchResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { incref_box(payload as RocBox, amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesDirWatchResultRelease;
+
+unsafe impl RocRelease<InternalFilesDirWatchResult> for InternalFilesDirWatchResultRelease {
+    unsafe fn release(value: InternalFilesDirWatchResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct5d4fced1f96c13bb {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { decref_list_of_str(value.names, roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.names.incref(amount); }
+    }
+}
+
+pub struct AnonStruct5d4fced1f96c13bbRelease;
+
+unsafe impl RocRelease<AnonStruct5d4fced1f96c13bb> for AnonStruct5d4fced1f96c13bbRelease {
+    unsafe fn release(value: AnonStruct5d4fced1f96c13bb, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl InternalFilesPickFileResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesPickFileResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesPickFileResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesPickFileResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesPickFileResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesPickFileResultRelease;
+
+unsafe impl RocRelease<InternalFilesPickFileResult> for InternalFilesPickFileResultRelease {
+    unsafe fn release(value: InternalFilesPickFileResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl CanceledOrChosenType292 {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            CanceledOrChosenType292Tag::Canceled => {},
+            CanceledOrChosenType292Tag::Chosen => {
+                let payload = unsafe { value.take_payload_chosen_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            CanceledOrChosenType292Tag::Canceled => {},
+            CanceledOrChosenType292Tag::Chosen => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_chosen_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct CanceledOrChosenType292Release;
+
+unsafe impl RocRelease<CanceledOrChosenType292> for CanceledOrChosenType292Release {
+    unsafe fn release(value: CanceledOrChosenType292, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct3ef35cf67ee1fcb4 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        unsafe { value.name.decref(roc_host); }
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        unsafe { value.name.incref(amount); }
+    }
+}
+
+pub struct AnonStruct3ef35cf67ee1fcb4Release;
+
+unsafe impl RocRelease<AnonStruct3ef35cf67ee1fcb4> for AnonStruct3ef35cf67ee1fcb4Release {
+    unsafe fn release(value: AnonStruct3ef35cf67ee1fcb4, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl InternalFilesReopenFileResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesReopenFileResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesReopenFileResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesReopenFileResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesReopenFileResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesReopenFileResultRelease;
+
+unsafe impl RocRelease<InternalFilesReopenFileResult> for InternalFilesReopenFileResultRelease {
+    unsafe fn release(value: InternalFilesReopenFileResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl AnonStruct45708337b22b1f51 {
+    /// Recursively decrement Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted field.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let value = self;
+        let _ = value;
+        let _ = roc_host;
+    }
+
+    /// Increment Roc-owned fields.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = value;
+        let _ = amount;
+    }
+}
+
+pub struct AnonStruct45708337b22b1f51Release;
+
+unsafe impl RocRelease<AnonStruct45708337b22b1f51> for AnonStruct45708337b22b1f51Release {
+    unsafe fn release(value: AnonStruct45708337b22b1f51, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
+impl InternalFilesReopenDirectoryResult {
+    /// Recursively decrement Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must own one live Roc reference for each refcounted payload.
+    pub unsafe fn decref(self, roc_host: &RocHost) {
+        let mut value = self;
+        let _ = roc_host;
+        match value.tag {
+            InternalFilesReopenDirectoryResultTag::Err => {
+                let payload = unsafe { value.take_payload_err_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+            InternalFilesReopenDirectoryResultTag::Ok => {
+                let payload = unsafe { value.take_payload_ok_unchecked() };
+                unsafe { payload.decref(roc_host); }
+            },
+        }
+    }
+
+    /// Increment Roc-owned payloads.
+    ///
+    /// # Safety
+    /// `self` must point at live Roc allocations. The retained references must
+    /// be balanced by later decrefs.
+    pub unsafe fn incref(self, amount: isize) {
+        let value = self;
+        let _ = amount;
+        match value.tag {
+            InternalFilesReopenDirectoryResultTag::Err => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_err_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+            InternalFilesReopenDirectoryResultTag::Ok => {
+                let payload = unsafe { core::ptr::read(value.borrow_payload_ok_unchecked()) };
+                unsafe { payload.incref(amount); }
+            },
+        }
+    }
+}
+
+pub struct InternalFilesReopenDirectoryResultRelease;
+
+unsafe impl RocRelease<InternalFilesReopenDirectoryResult> for InternalFilesReopenDirectoryResultRelease {
+    unsafe fn release(value: InternalFilesReopenDirectoryResult, roc_host: &RocHost) {
+        unsafe { value.decref(roc_host); }
+    }
+}
+
 impl InternalFilesAppDataResult {
     /// Recursively decrement Roc-owned payloads.
     ///
@@ -15233,19 +19103,41 @@ unsafe impl RocRelease<InternalFilesWriteUtf8AtomicResult> for InternalFilesWrit
 ///
 /// # Safety
 /// `value` must own one live Roc list reference.
-pub unsafe fn decref_list_of_list_of_type4(value: RocList<RocListWith<u8, false>>, roc_host: &RocHost) {
+pub unsafe fn decref_list_of_list_of_type3(value: RocList<RocListWith<u8, false>>, roc_host: &RocHost) {
     unsafe { value.release_with::<RocListSpineRelease>(roc_host); }
 }
 
-/// Release one owned reference to a `RocList<AnonStruct6d9cdb5c6eba22bc>`.
+/// Release one owned reference to a `RocList<AnonStruct1d0ac13b7d648fa3>`.
 ///
 /// The allocation's final reference is claimed atomically before any element
 /// is read, so concurrent owners cannot skip or duplicate element teardown.
 ///
 /// # Safety
 /// `value` must own one live Roc list reference.
-pub unsafe fn decref_list_of_anon_struct6d9cdb5c6eba22bc(value: RocList<AnonStruct6d9cdb5c6eba22bc>, roc_host: &RocHost) {
-    unsafe { value.release_with::<AnonStruct6d9cdb5c6eba22bcRelease>(roc_host); }
+pub unsafe fn decref_list_of_anon_struct1d0ac13b7d648fa3(value: RocList<AnonStruct1d0ac13b7d648fa3>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct1d0ac13b7d648fa3Release>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStructF74678f34f8b3cbf>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct_f74678f34f8b3cbf(value: RocList<AnonStructF74678f34f8b3cbf>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStructF74678f34f8b3cbfRelease>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStructDa3665c9cce9a3c>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct_da3665c9cce9a3c(value: RocList<AnonStructDa3665c9cce9a3c>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStructDa3665c9cce9a3cRelease>(roc_host); }
 }
 
 /// Release one owned reference to a `RocList<RocStr>`.
@@ -15257,6 +19149,28 @@ pub unsafe fn decref_list_of_anon_struct6d9cdb5c6eba22bc(value: RocList<AnonStru
 /// `value` must own one live Roc list reference.
 pub unsafe fn decref_list_of_str(value: RocList<RocStr>, roc_host: &RocHost) {
     unsafe { value.release_with::<RocStrRelease>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStructA295f39559baa24d>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct_a295f39559baa24d(value: RocList<AnonStructA295f39559baa24d>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStructA295f39559baa24dRelease>(roc_host); }
+}
+
+/// Release one owned reference to a `RocList<AnonStruct6fe360748589880f>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct6fe360748589880f(value: RocList<AnonStruct6fe360748589880f>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct6fe360748589880fRelease>(roc_host); }
 }
 
 /// Release one owned reference to a `RocList<RocList<AnonStructBff7bc5a4faa26ae>>`.
@@ -15325,6 +19239,17 @@ pub unsafe fn decref_list_of_anon_struct770b9d9b3d3d255(value: RocList<AnonStruc
     unsafe { value.release_with::<AnonStruct770b9d9b3d3d255Release>(roc_host); }
 }
 
+/// Release one owned reference to a `RocList<AnonStruct3ef35cf67ee1fcb4>`.
+///
+/// The allocation's final reference is claimed atomically before any element
+/// is read, so concurrent owners cannot skip or duplicate element teardown.
+///
+/// # Safety
+/// `value` must own one live Roc list reference.
+pub unsafe fn decref_list_of_anon_struct3ef35cf67ee1fcb4(value: RocList<AnonStruct3ef35cf67ee1fcb4>, roc_host: &RocHost) {
+    unsafe { value.release_with::<AnonStruct3ef35cf67ee1fcb4Release>(roc_host); }
+}
+
 
 // Runtime Symbols
 //
@@ -15391,7 +19316,7 @@ unsafe extern "C" {
     pub fn roc_gui_node_text(arg0: RocStr) -> u64;
 
     /// Hosted symbol for HostGlue.node_styled_text!
-    /// Roc signature: { fg : U32, font_face : U8, font_size : U32, font_weight : U32, value : Str } => U64
+    /// Roc signature: { fg : U64, font_face : U8, font_size : U32, font_weight : U32, runs : List({ bg : U64, fg : U64, font_weight : U32, len : U64, monospace : Bool, underline : Bool }), value : Str } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -15491,42 +19416,49 @@ unsafe extern "C" {
     pub fn roc_gui_component_exit();
 
     /// Hosted symbol for HostGlue.node_row!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_row(arg0: HostGlueNodeRowArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_column!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_column(arg0: HostGlueNodeColumnArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_dialog!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_dialog(arg0: HostGlueNodeDialogArgs) -> u64;
 
+    /// Hosted symbol for HostGlue.node_popover!
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, delay_ms : U32, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, focus_serial : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placement : U8, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, shortcuts : List({ focus : Bool, keys : Str }), text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64, shortcut : U64 }
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_popover(arg0: HostGlueNodePopoverArgs) -> AnonStruct10af2f3a422106e8;
+
     /// Hosted symbol for HostGlue.node_panel!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_panel(arg0: HostGlueNodePanelArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_scroll!
-    /// Roc signature: { active_bg : U32, align : U8, axis : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, child : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, axis : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, child : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_scroll(arg0: HostGlueNodeScrollArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_action_button!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64 }
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, caption : Str, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, hover_enter : Bool, hover_exit : Bool, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, role : U8, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => { hover_enter : U64, hover_exit : U64, id : U64 }
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -15537,43 +19469,79 @@ unsafe extern "C" {
     pub fn roc_gui_node_virtual_item(arg0: u64, arg1: u64) -> u64;
 
     /// Hosted symbol for HostGlue.node_virtual_list!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U32, disabled_fg : U32, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, row_gap : U32, row_height : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, count : U64, disabled_bg : U64, disabled_fg : U64, fg : U64, first : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, instance : U64, justify : U8, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, name : Str, notify : Bool, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, row_gap : U32, row_height : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_virtual_list(arg0: HostGlueNodeVirtualListArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_checkbox!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, box_bg : U32, box_border : U32, box_checked_bg : U32, checked : Bool, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, mark_color : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, box_bg : U64, box_border : U64, box_checked_bg : U64, checked : Bool, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, mark_color : U64, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_checkbox(arg0: HostGlueNodeCheckboxArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_textarea!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, read_only : Bool, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_textarea(arg0: HostGlueNodeTextareaArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_image!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U32, disabled_fg : U32, fg : U32, fit : U8, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, bytes : List(U8), disabled_bg : U64, disabled_fg : U64, fg : U64, fit : U8, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, format : U8, gap : U32, grayscale : Bool, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_image(arg0: HostGlueNodeImageArgs) -> u64;
 
     /// Hosted symbol for HostGlue.node_canvas!
-    /// Roc signature: { bg : U32, border_color : U32, border_width : U32, grow : Bool, height : U32, height_kind : U8, label : Str, primitives : List({ fill : U32, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U32, stroke_width : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, width : U32, width_kind : U8 } => U64
+    /// Roc signature: { bg : U64, border_color : U64, border_width : U32, grow : Bool, height : U32, height_kind : U8, hover : Bool, label : Str, primitives : List({ align : U8, fill : U64, height : U32, key : U64, kind : U8, label : Str, radius : U32, stroke : U64, stroke_width : U32, text : Str, text_size : U32, width : U32, x : I32, x2 : I32, y : I32, y2 : I32 }), radius : U32, size : Bool, wheel : Bool, width : U32, width_kind : U8 } => U64
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
     pub fn roc_gui_node_canvas(arg0: HostGlueNodeCanvasArgs) -> u64;
 
     /// Hosted symbol for HostGlue.canvas_event!
-    /// Roc signature: {} => { phase : U8, target : U64, x : I32, y : I32 }
-    pub fn roc_gui_canvas_event() -> AnonStructB2e41b851da291a;
+    /// Roc signature: {} => { dx : I32, dy : I32, phase : U8, target : U64, x : I32, y : I32 }
+    pub fn roc_gui_canvas_event() -> AnonStructE7c8b7462a78f14b;
+
+    /// Hosted symbol for HostGlue.shortcut_event!
+    /// Roc signature: {} => { index : U64, keys : Str }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_gui_shortcut_event() -> AnonStructBdcbe7a50e42954d;
+
+    /// Hosted symbol for HostGlue.node_split!
+    /// Roc signature: { active_bg : U64, align : U8, axis : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, collapsed : Bool, collapsible : Bool, disabled_bg : U64, disabled_fg : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, keys : List({ focus : Bool, keys : Str }), label : Str, max : U32, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min : U32, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, side : U8, size : U32, text_overflow : U8, thickness : U32, width : U32, width_kind : U8 } => { id : U64, shortcut : U64 }
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_split(arg0: HostGlueNodeSplitArgs) -> AnonStruct1da781635f2f9fce;
+
+    /// Hosted symbol for HostGlue.resize_event!
+    /// Roc signature: {} => { collapsed : Bool, size : U32 }
+    pub fn roc_gui_resize_event() -> AnonStruct7dea1af4373e83a;
+
+    /// Hosted symbol for HostGlue.node_drop_target!
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, builder : U64, disabled_bg : U64, disabled_fg : U64, drop_bg : U64, drop_border : U64, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, types : List({ extensions : List(Str), label : Str, mime_types : List(Str) }), width : U32, width_kind : U8 } => U64
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg0.decref(roc_host); }
+    pub fn roc_gui_node_drop_target(arg0: HostGlueNodeDropTargetArgs) -> u64;
+
+    /// Hosted symbol for HostGlue.drop_event!
+    /// Roc signature: {} => { files : List({ file : Resource.Handle([FileReadResource]), name : Str }), refused : List({ name : Str, reason : U8 }) }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_gui_drop_event() -> AnonStruct5456361a272f3187;
+
+    /// Hosted symbol for HostGlue.virtual_window!
+    /// Roc signature: { count : U64, instance : U64, row_height : U32, scroll_align : U8, scroll_row : U64, scroll_serial : U64 } => { end : U64, first : U64 }
+    pub fn roc_gui_virtual_window(arg0: HostGlueVirtualWindowArgs) -> AnonStructBe98516b6662a57b;
+
+    /// Hosted symbol for HostGlue.virtual_rows_event!
+    /// Roc signature: {} => { end : U64, refresh : Bool, report : Bool, start : U64 }
+    pub fn roc_gui_virtual_rows_event() -> AnonStructD56b0eabf62517b9;
 
     /// Hosted symbol for HostGlue.input_value!
     /// Roc signature: {} => Str
@@ -15581,7 +19549,7 @@ unsafe extern "C" {
     pub fn roc_gui_input_value() -> RocStr;
 
     /// Hosted symbol for HostGlue.node_text_input!
-    /// Roc signature: { active_bg : U32, align : U8, bg : U32, border_bottom : U32, border_color : U32, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U32, disabled_fg : U32, enabled : Bool, fg : U32, focus_color : U32, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U32, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U32, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
+    /// Roc signature: { active_bg : U64, align : U8, bg : U64, border_bottom : U32, border_color : U64, border_left : U32, border_right : U32, border_top : U32, disabled_bg : U64, disabled_fg : U64, enabled : Bool, fg : U64, focus_color : U64, font_face : U8, font_size : U32, font_weight : U32, gap : U32, grow : Bool, height : U32, height_kind : U8, hover_bg : U64, justify : U8, label : Str, max_height : U32, max_height_kind : U8, max_width : U32, max_width_kind : U8, min_height : U32, min_height_kind : U8, min_width : U32, min_width_kind : U8, overflow_x : U8, overflow_y : U8, padding_bottom : U32, padding_left : U32, padding_right : U32, padding_top : U32, placeholder : Str, radius : U32, shadow : U32, shadow_alpha : U32, shadow_color : U64, shadow_y : U32, text_overflow : U8, value : Str, width : U32, width_kind : U8 } => { change : U64, id : U64, submit : U64 }
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
@@ -15596,14 +19564,30 @@ unsafe extern "C" {
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_sqlite_open_read(arg0: *mut u64, arg1: RocStr) -> HostGlueSqliteOpenReadResult;
 
+    /// Hosted symbol for HostGlue.sqlite_open_file_read!
+    /// Roc signature: Resource.Handle([FileReadResource]) => Try(Resource.Handle([SqliteReadResource]), { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_sqlite_open_file_read(arg0: *mut u64) -> HostGlueSqliteOpenReadResult;
+
+    /// Hosted symbol for HostGlue.sqlite_watch!
+    /// Roc signature: Resource.Handle([SqliteReadResource]) => Try(Resource.Handle([WatchResource]), { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_sqlite_watch(arg0: *mut u64) -> HostGlueSqliteWatchResult;
+
     /// Hosted symbol for HostGlue.sqlite_query!
-    /// Roc signature: Resource.Handle([SqliteReadResource]), Str => Try({ columns : List(Str), rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
+    /// Roc signature: Resource.Handle([SqliteReadResource]), { page_rows : U64, params : List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str }), sql : Str } => Try({ columns : List(Str), more : Bool, rows : List(List({ bytes : List(U8), integer : I64, kind : U8, real : F64, text : Str })) }, { code : U8, message : Str })
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     ///     unsafe { arg1.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
-    pub fn roc_sqlite_query(arg0: *mut u64, arg1: RocStr) -> HostGlueSqliteQueryResult;
+    pub fn roc_sqlite_query(arg0: *mut u64, arg1: AnonStructAd07206fc55b9842) -> HostGlueSqliteQueryResult;
 
     /// Hosted symbol for InternalFiles.app_data!
     /// Roc signature: {} => Try(Resource.Handle([DirReadWriteResource]), { code : U8, message : Str })
@@ -15875,11 +19859,19 @@ unsafe extern "C" {
     pub fn roc_gui_set_dispatch(arg0: RocErasedCallable);
 
     /// Hosted symbol for HostGlue.enqueue_task!
-    /// Roc signature: U64, Box(U64 => {}) => {}
+    /// Roc signature: U64, Str, Box(U64 => {}) => {}
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
-    ///     unsafe { decref_erased_callable(arg1, roc_host); }
-    pub fn roc_gui_enqueue_task(arg0: u64, arg1: RocErasedCallable);
+    ///     unsafe { arg1.decref(roc_host); }
+    ///     unsafe { decref_erased_callable(arg2, roc_host); }
+    pub fn roc_gui_enqueue_task(arg0: u64, arg1: RocStr, arg2: RocErasedCallable);
+
+    /// Hosted symbol for HostGlue.cancel_task!
+    /// Roc signature: U64, Str => {}
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { arg1.decref(roc_host); }
+    pub fn roc_gui_cancel_task(arg0: u64, arg1: RocStr);
 
     /// Hosted symbol for HostGlue.task_complete!
     /// Roc signature: Box(U64 => {}) => {}
@@ -15929,19 +19921,31 @@ unsafe extern "C" {
     pub fn roc_gui_work_end(arg0: u8);
 
     /// Hosted symbol for HostGlue.window_config!
-    /// Roc signature: Str, U32, U32, U32, U32 => {}
+    /// Roc signature: Str, U32, U32, U64, U64, Bool => {}
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { arg0.decref(roc_host); }
-    pub fn roc_gui_window_config(arg0: RocStr, arg1: u32, arg2: u32, arg3: u32, arg4: u32);
+    pub fn roc_gui_window_config(arg0: RocStr, arg1: u32, arg2: u32, arg3: u64, arg4: u64, arg5: bool);
+
+    /// Hosted symbol for HostGlue.appearance_current!
+    /// Roc signature: {} => U8
+    pub fn roc_gui_appearance_current() -> u8;
+
+    /// Hosted symbol for HostGlue.appearance_next_change!
+    /// Roc signature: U8 => U8
+    pub fn roc_gui_appearance_next_change(arg0: u8) -> u8;
+
+    /// Hosted symbol for HostGlue.appearance_prefer!
+    /// Roc signature: U8 => {}
+    pub fn roc_gui_appearance_prefer(arg0: u8);
 
     /// Hosted symbol for InternalFiles.pick_directory!
-    /// Roc signature: {} => Try([Canceled, Chosen({ directory : Resource.Handle([DirReadResource]), name : Str })], [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Roc signature: {} => Try([Canceled, Chosen({ directory : Resource.Handle([DirReadResource]), name : Str })], [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_files_pick_directory() -> InternalFilesPickDirectoryResult;
 
     /// Hosted symbol for InternalFiles.dir_list!
-    /// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Roc signature: Resource.Handle([DirReadResource]) => Try(List({ bytes : [None, Some(U64)], kind : [Directory, File, Other, SymbolicLink], name : Str }), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15949,7 +19953,7 @@ unsafe extern "C" {
     pub fn roc_files_dir_list(arg0: *mut u64) -> InternalFilesDirListResult;
 
     /// Hosted symbol for InternalFiles.dir_open_read!
-    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Resource.Handle([DirReadResource]), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
@@ -15958,13 +19962,102 @@ unsafe extern "C" {
     pub fn roc_files_dir_open_read(arg0: *mut u64, arg1: RocStr) -> InternalFilesDirOpenReadResult;
 
     /// Hosted symbol for InternalFiles.dir_read!
-    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
     /// Owned arguments. Release each exactly once before returning, unless it is
     /// moved into storage or into the result:
     ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
     ///     unsafe { arg1.decref(roc_host); }
     /// The result is owned by Roc: return exactly one owned reference.
     pub fn roc_files_dir_read(arg0: *mut u64, arg1: RocStr) -> InternalFilesDirReadResult;
+
+    /// Hosted symbol for InternalFiles.pick_file!
+    /// Roc signature: List({ extensions : List(Str), label : Str, mime_types : List(Str) }) => Try([Canceled, Chosen({ file : Resource.Handle([FileReadResource]), name : Str })], [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_list_of_anon_struct_da3665c9cce9a3c(arg0, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_pick_file(arg0: RocList<AnonStructDa3665c9cce9a3c>) -> InternalFilesPickFileResult;
+
+    /// Hosted symbol for InternalFiles.file_read!
+    /// Roc signature: Resource.Handle([FileReadResource]) => Try(List(U8), [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_file_read(arg0: *mut u64) -> InternalFilesDirReadResult;
+
+    /// Hosted symbol for InternalFiles.dir_sha256!
+    /// Roc signature: Resource.Handle([DirReadResource]), Str => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    ///     unsafe { arg1.decref(roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_dir_sha256(arg0: *mut u64, arg1: RocStr) -> InternalFilesDirSha256Result;
+
+    /// Hosted symbol for InternalFiles.file_sha256!
+    /// Roc signature: Resource.Handle([FileReadResource]) => Try(Str, [ListDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenAppDataErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), OpenReadDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), PickFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), ReadFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WatchDirectoryErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported]), WriteFileErr([AccessDenied, InvalidCapability, InvalidName, InvalidUtf8, Io, NotDirectory, NotFound, ResourceLimit, Revoked, Unavailable, Unsupported])])
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_file_sha256(arg0: *mut u64) -> InternalFilesDirSha256Result;
+
+    /// Hosted symbol for InternalFiles.dir_watch!
+    /// Roc signature: Resource.Handle([DirReadResource]) => Try(Resource.Handle([WatchResource]), { code : U8, message : Str })
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_dir_watch(arg0: *mut u64) -> InternalFilesDirWatchResult;
+
+    /// Hosted symbol for InternalFiles.watch_next!
+    /// Roc signature: Resource.Handle([WatchResource]) => { code : U8, names : List(Str), overflowed : Bool, replaced : Bool }
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_watch_next(arg0: *mut u64) -> AnonStruct5d4fced1f96c13bb;
+
+    /// Hosted symbol for InternalFiles.watch_cancel!
+    /// Roc signature: Resource.Handle([WatchResource]) => Bool
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_files_watch_cancel(arg0: *mut u64) -> bool;
+
+    /// Hosted symbol for InternalFiles.recent!
+    /// Roc signature: {} => List({ directory : Bool, key : U64, name : Str, status : U8 })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_recent() -> RocList<AnonStruct3ef35cf67ee1fcb4>;
+
+    /// Hosted symbol for InternalFiles.reopen_file!
+    /// Roc signature: U64 => Try({ file : Resource.Handle([FileReadResource]), name : Str }, { code : U8 })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_reopen_file(arg0: u64) -> InternalFilesReopenFileResult;
+
+    /// Hosted symbol for InternalFiles.reopen_directory!
+    /// Roc signature: U64 => Try({ directory : Resource.Handle([DirReadResource]), name : Str }, { code : U8 })
+    /// The result is owned by Roc: return exactly one owned reference.
+    pub fn roc_files_reopen_directory(arg0: u64) -> InternalFilesReopenDirectoryResult;
+
+    /// Hosted symbol for InternalFiles.forget_recent!
+    /// Roc signature: U64 => Bool
+    pub fn roc_files_forget_recent(arg0: u64) -> bool;
+
+    /// Hosted symbol for InternalFiles.remember_file!
+    /// Roc signature: Resource.Handle([FileReadResource]) => U8
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_files_remember_file(arg0: *mut u64) -> u8;
+
+    /// Hosted symbol for InternalFiles.remember_directory!
+    /// Roc signature: Resource.Handle([DirReadResource]) => U8
+    /// Owned arguments. Release each exactly once before returning, unless it is
+    /// moved into storage or into the result:
+    ///     unsafe { decref_box_with(arg0 as RocBox, core::mem::align_of::<u64>(), false, None, roc_host); }
+    pub fn roc_files_remember_directory(arg0: *mut u64) -> u8;
 
 }
 

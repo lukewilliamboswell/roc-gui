@@ -1,6 +1,6 @@
 //! Laid-out bounds for mounted nodes, recorded from the production render path.
 //!
-//! GPUI 0.2.2 exposes element bounds outside `test-support` only through
+//! GPUI exposes element bounds outside `test-support` only through
 //! `canvas`'s prepaint closure — the idiom `NodeView::render` already uses for
 //! canvas hit testing. This module reuses it to record where each node was laid
 //! out, so the window runner can dispatch input at real coordinates and crop

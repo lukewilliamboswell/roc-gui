@@ -1,0 +1,30 @@
+;; A number after "cycle" or "step" names one of the selected run: the cycle
+;; with that ordinal is read and inspected, and the step is shown in Spec.
+(test "the command palette opens a cycle or a step by number"
+  (grants
+    (directory "fixture/captures"))
+  (steps
+    (click (role button :name "Open folder"))
+    (await-task)
+    (click (role button :name "Capture database-browser-scale-100.rgstats"))
+    (await-task)
+    (click (role button :name "Spec"))
+    (click (role button :name "Run 4"))
+    (await-task)
+    (key "ctrl-k")
+    (replace-text (role textbox :name "Palette query") "cycle 7")
+    (expect-visible (role button :name "Palette Cycle cycle 7"))
+    (submit (role textbox :name "Palette query"))
+    (await-task)
+    (expect-visible (text "CYCLE r4 #7 · task · replace · measured"))
+    (key "ctrl-k")
+    (replace-text (role textbox :name "Palette query") "step 5")
+    (submit (role textbox :name "Palette query"))
+    (await-task)
+    (expect-visible (text "STEPS OF RUN 4 · 9"))
+    (expect-visible (role panel :name "Focused step"))
+    (key "ctrl-k")
+    (replace-text (role textbox :name "Palette query") "cycle 9999")
+    (submit (role textbox :name "Palette query"))
+    (await-task)
+    (expect-visible (text "No cycle 9999 in run 4"))))

@@ -1,10 +1,9 @@
 ; A database opened from a project is derived from that project's grant, so
-; revoking the project reaches the database. The resource access inventory
-; recorded this as unverified, and it was: the snapshot is an independent
-; in-memory copy, so nothing in SQLite's own code would have stopped a query
-; after the directory it came from was taken away. Deriving the snapshot from
-; the directory grant makes it true by construction rather than by a rule
-; written twice, and this is the case that says so.
+; revoking the project reaches the database. The connection is SQLite's own,
+; so nothing in SQLite's code would stop a query after the directory it came
+; from was taken away. Deriving the connection from the directory grant makes
+; it true by construction rather than by a rule written twice, and this is the
+; case that says so.
 ;
 ; Bytes already returned to application state are not recalled — the rows from
 ; the query before revocation are still on screen, and the contract says
@@ -20,7 +19,7 @@
     (await-task)
     (expect-grants
       "directory provisioned/consent-only root read,list,derive"
-      "sqlite provisioned/consent-only derived read")
+      "sqlite provisioned/consent-only derived read,derive")
     (click (role button :name "Run query"))
     (await-task)
     (expect-visible (text "Rows: 100"))
@@ -28,11 +27,11 @@
     (revoke-file-grants)
     (expect-grants
       "directory provisioned/consent-only root read,list,derive revoked"
-      "sqlite provisioned/consent-only derived read revoked")
+      "sqlite provisioned/consent-only derived read,derive revoked")
     ; The rows already returned are still here, because revocation cannot
     ; recall what an application was already given.
     (expect-visible (text "Rows: 100"))
-    ; A further query reaches the snapshot and is refused — and says which
+    ; A further query reaches the database and is refused — and says which
     ; refusal it was. Reporting a withdrawn grant as an invalid handle would
     ; tell a person their database is broken when someone simply took the
     ; folder back, and would be a different remedy on screen.

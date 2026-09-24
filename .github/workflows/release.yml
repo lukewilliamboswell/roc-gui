@@ -31,10 +31,9 @@ jobs:
       - uses: ./.github/actions/setup-roc
       - name: Validate release policy
         if: ${{ !inputs.validate_only }}
-        uses: lukewilliamboswell/roc-automation/actions/check-release@355f762079f676df4d0ae86416edf34216b488e0
+        uses: lukewilliamboswell/roc-automation/actions/check-release@d2bf9d412dcff12aae3249afde170eab8119253f
         with:
           version: ${{ inputs.version }}
-          compiler-root: platform/main.roc
           allow-default-branch: 'true'
           allow-nightly-bootstrap: 'true'
       - name: Verify locked artifact attestations

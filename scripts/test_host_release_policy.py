@@ -34,8 +34,8 @@ class HostReleasePolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "captured build receipt"):
             validate_outputs(receipt, "x64glibc", "f" * 64, cargo, {"libhost.a": b"replacement"})
 
-    def test_windows_resource_is_not_a_host_release_output(self):
-        self.assertEqual(HOST_FILES["x64mingw"], ("libhost.a",))
+    def test_windows_host_releases_its_derived_import_library_and_not_its_resource(self):
+        self.assertEqual(HOST_FILES["x64mingw"], ("libhost.a", "windows-imports.lib"))
 
     def test_candidate_admission_requires_unified_link_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:

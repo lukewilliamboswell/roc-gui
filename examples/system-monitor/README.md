@@ -5,7 +5,8 @@ network I/O as fixed-height readings, a bar plot and a log of the last 120
 samples, and a table of processes showing PID, name, CPU, and memory. The table
 can be filtered by name, sorted by CPU or memory, and one row selected; the
 selection follows its process across samples and says so when the process is
-gone.
+gone. The bar plot fills the width the window gives it: it hears that width
+through the canvas's `on_size` and spreads a full history across it.
 
 The example exercises a sampling session: two host resources, a `SystemMonitor`
 sampler and a `Timer`, acquired together and closed together. Nothing is read
