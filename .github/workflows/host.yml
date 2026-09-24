@@ -2,7 +2,8 @@ name: Native host
 
 # Produces one target's native host once per run. Every job that exercises the
 # host admits this sealed output (`scripts/ci_host.py admit`); none builds it.
-# The candidate job composes the release archive from those same bytes.
+# `host-candidate.yml` composes the release archive from those same bytes, as a
+# separate call so specifications never wait on notice composition.
 on:
   workflow_call:
     inputs:
@@ -91,53 +92,3 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  candidate:
-    name: Compose host release candidate (${{ inputs.target }})
-    needs: build
-    if: needs.build.outputs.mode == 'built'
-    runs-on: ${{ inputs.os }}
-    timeout-minutes: 60
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-toolchain
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ~/.cache/roc-gui/link-inputs
-          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
-          restore-keys: link-inputs-${{ runner.os }}-
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev
-      - name: Check host evidence and notice admission
-        run: |
-          python3 scripts/test_host_release_policy.py
-          python3 scripts/test_cargo_build_evidence.py
-          python3 scripts/test_git_cargo_sources.py
-          python3 scripts/test_rust_license_inventory.py
-          python3 scripts/test_toolchain_license_inventory.py
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: ci-host-evidence-${{ inputs.target }}
-          path: ${{ runner.temp }}/host-evidence
-      - name: Compose notices, source companion, and tested host archive
-        run: |
-          python3 scripts/prepare_gui_host_release.py \
-            --target ${{ inputs.target }} \
-            --source "$RUNNER_TEMP/host-evidence/host-output" \
-            --cargo-evidence "$RUNNER_TEMP/host-evidence/cargo-evidence" \
-            --output "$RUNNER_TEMP/host" \
-            --roc roc
-          sha256sum "$RUNNER_TEMP/host-evidence/host-output/libhost.a"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: gui-host-${{ inputs.target }}
-          path: ${{ runner.temp }}/host/*.tar
-          if-no-files-found: error
-          retention-days: 30

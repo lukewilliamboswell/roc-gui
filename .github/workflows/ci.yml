@@ -50,6 +50,24 @@ jobs:
     uses: ./.github/workflows/host.yml
     with: { os: windows-2025, target: x64mingw }
 
+  # When the host changed, the release archive is composed from the same
+  # sealed build; nothing else waits on it.
+  candidate-x64glibc:
+    needs: host-x64glibc
+    if: needs.host-x64glibc.outputs.mode == 'built'
+    uses: ./.github/workflows/host-candidate.yml
+    with: { os: ubuntu-24.04, target: x64glibc }
+  candidate-arm64mac:
+    needs: host-arm64mac
+    if: needs.host-arm64mac.outputs.mode == 'built'
+    uses: ./.github/workflows/host-candidate.yml
+    with: { os: macos-15, target: arm64mac }
+  candidate-x64mingw:
+    needs: host-x64mingw
+    if: needs.host-x64mingw.outputs.mode == 'built'
+    uses: ./.github/workflows/host-candidate.yml
+    with: { os: windows-2025, target: x64mingw }
+
   policy:
     name: Repository policy
     needs: host-x64glibc

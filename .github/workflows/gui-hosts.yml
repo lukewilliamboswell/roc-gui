@@ -36,12 +36,30 @@ jobs:
       target: ${{ matrix.target }}
       release: true
 
+  candidate:
+    name: Compose ${{ matrix.target }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x64glibc
+          - os: macos-15
+            target: arm64mac
+          - os: windows-2025
+            target: x64mingw
+    uses: ./.github/workflows/host-candidate.yml
+    with:
+      os: ${{ matrix.os }}
+      target: ${{ matrix.target }}
+
   # The published archives are the candidates composed from the sealed hosts;
   # CI's native specifications exercise the same producer on every change.
   publish:
     name: Attest and publish tested hosts
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'lukewilliamboswell/roc-gui'
-    needs: build
+    needs: candidate
     runs-on: ubuntu-24.04
     permissions:
       contents: write

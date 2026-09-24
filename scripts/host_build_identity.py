@@ -35,6 +35,7 @@ SOURCE_PATHS = (
     "crates/host", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
     "dependencies/gui-host-notices",
     ".github/actions/setup-toolchain/action.yml", ".github/workflows/host.yml",
+    ".github/workflows/host-candidate.yml",
     "scripts/cargo_build_evidence.py", "scripts/git_cargo_sources.py", "scripts/gui_host_artifacts.py",
     "scripts/host_notice_payload.py", "scripts/prepare_gui_host_release.py",
     "scripts/prepare_host_build.py", "scripts/release_host_artifacts.py",
