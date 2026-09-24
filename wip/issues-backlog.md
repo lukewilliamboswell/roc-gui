@@ -4,6 +4,14 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
+## Linux producer toolchain verification
+
+- [ ] **Restore Meson's fortify fixture under the Nix compiler wrapper.** Meson
+  1.12.0's `common/282 -D_FORTIFY_SOURCE=2 and -O0` fixture conflicts with the
+  locked nixpkgs wrapper's injected fortify flags. The Nix override excludes
+  this fixture while retaining the other upstream project tests. Adapt the
+  fixture to the wrapper or adopt an upstream fix, then remove the exclusion.
+
 ## Blueprint verification and compiler watching
 
 - [ ] **Support NixOS executable loading.** Linux executables select the native

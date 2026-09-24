@@ -44,6 +44,8 @@ jobs:
           for archive in "$RUNNER_TEMP/candidate"/*.tar; do
             cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
           done
+      - name: Reproduce derivations from corresponding sources
+        run: python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: link-input-components-linux

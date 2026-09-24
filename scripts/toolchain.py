@@ -63,14 +63,14 @@ def development_pin(root: Path = ROOT) -> str:
 
 
 def validate_roots(root: Path = ROOT) -> str:
-    config = json.loads((root / ".github/roc-nightly.json").read_text())
+    config = json.loads((root / ".github/roc-nightly.json").read_text(encoding="utf-8"))
     if "compiler_roots" in config:
         raise ValueError("nightly automation must use .roc-version")
     roots = [root / "Blueprint.roc"]
     for directory in ("platform", "examples", "benchmarks"):
         roots.extend((root / directory).rglob("*.roc"))
     for path in roots:
-        if header_pin(path.read_text()) is not None:
+        if header_pin(path.read_text(encoding="utf-8")) is not None:
             raise ValueError(f"branch roots must use .roc-version: {path.relative_to(root)}")
     return development_pin(root)
 

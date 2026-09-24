@@ -74,7 +74,8 @@ def inside_builder(source_archive, output):
         raise ValueError("xkbcommon producer requires the recipe's exact Meson version")
     machine = Path.cwd() / "zig.ini"
     machine.write_text((ROOT / "dependencies/xkbcommon/zig.ini").read_text().replace(
-        "@PROBE_WRAPPER@", repr(nix_link_inputs.probe_command("")[:-1])))
+        "@PROBE_WRAPPER@", repr(nix_link_inputs.probe_command("")[:-1])).replace(
+        "@CC_ADAPTER@", str(ROOT / "dependencies/xkbcommon/cc.sh")))
     subprocess.run([*meson, "setup", str(build), str(source),
                     "--cross-file=" + str(machine),
                     *recipe["meson_options"]], check=True, timeout=120)
