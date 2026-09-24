@@ -1,4 +1,4 @@
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.2.0/6FvgYL7j69pr34XyfCCPQNGemJ1nK89FCnGt5UvFg596.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.3.0/DdfMePZbeL5hodg7j4B6Jzpm9t555B9SPPAJNQ5WzCR9.tar.zst" }
 
 import pf.Tool
 
@@ -8,7 +8,7 @@ roc_tool = Tool.from_quote("rocpkgs.${roc_version.trim()}") ?? crash "Invalid .r
 
 config = [
 	Name("roc-gui"),
-	Systems(["x86_64-linux"]),
+	Systems(["x86_64-linux", "aarch64-darwin"]),
 	Overlay("github:roc-lang/roc-overlay"),
 	Shell(
 		"default",

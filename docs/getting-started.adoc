@@ -23,12 +23,13 @@ already pointing at that platform, so they build without a checkout.
 
 == Work from a checkout instead
 
-Contributors build the platform locally. On Linux x86-64, install Nix with flakes
-enabled, then enter the development shell from the repository root:
+Contributors build the platform locally. On Linux x86-64 or Apple silicon
+macOS, install Nix with flakes enabled, then enter the development shell from
+the repository root:
 
 [source,sh]
 ----
-nix develop github:lukewilliamboswell/roc-blueprint/739739aa285ff60ea0e6b74ad1e80d9469832eee
+nix develop github:lukewilliamboswell/roc-blueprint/db71ab518d04dc24c5fa1fe1a2423fffdc87aad5
 blueprint shell
 ----
 

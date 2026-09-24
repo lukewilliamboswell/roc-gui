@@ -24,9 +24,11 @@ jobs:
           sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig
       - name: Build and test through Blueprint
         run: |
-          nix develop github:lukewilliamboswell/roc-blueprint/739739aa285ff60ea0e6b74ad1e80d9469832eee --command bash -euc '
+          nix develop github:lukewilliamboswell/roc-blueprint/db71ab518d04dc24c5fa1fe1a2423fffdc87aad5 --command bash -euc '
             blueprint run check
             git diff --exit-code -- Blueprint.lock
+            # The macOS shell must evaluate; nothing is built for it here.
+            nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
             blueprint run lint
             blueprint run build
             blueprint run test -- --only semantic --jobs 2 --timeout 300
