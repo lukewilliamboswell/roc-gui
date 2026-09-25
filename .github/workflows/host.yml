@@ -1,0 +1,93 @@
+name: Native host
+
+# Produces one target's native host once per run. Every job that exercises the
+# host admits this sealed output (`scripts/ci_host.py admit`); none builds it.
+# `host-candidate.yml` composes the release archive from those same bytes, as a
+# separate call so specifications never wait on notice composition.
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      target:
+        type: string
+        required: true
+      release:
+        description: Build with the release producer even when a released host matches
+        type: boolean
+        default: false
+    outputs:
+      mode:
+        description: released, built, or development
+        value: ${{ jobs.build.outputs.mode }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test host (${{ inputs.target }})
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      mode: ${{ steps.decide.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-toolchain
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ~/.cache/roc-gui/link-inputs
+          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
+          restore-keys: link-inputs-${{ runner.os }}-
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev
+      - name: Install the Windows GNU host target
+        if: runner.os == 'Windows'
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
+      - id: decide
+        name: Decide how this checkout's host is produced
+        run: |
+          mode=$(python3 scripts/ci_host.py decide)
+          if [ "$mode" = released ] && [ "${{ inputs.release }}" = true ]; then mode=built; fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Host mode: $mode"
+      - name: Admit the released host
+        if: steps.decide.outputs.mode == 'released'
+        run: python3 scripts/install_released_host.py
+      - name: Test the host
+        if: steps.decide.outputs.mode != 'released'
+        run: python3 scripts/run_cargo.py test --locked --package roc-gui-host
+      - name: Build the host with the release producer
+        if: steps.decide.outputs.mode == 'built'
+        run: |
+          python3 scripts/prepare_host_build.py --evidence "$RUNNER_TEMP/host-evidence/cargo-evidence" --output "$RUNNER_TEMP/host-evidence/host-output"
+          python3 scripts/ci_host.py stage-built --host-output "$RUNNER_TEMP/host-evidence/host-output"
+      - name: Build the host against development linker inputs
+        if: steps.decide.outputs.mode == 'development'
+        run: python3 build.py
+      - name: Seal the staged host
+        run: python3 scripts/ci_host.py seal --mode "${{ steps.decide.outputs.mode }}" --output "$RUNNER_TEMP/ci-host"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ci-host-${{ inputs.target }}
+          path: ${{ runner.temp }}/ci-host
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: steps.decide.outputs.mode == 'built'
+        with:
+          name: ci-host-evidence-${{ inputs.target }}
+          path: ${{ runner.temp }}/host-evidence
+          if-no-files-found: error
+          retention-days: 7
