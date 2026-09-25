@@ -58,6 +58,7 @@ jobs:
             scripts/test_link_input_artifacts.py \
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
+            scripts/test_prepare_windows_gnu.py \
             scripts/test_host_release_policy.py \
             scripts/test_cargo_build_evidence.py \
             scripts/test_git_cargo_sources.py \
