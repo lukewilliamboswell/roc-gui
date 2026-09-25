@@ -4,9 +4,14 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   blueprint:
@@ -34,8 +39,38 @@ jobs:
             blueprint run test -- --only semantic --jobs 2 --timeout 300
           '
 
+  # Each target's host is produced once; its tests wait only for that host.
+  host-x64glibc:
+    uses: ./.github/workflows/host.yml
+    with: { os: ubuntu-24.04, target: x64glibc }
+  host-arm64mac:
+    uses: ./.github/workflows/host.yml
+    with: { os: macos-15, target: arm64mac }
+  host-x64mingw:
+    uses: ./.github/workflows/host.yml
+    with: { os: windows-2025, target: x64mingw }
+
+  # When the host changed, the release archive is composed from the same
+  # sealed build; nothing else waits on it.
+  candidate-x64glibc:
+    needs: host-x64glibc
+    if: needs.host-x64glibc.outputs.mode == 'built'
+    uses: ./.github/workflows/host-candidate.yml
+    with: { os: ubuntu-24.04, target: x64glibc }
+  candidate-arm64mac:
+    needs: host-arm64mac
+    if: needs.host-arm64mac.outputs.mode == 'built'
+    uses: ./.github/workflows/host-candidate.yml
+    with: { os: macos-15, target: arm64mac }
+  candidate-x64mingw:
+    needs: host-x64mingw
+    if: needs.host-x64mingw.outputs.mode == 'built'
+    uses: ./.github/workflows/host-candidate.yml
+    with: { os: windows-2025, target: x64mingw }
+
   policy:
-    name: Repository policy and host tests
+    name: Repository policy
+    needs: host-x64glibc
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -43,209 +78,61 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ~/.cache/roc-gui/link-inputs
-          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
-          restore-keys: link-inputs-${{ runner.os }}-
       - uses: ./.github/actions/setup-native-test
+        with:
+          target: x64glibc
       - name: Repository policy and artifact tests
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
-          python3 -m unittest \
-            scripts/test_compiler_environment.py \
-            scripts/test_alsa_dependencies.py \
-            scripts/test_link_input_artifacts.py \
-            scripts/test_no_tracked_machine_code.py \
-            scripts/test_dependency_artifacts.py \
-            scripts/test_host_release_policy.py \
-            scripts/test_cargo_build_evidence.py \
-            scripts/test_git_cargo_sources.py \
-            scripts/test_macos_interfaces.py \
-            scripts/test_gpui_smoke.py \
-            scripts/test_window_routing.py
+          python3 -m unittest             scripts/test_ci_host.py             scripts/test_compiler_environment.py             scripts/test_alsa_dependencies.py             scripts/test_link_input_artifacts.py             scripts/test_no_tracked_machine_code.py             scripts/test_dependency_artifacts.py             scripts/test_host_release_policy.py             scripts/test_cargo_build_evidence.py             scripts/test_git_cargo_sources.py             scripts/test_macos_interfaces.py             scripts/test_gpui_smoke.py             scripts/test_window_routing.py
 
-  semantics:
-    name: Ordinary semantics (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    defaults:
-      run:
-        shell: bash
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            target: x64glibc
-            spec_jobs: 2
-          - os: macos-15
-            target: arm64mac
-            spec_jobs: 1
-          - os: windows-2025
-            target: x64mingw
-            spec_jobs: 1
+  native-x64glibc:
+    needs: host-x64glibc
+    uses: ./.github/workflows/native.yml
+    with: { os: ubuntu-24.04, target: x64glibc, spec_jobs: 2 }
+  native-arm64mac:
+    needs: host-arm64mac
+    uses: ./.github/workflows/native.yml
+    with: { os: macos-15, target: arm64mac, smoke_executable: counter, window: true, missing_shots: --allow-missing-shots }
+  native-x64mingw:
+    needs: host-x64mingw
+    uses: ./.github/workflows/native.yml
+    with: { os: windows-2025, target: x64mingw, smoke_executable: counter.exe, window: true, gallery: true }
+
+  docs:
+    name: Documentation
+    needs: native-x64mingw
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-toolchain
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+      # The generated API reference comes from the platform's own pinned
+      # compiler, so the manual documents the signatures it ships with.
+      - uses: ./.github/actions/setup-roc
+      # This site tracks the branch, not a release, and says so on its title
+      # page rather than claiming the last published version.
+      - name: Build and check HTML and PDF documentation
+        run: python3 scripts/build_docs.py --pdf --docs-version main
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          path: ~/.cache/roc-gui/link-inputs
-          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
-          restore-keys: link-inputs-${{ runner.os }}-
-      - uses: ./.github/actions/setup-native-test
-      - name: Run ordinary application specifications
-        run: >-
-          python3 scripts/run_specs.py "examples/*/specs/*.scm"
-          --exclude "examples/*/specs/*scale*.scm"
-          --jobs ${{ matrix.spec_jobs }} --timeout 180 --only semantic
-          --output="$RUNNER_TEMP/spec-evidence"
-      - name: Upload privacy-safe failure evidence
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: semantic-failure-${{ matrix.target }}
-          path: |
-            ${{ runner.temp }}/spec-evidence/**/*.failure.json
-            ${{ runner.temp }}/spec-evidence/**/*.failure.rgstats
-            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
-          if-no-files-found: ignore
-          retention-days: 7
+          name: example-gallery
+          path: .docs-out/site/gallery
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with: { path: .docs-out/site }
 
-  scaling:
-    name: Scaling semantics (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
-    defaults:
-      run:
-        shell: bash
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            target: x64glibc
-          - os: macos-15
-            target: arm64mac
-          - os: windows-2025
-            target: x64mingw
+  deploy-docs:
+    name: Deploy documentation
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: docs
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-toolchain
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ~/.cache/roc-gui/link-inputs
-          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
-          restore-keys: link-inputs-${{ runner.os }}-
-      - uses: ./.github/actions/setup-native-test
-      - name: Run scaling specifications serially
-        run: >-
-          python3 scripts/run_specs.py "benchmarks/*/specs/*.scm"
-          "examples/*/specs/*scale*.scm"
-          --jobs 1 --timeout 300 --only semantic
-          --output="$RUNNER_TEMP/spec-evidence"
-      - name: Upload privacy-safe failure evidence
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: scaling-failure-${{ matrix.target }}
-          path: |
-            ${{ runner.temp }}/spec-evidence/**/*.failure.json
-            ${{ runner.temp }}/spec-evidence/**/*.failure.rgstats
-            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
-          if-no-files-found: ignore
-          retention-days: 7
-
-  smoke:
-    name: Native smoke (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    defaults:
-      run:
-        shell: bash
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            target: arm64mac
-            executable: counter
-          - os: windows-2025
-            target: x64mingw
-            executable: counter.exe
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-toolchain
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ~/.cache/roc-gui/link-inputs
-          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
-          restore-keys: link-inputs-${{ runner.os }}-
-      - uses: ./.github/actions/setup-native-test
-      - name: Build and exercise a real GPUI window
-        run: |
-          roc build --no-cache --target=${{ matrix.target }} --opt=dev --output="$RUNNER_TEMP/${{ matrix.executable }}" examples/counter/main.roc
-          python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/${{ matrix.executable }}" --failure-record="$RUNNER_TEMP/smoke-evidence/failure.json"
-      - name: Upload privacy-safe failure evidence
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: smoke-failure-${{ matrix.target }}
-          path: ${{ runner.temp }}/smoke-evidence/failure.json
-          if-no-files-found: ignore
-          retention-days: 7
-
-  window:
-    name: Window specifications (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    defaults:
-      run:
-        shell: bash
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            target: arm64mac
-            missing_shots: --allow-missing-shots
-          - os: windows-2025
-            target: x64mingw
-            missing_shots: ''
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-toolchain
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ~/.cache/roc-gui/link-inputs
-          key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
-          restore-keys: link-inputs-${{ runner.os }}-
-      - uses: ./.github/actions/setup-native-test
-      - name: Run real GPUI window specifications
-        run: >-
-          python3 scripts/run_specs.py --only window
-          --exclude "examples/*/specs/gallery.scm"
-          --exclude "examples/clipboard-history/specs/window-*.scm"
-          --exclude "examples/system-monitor/specs/window-plot-width.scm"
-          --timeout 180 --output="$RUNNER_TEMP/spec-evidence"
-          ${{ matrix.missing_shots }}
-      - name: Upload privacy-safe failure evidence
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: window-failure-${{ matrix.target }}
-          path: |
-            ${{ runner.temp }}/spec-evidence/**/*.failure.json
-            ${{ runner.temp }}/spec-evidence/**/report.json
-            ${{ runner.temp }}/spec-evidence/**/*.png
-            ${{ runner.temp }}/spec-evidence/**/*.crash.txt
-          if-no-files-found: ignore
-          retention-days: 7
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

@@ -24,35 +24,45 @@ def native_target() -> str:
         raise ValueError(f"unsupported native host: {platform.system()} {platform.machine()}") from error
 
 
-def install(lock: Path = HOST_LOCK, cache: Path = CACHE, root: Path = ROOT) -> bool:
-    """Install the native released host, or report that source inputs changed."""
+def released_available(lock: Path = HOST_LOCK, root: Path = ROOT) -> bool:
+    """Whether a published host matches this checkout, without fetching it."""
     if (not (root / "link-inputs.lock.json").is_file() or not lock.is_file()
             or not lock_matches_sources(lock, root)):
         return False
     from link_input_artifacts import development_requires_source_inputs
     if development_requires_source_inputs(root):
         return False
-    target = native_target()
-    if f"gui-host-{target}" not in json.loads(lock.read_text())["artifacts"]:
-        # A target's first host is built from source until its release lands.
-        return False
+    # A target's first host is built from source until its release lands.
+    return f"gui-host-{native_target()}" in json.loads(lock.read_text())["artifacts"]
+
+
+def stage(target: str, hosts: Path, cache: Path = CACHE, root: Path = ROOT) -> None:
+    """Stage the host files in `hosts` beside the target's locked link inputs."""
     targets = root / "platform/targets"
     targets.mkdir(parents=True, exist_ok=True)
     destination = targets / target
+    with tempfile.TemporaryDirectory(dir=targets, prefix=".released-host-") as temporary:
+        staged_targets = Path(temporary) / "targets"
+        staged_target = staged_targets / target
+        from link_input_artifacts import install as install_link_inputs
+        link_inputs = install_link_inputs(
+            target, staged_target, root / "link-inputs.lock.json",
+            cache.parent / "link-inputs")
+        for name in HOST_FILES[target]:
+            shutil.copyfile(hosts / name, staged_target / name)
+        (staged_target / "link-inputs.json").write_text(json.dumps(link_inputs, indent=2) + "\n")
+        if destination.exists():
+            shutil.rmtree(destination)
+        staged_target.rename(destination)
+
+
+def install(lock: Path = HOST_LOCK, cache: Path = CACHE, root: Path = ROOT) -> bool:
+    """Install the native released host, or report that source inputs changed."""
+    if not released_available(lock, root):
+        return False
+    target = native_target()
     with verified_hosts(lock, cache, root, (target,)) as hosts:
-        with tempfile.TemporaryDirectory(dir=targets, prefix=".released-host-") as temporary:
-            staged_targets = Path(temporary) / "targets"
-            staged_target = staged_targets / target
-            from link_input_artifacts import install as install_link_inputs
-            link_inputs = install_link_inputs(
-                target, staged_target, root / "link-inputs.lock.json",
-                cache.parent / "link-inputs")
-            for name in HOST_FILES[target]:
-                shutil.copyfile(hosts / f"gui-host-{target}" / "targets" / target / name, staged_target / name)
-            (staged_target / "link-inputs.json").write_text(json.dumps(link_inputs, indent=2) + "\n")
-            if destination.exists():
-                shutil.rmtree(destination)
-            staged_target.rename(destination)
+        stage(target, hosts / f"gui-host-{target}" / "targets" / target, cache, root)
     print(f"Using content-verified released platform/targets/{target}/libhost.a")
     return True
 
