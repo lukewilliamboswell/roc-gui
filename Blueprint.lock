@@ -1,79 +1,178 @@
-{
-  "nodes": {
-    "nixpkgs": {
-      "locked": {
-        "lastModified": 1790046670,
-        "narHash": "sha256-MYiI+CzL0tuWgRPjGsKCDHqYs2T3OzMlMQWOYWG0qso=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "6774f7bc253789b113a4f39285dc0fa100abeacc",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs-darwin": {
-      "locked": {
-        "lastModified": 1787940818,
-        "narHash": "sha256-vFzVv78WlyEbTyV5BbrnicnV159wC0YPOcBe3QagyBI=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "f6107e546a5012172d93e79f1f7950da02ad798f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixpkgs-26.05-darwin",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1787736819,
-        "narHash": "sha256-cV5xEJJK3BvhU8rEd4mC9UsmDi5qscv/kzGPhBRC5WA=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "9fbb54b33e91ee4ca368e35a78e0613c720600b3",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "overlay0": {
-      "inputs": {
-        "nixpkgs": "nixpkgs_2",
-        "nixpkgs-darwin": "nixpkgs-darwin"
-      },
-      "locked": {
-        "lastModified": 1790217927,
-        "narHash": "sha256-fhatlsqelliHOfoT723TYQb8DzxSn698DpobgiARHIM=",
-        "owner": "roc-lang",
-        "repo": "roc-overlay",
-        "rev": "06198bdac7c2a171c93d0a6f0ddeea562867ee1e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "roc-lang",
-        "repo": "roc-overlay",
-        "type": "github"
-      }
-    },
-    "root": {
-      "inputs": {
-        "nixpkgs": "nixpkgs",
-        "overlay0": "overlay0"
-      }
-    }
-  },
-  "root": "root",
-  "version": 7
-}
+(
+	(format (
+		(major 1)
+		(minor 0)))
+	(hints ((
+		(provider "nix")
+		(value (Attrs ((
+			(name "identity")
+			(value (Attrs ((
+				(name "inputs")
+				(value (Attrs ((
+					(name "default")
+					(value (Attrs ((
+						(name "ref")
+						(value (Str "github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc"))) (
+						(name "kind")
+						(value (Str "packages"))) (
+						(name "flake")
+						(value (Bool true))))))) (
+					(name "roc")
+					(value (Attrs ((
+						(name "ref")
+						(value (Str "github:roc-lang/roc-overlay"))) (
+						(name "kind")
+						(value (Str "overlay"))) (
+						(name "flake")
+						(value (Bool true))))))))))) (
+				(name "overlays")
+				(value (Attrs ((
+					(name "dev")
+					(value (List ((Str "roc"))))))))))))) (
+			(name "graph")
+			(value (Attrs ((
+				(name "root")
+				(value (Str "root"))) (
+				(name "version")
+				(value (Int 7))) (
+				(name "nodes")
+				(value (Attrs ((
+					(name "default")
+					(value (Attrs ((
+						(name "locked")
+						(value (Attrs ((
+							(name "lastModified")
+							(value (Int 1790046670))) (
+							(name "narHash")
+							(value (Str "sha256-MYiI+CzL0tuWgRPjGsKCDHqYs2T3OzMlMQWOYWG0qso="))) (
+							(name "owner")
+							(value (Str "NixOS"))) (
+							(name "repo")
+							(value (Str "nixpkgs"))) (
+							(name "rev")
+							(value (Str "6774f7bc253789b113a4f39285dc0fa100abeacc"))) (
+							(name "type")
+							(value (Str "github"))))))) (
+						(name "original")
+						(value (Attrs ((
+							(name "owner")
+							(value (Str "NixOS"))) (
+							(name "repo")
+							(value (Str "nixpkgs"))) (
+							(name "rev")
+							(value (Str "6774f7bc253789b113a4f39285dc0fa100abeacc"))) (
+							(name "type")
+							(value (Str "github"))))))))))) (
+					(name "nixpkgs")
+					(value (Attrs ((
+						(name "locked")
+						(value (Attrs ((
+							(name "lastModified")
+							(value (Int 1787736819))) (
+							(name "narHash")
+							(value (Str "sha256-cV5xEJJK3BvhU8rEd4mC9UsmDi5qscv/kzGPhBRC5WA="))) (
+							(name "owner")
+							(value (Str "NixOS"))) (
+							(name "repo")
+							(value (Str "nixpkgs"))) (
+							(name "rev")
+							(value (Str "9fbb54b33e91ee4ca368e35a78e0613c720600b3"))) (
+							(name "type")
+							(value (Str "github"))))))) (
+						(name "original")
+						(value (Attrs ((
+							(name "owner")
+							(value (Str "NixOS"))) (
+							(name "ref")
+							(value (Str "nixos-unstable"))) (
+							(name "repo")
+							(value (Str "nixpkgs"))) (
+							(name "type")
+							(value (Str "github"))))))))))) (
+					(name "nixpkgs-darwin")
+					(value (Attrs ((
+						(name "locked")
+						(value (Attrs ((
+							(name "lastModified")
+							(value (Int 1787940818))) (
+							(name "narHash")
+							(value (Str "sha256-vFzVv78WlyEbTyV5BbrnicnV159wC0YPOcBe3QagyBI="))) (
+							(name "owner")
+							(value (Str "NixOS"))) (
+							(name "repo")
+							(value (Str "nixpkgs"))) (
+							(name "rev")
+							(value (Str "f6107e546a5012172d93e79f1f7950da02ad798f"))) (
+							(name "type")
+							(value (Str "github"))))))) (
+						(name "original")
+						(value (Attrs ((
+							(name "owner")
+							(value (Str "NixOS"))) (
+							(name "ref")
+							(value (Str "nixpkgs-26.05-darwin"))) (
+							(name "repo")
+							(value (Str "nixpkgs"))) (
+							(name "type")
+							(value (Str "github"))))))))))) (
+					(name "roc")
+					(value (Attrs ((
+						(name "inputs")
+						(value (Attrs ((
+							(name "nixpkgs")
+							(value (Str "nixpkgs"))) (
+							(name "nixpkgs-darwin")
+							(value (Str "nixpkgs-darwin"))))))) (
+						(name "locked")
+						(value (Attrs ((
+							(name "lastModified")
+							(value (Int 1790217927))) (
+							(name "narHash")
+							(value (Str "sha256-fhatlsqelliHOfoT723TYQb8DzxSn698DpobgiARHIM="))) (
+							(name "owner")
+							(value (Str "roc-lang"))) (
+							(name "repo")
+							(value (Str "roc-overlay"))) (
+							(name "rev")
+							(value (Str "06198bdac7c2a171c93d0a6f0ddeea562867ee1e"))) (
+							(name "type")
+							(value (Str "github"))))))) (
+						(name "original")
+						(value (Attrs ((
+							(name "owner")
+							(value (Str "roc-lang"))) (
+							(name "repo")
+							(value (Str "roc-overlay"))) (
+							(name "type")
+							(value (Str "github"))))))))))) (
+					(name "root")
+					(value (Attrs ((
+						(name "inputs")
+						(value (Attrs ((
+							(name "default")
+							(value (Str "default"))) (
+							(name "roc")
+							(value (Str "roc")))))))))))))))))))))))))
+	(intent (
+		(build_sources ())
+		(inputs ((
+			(kind Overlay)
+			(name "roc")
+			(url "github:roc-lang/roc-overlay"))))
+		(overlays ((
+			(environment "dev")
+			(overlays ("roc")))))
+		(sources ((
+			(name "default")
+			(provider (NixPackages "github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc")))))))
+	(sources ((
+		(digest "sha256:318888f82ccbd2db968113e31ac2820c7a98b364f73b332531058e6161b4aaca")
+		(name "default")
+		(provider "nix")
+		(ref "github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc")
+		(rev "6774f7bc253789b113a4f39285dc0fa100abeacc")) (
+		(digest "sha256:7e16ad96ca9e96588739fa13ef6dd36106fc0f3c529faf7c0e9a1b8220111c83")
+		(name "roc")
+		(provider "nix")
+		(ref "github:roc-lang/roc-overlay")
+		(rev "06198bdac7c2a171c93d0a6f0ddeea562867ee1e")))))

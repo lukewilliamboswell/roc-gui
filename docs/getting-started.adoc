@@ -29,7 +29,7 @@ the repository root:
 
 [source,sh]
 ----
-nix develop github:lukewilliamboswell/roc-blueprint/db71ab518d04dc24c5fa1fe1a2423fffdc87aad5
+nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9
 blueprint shell
 ----
 
