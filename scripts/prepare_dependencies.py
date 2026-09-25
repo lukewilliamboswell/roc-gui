@@ -289,17 +289,24 @@ def verified_windows_gnu(lock=LOCK, cache=CACHE):
     The DLL imports are not a package: each host build derives the import
     library its own link references (see `windows_link_imports.py`).
     """
-    from build_windows_gnu_runtime import REPRODUCTION as runtime_sources
     with tempfile.TemporaryDirectory(prefix="roc-gui-verified-windows-gnu-") as temporary:
         destination = Path(temporary) / "inputs"
         materialize(lock, WINDOWS_GNU_ARTIFACTS, cache, destination)
         kind = WINDOWS_GNU_RUNTIME.removesuffix("-x64mingw")
         recipe = json.loads((ROOT / "dependencies" / (kind + ".json")).read_bytes())
         manifest = json.loads((destination / WINDOWS_GNU_RUNTIME / "dependency.json").read_bytes())
-        expected = {"targets/x64mingw/" + name for name in recipe["files"]}
-        expected.update("licenses/" + kind + "/" + name for name in recipe["notices_sha256"])
-        expected.update("sources/" + kind + "/" + name for name in (*runtime_sources, "source.tar.xz"))
-        if manifest["source"] != recipe or set(manifest["files"]) != expected:
+        released_recipe = manifest["source"]
+        # The released CRT is independent of later producer toolchains and
+        # probes. Its locked archive proves its own corresponding-source set.
+        producer_only = {"native_toolchain", "probe_roc_version"}
+        if ({key: value for key, value in recipe.items() if key not in producer_only}
+                != {key: value for key, value in released_recipe.items() if key not in producer_only}):
+            raise ValueError("incomplete or unexpected Windows GNU package: " + WINDOWS_GNU_RUNTIME)
+        expected = {"targets/x64mingw/" + name for name in released_recipe["files"]}
+        expected.update("licenses/" + kind + "/" + name for name in released_recipe["notices_sha256"])
+        sources = manifest["build"]["reproduction_sha256"]
+        expected.update("sources/" + kind + "/" + name for name in (*sources, "source.tar.xz"))
+        if set(manifest["files"]) != expected:
             raise ValueError("incomplete or unexpected Windows GNU package: " + WINDOWS_GNU_RUNTIME)
         yield destination
 

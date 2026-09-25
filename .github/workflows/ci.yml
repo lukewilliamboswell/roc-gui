@@ -29,7 +29,7 @@ jobs:
           sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig
       - name: Build and test through Blueprint
         run: |
-          nix develop github:lukewilliamboswell/roc-blueprint/db71ab518d04dc24c5fa1fe1a2423fffdc87aad5 --command bash -euc '
+          nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
             blueprint run check
             git diff --exit-code -- Blueprint.lock
             # The macOS shell must evaluate; nothing is built for it here.
@@ -84,7 +84,20 @@ jobs:
       - name: Repository policy and artifact tests
         run: |
           python3 scripts/check_no_tracked_machine_code.py --all-tracked
-          python3 -m unittest             scripts/test_ci_host.py             scripts/test_compiler_environment.py             scripts/test_alsa_dependencies.py             scripts/test_link_input_artifacts.py             scripts/test_no_tracked_machine_code.py             scripts/test_dependency_artifacts.py             scripts/test_host_release_policy.py             scripts/test_cargo_build_evidence.py             scripts/test_git_cargo_sources.py             scripts/test_macos_interfaces.py             scripts/test_gpui_smoke.py             scripts/test_window_routing.py
+          python3 -m unittest \
+            scripts/test_ci_host.py \
+            scripts/test_compiler_environment.py \
+            scripts/test_alsa_dependencies.py \
+            scripts/test_link_input_artifacts.py \
+            scripts/test_no_tracked_machine_code.py \
+            scripts/test_dependency_artifacts.py \
+            scripts/test_prepare_windows_gnu.py \
+            scripts/test_host_release_policy.py \
+            scripts/test_cargo_build_evidence.py \
+            scripts/test_git_cargo_sources.py \
+            scripts/test_macos_interfaces.py \
+            scripts/test_gpui_smoke.py \
+            scripts/test_window_routing.py
 
   native-x64glibc:
     needs: host-x64glibc

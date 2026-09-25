@@ -14,10 +14,10 @@ Run these commands inside the Blueprint bootstrap environment described in
 Getting started. Commit `Blueprint.roc`, `Blueprint.lock`, and `.roc-version`;
 `.blueprint/` contains generated files.
 
-The Linux shell supplies native build dependencies, including Fontconfig and
-Wayland. The build helper prepends its verified ALSA interface to the shell
-search paths. Executables use the native desktop runtime libraries selected by
-the system ELF loader.
+The development environment scopes native build dependencies, including
+Fontconfig and Wayland, to Linux. The build helper prepends its verified ALSA
+interface to the shell search paths. Executables use the native desktop runtime
+libraries selected by the system ELF loader.
 
 Development builds select the unified linker-input release when its producer
 inputs match the checkout. Missing or stale releases select the development
