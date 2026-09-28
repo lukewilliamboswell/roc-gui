@@ -84,7 +84,9 @@ on beside every other view until it is unpinned. Nine views follow:
   nineteen frame-work counts grouped as cached and replayed, fresh, and moved
   and rebased, with the share of scene operations replayed; and each virtual
   list's last pass, flagged when it materialised more than three times what it
-  showed, with a chart of its passes. A semantic-headless capture draws no
+  showed, with a chart of its passes. A session can mount a list hundreds of
+  times, so the table builds only the rows near its viewport, and resizing the
+  window redraws the charts without rebuilding it. A semantic-headless capture draws no
   frame, and the view says so with the family's status and reason.
 - **Timeline**: what happened, in order. Lanes of cycles by trigger, drawn
   frames, and virtual-list passes share the capture's one process-relative
@@ -353,7 +355,8 @@ renders the window alone.
 annotates the session's own specification of ten thousand lines, building only
 the lines near the viewport, and opens a late cycle's step on its line.
 `frames-scale.scm` is the scaling case for the frame strip: it opens the
-session of at least 1,000 frames and zooms into it with the wheel, and
+session of at least 1,000 frames, whose 452 virtual lists the table builds
+only near its viewport, and zooms into it with the wheel, and
 `timeline-scale.scm` opens the same session on the Timeline and zooms and pans
 it.
 `window-session.scm` scrolls the same list four thousand cycles down in the

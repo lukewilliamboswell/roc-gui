@@ -2625,28 +2625,71 @@ list_flag = |found| if found.visible > 0 and found.materialized > 3 * found.visi
 	{ text: "✓", ink: Theme.good }
 }
 
-## US-25: every virtual list's last pass, and its passes over time.
-virtual_lists : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
-virtual_lists = |state, opened| {
-	present = Capture.complete(opened, "virtual_list_materialization")
-	rows = opened.lists.map(
-		|found| {
-			marked = list_flag(found)
-			labelled_row(
-				"List ${found.list_id.to_str()}",
-				[
-					cell("#${found.list_id.to_str()}", 90, Theme.ink),
-					figure_cell(found.passes.to_str(), 70),
-					figure_cell(found.visible.to_str(), 70),
-					figure_cell(found.materialized.to_str(), 100),
-					figure_cell(found.recycled.to_str(), 80),
-					figure_cell(found.live.to_str(), 70),
-					figure_cell(found.most.to_str(), 90),
-					rest_cell(marked.text, marked.ink),
-				],
-			)
-		},
+## How many virtual lists the table shows before it scrolls.
+lists_shown : U64
+lists_shown = 8
+
+list_row : Capture.ListRow -> Gui.Elem(Observatory.State)
+list_row = |found| {
+	marked = list_flag(found)
+	labelled_row(
+		"List ${found.list_id.to_str()}",
+		[
+			cell("#${found.list_id.to_str()}", 90, Theme.ink),
+			figure_cell(found.passes.to_str(), 70),
+			figure_cell(found.visible.to_str(), 70),
+			figure_cell(found.materialized.to_str(), 100),
+			figure_cell(found.recycled.to_str(), 80),
+			figure_cell(found.live.to_str(), 70),
+			figure_cell(found.most.to_str(), 90),
+			rest_cell(marked.text, marked.ink),
+		],
 	)
+}
+
+## US-25: every virtual list's last pass. A window session can mount a list
+## hundreds of times, so only the rows near the table's viewport are built,
+## and the table does not depend on the charts' width.
+virtual_lists : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+virtual_lists = |_state, opened| if !Capture.complete(opened, "virtual_list_materialization") {
+	[heading("VIRTUAL LISTS · last pass · most materialised in any pass"), absence_note(opened, "virtual_list_materialization")]
+} else {
+	lists = opened.lists
+	shown = if lists.len() < lists_shown lists.len() else lists_shown
+	[
+		heading("VIRTUAL LISTS · ${lists.len().to_str()} · last pass · most materialised in any pass"),
+		table(
+			"Virtual lists",
+			[
+				table_head("Virtual list columns", [head_cell("list", 90), head_figure("passes", 70), head_figure("visible", 70), head_figure("materialised", 100), head_figure("recycled", 80), head_figure("live", 70), head_figure("most", 90), head_rest("")]),
+				Gui.col(
+					{ label: "Virtual list rows", width: Fill, height: Px(shown.to_u32_wrap() * Theme.row_height), padding: 0, gap: 0, overflow_y: Clip },
+					[
+						Gui.virtual_rows({
+							label: "Virtual list table",
+							row_height: Theme.row_height,
+							count: lists.len(),
+							render_row: |index| match lists.get(index) {
+								Ok(found) => list_row(found)
+								Err(_) => table_row([])
+							},
+							row_key: |index| match lists.get(index) {
+								Ok(found) => found.list_id.to_u64_wrap()
+								Err(_) => index
+							},
+						}),
+					],
+				),
+			],
+		),
+	]
+}
+
+## Every list pass over time, drawn at the charts' width.
+list_passes : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+list_passes = |state, opened| if !Capture.complete(opened, "virtual_list_materialization") {
+	[]
+} else {
 	tallest = opened.passes.fold(0, |most, found| if found.materialized > most found.materialized else most)
 	plot = chart_plot(state)
 	top = 8
@@ -2667,31 +2710,22 @@ virtual_lists = |state, opened| {
 		caption({ key: painted(3, 1), label: "Pass scale", x: 0, y: top - 4, width: chart_gutter - 6, value: tallest.to_str(), color: Theme.dim, align: End }),
 		caption({ key: painted(3, 2), label: "Pass legend", x: chart_gutter, y: bottom + 4, width: plot, value: "materialised entities per pass, oldest first; the dark tick is the rows visible", color: Theme.dim, align: Start }),
 	]
-	body = if !present {
-		[absence_note(opened, "virtual_list_materialization")]
-	} else {
-		[
-			table(
-				"Virtual lists",
-				[table_head("Virtual list columns", [head_cell("list", 90), head_figure("passes", 70), head_figure("visible", 70), head_figure("materialised", 100), head_figure("recycled", 80), head_figure("live", 70), head_figure("most", 90), head_rest("")])].concat(rows),
-			),
-			Gui.canvas({
-				label: "List passes",
-				primitives: pass_bars.concat(visible_marks).concat(chart_captions),
-				on_pointer: |_, _| Gui.Action.none,
-				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
-				width: chart_width,
-				height: Px(110),
-				min_width: chart_min_width,
-				min_height: Px(110),
-				bg: Theme.card,
-				border_color: Theme.line,
-				border_width: 1,
-				radius: Theme.radius,
-			}),
-		]
-	}
-	[heading("VIRTUAL LISTS · last pass · most materialised in any pass")].concat(body)
+	[
+		Gui.canvas({
+			label: "List passes",
+			primitives: pass_bars.concat(visible_marks).concat(chart_captions),
+			on_pointer: |_, _| Gui.Action.none,
+			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
+			width: chart_width,
+			height: Px(110),
+			min_width: chart_min_width,
+			min_height: Px(110),
+			bg: Theme.card,
+			border_color: Theme.line,
+			border_width: 1,
+			radius: Theme.radius,
+		}),
+	]
 }
 
 same_frame : Observatory.State, Observatory.State -> Bool
@@ -2737,7 +2771,8 @@ frames_view = |_state, opened| if !Capture.complete(opened, "gpui_frame_spans") 
 			),
 			part_boundary("Native work", |a, b| same_capture(a, b) and same_frame(a, b), section(native_work)),
 			part_boundary("Frame work", |a, b| same_capture(a, b) and same_frame(a, b), section(frame_work)),
-			part_boundary("Virtual lists", |a, b| same_capture(a, b) and a.chart_width == b.chart_width, section(virtual_lists)),
+			part_boundary("Virtual lists", |a, b| same_capture(a, b), section(virtual_lists)),
+			part_boundary("List passes", |a, b| same_capture(a, b) and a.chart_width == b.chart_width, section(list_passes)),
 		],
 	)
 }
