@@ -202,7 +202,10 @@ semantic name. A list of rows produced on demand mounts only the rows near its
 viewport, so only those rows can be located.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
-missing targets fail instead of choosing one by traversal order. Use unique
+missing targets fail instead of choosing one by traversal order. When a text
+locator matches nothing, the run names on standard error the texts nearest to
+it under the locator's scope, or says that the scope itself matched nothing.
+The capture records only the failure; application text never enters it. Use unique
 semantic names or scope repeated component-local names through a named
 container:
 

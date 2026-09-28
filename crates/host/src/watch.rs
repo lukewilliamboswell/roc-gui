@@ -78,7 +78,7 @@ pub enum Refusal {
     ResourceLimit,
     Revoked,
     #[cfg_attr(
-        any(target_os = "linux", target_os = "windows"),
+        any(target_os = "linux", target_os = "macos", target_os = "windows"),
         expect(dead_code, reason = "constructed by the unsupported-platform backend")
     )]
     Unsupported,
@@ -105,6 +105,17 @@ enum Effect {
 }
 
 impl Target {
+    /// The children a writer may hold open while it writes them. Where the
+    /// directory's notifier reports a write only once its file is closed,
+    /// these are followed individually, so a commit to a live database wakes
+    /// its reader.
+    fn held_open(&self) -> Vec<String> {
+        match self {
+            Self::Directory => Vec::new(),
+            Self::Database { name } => vec![name.clone(), format!("{name}-wal")],
+        }
+    }
+
     fn effect(&self, child: &str, mask: u32) -> Effect {
         let rebound = mask & sys::NAME_CHANGED != 0;
         let written = mask & sys::WRITTEN != 0;
@@ -265,7 +276,7 @@ pub fn start(directory: &Path, target: Target, parent: grant::Grant) -> Result<*
             fd
         }
     };
-    let descriptor = sys::add(notifier, directory)?;
+    let descriptor = sys::add(notifier, directory, &target.held_open())?;
     let id = guard.next;
     guard.next = guard.next.checked_add(1).expect("watch ids exhausted");
     guard.watches.insert(
@@ -567,7 +578,24 @@ pub fn descriptor_path(dir: &cap_std::fs::Dir) -> Option<PathBuf> {
     crate::sqlite::directory_path(dir).ok()
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+/// On macOS the kernel names the directory a descriptor holds through
+/// `F_GETPATH`, so nothing is resolved by name that the descriptor does not
+/// already hold.
+#[cfg(target_os = "macos")]
+pub fn descriptor_path(dir: &cap_std::fs::Dir) -> Option<PathBuf> {
+    use std::os::{fd::AsRawFd, unix::ffi::OsStrExt};
+    let mut buffer = vec![0u8; libc::PATH_MAX as usize];
+    // SAFETY: `F_GETPATH` writes at most `PATH_MAX` bytes, terminated.
+    if unsafe { libc::fcntl(dir.as_raw_fd(), libc::F_GETPATH, buffer.as_mut_ptr()) } != 0 {
+        return None;
+    }
+    let length = buffer.iter().position(|byte| *byte == 0)?;
+    Some(PathBuf::from(std::ffi::OsStr::from_bytes(
+        &buffer[..length],
+    )))
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 pub fn descriptor_path(_dir: &cap_std::fs::Dir) -> Option<PathBuf> {
     None
 }
@@ -616,7 +644,7 @@ mod sys {
         }
     }
 
-    pub fn add(fd: i32, directory: &Path) -> Result<i32, Refusal> {
+    pub fn add(fd: i32, directory: &Path, _held_open: &[String]) -> Result<i32, Refusal> {
         let path = CString::new(directory.as_os_str().as_bytes()).map_err(|_| Refusal::Io)?;
         let descriptor = unsafe { libc::inotify_add_watch(fd, path.as_ptr(), MASK) };
         if descriptor < 0 {
@@ -783,7 +811,7 @@ mod sys {
         }
     }
 
-    pub fn add(_fd: i32, path: &Path) -> Result<i32, Refusal> {
+    pub fn add(_fd: i32, path: &Path, _held_open: &[String]) -> Result<i32, Refusal> {
         let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
         let handle = unsafe {
             CreateFileW(
@@ -952,9 +980,436 @@ mod sys {
     }
 }
 
-/// Watching is implemented on Linux and Windows; elsewhere a watch is refused
-/// as unsupported rather than silently never reporting.
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+/// On macOS each watched directory is one File System Events stream reporting
+/// individual files, delivered on one serial dispatch queue the host owns. A
+/// stream is started before `add` returns, so no change made after a watch
+/// starts is missed, and stopped before `remove` returns, so no event arrives
+/// for a directory nobody watches. A stream reports its whole tree; only the
+/// directory's direct children are delivered, as inotify and
+/// `ReadDirectoryChangesW` report them.
+///
+/// File System Events reports a write once its file is closed, and SQLite
+/// holds a database and its log open for as long as it writes them. The
+/// children a watch names as held open are therefore also followed through
+/// one kqueue, which reports each write as it happens. A followed child is
+/// opened again whenever its name is bound to another file.
+#[cfg(target_os = "macos")]
+mod sys {
+    use super::{Event, Refusal};
+    use std::{
+        collections::HashMap,
+        ffi::{CStr, CString, OsStr, c_char, c_void},
+        os::unix::ffi::OsStrExt,
+        path::{Path, PathBuf},
+        sync::{Condvar, Mutex, OnceLock},
+        time::Duration,
+    };
+
+    pub const NAME_CHANGED: u32 = 1;
+    pub const WRITTEN: u32 = 2;
+    pub const DIRECTORY_GONE: u32 = 4;
+
+    type Stream = *mut c_void;
+    type Callback = extern "C" fn(Stream, *mut c_void, usize, *mut c_void, *const u32, *const u64);
+
+    #[repr(C)]
+    struct Context {
+        version: isize,
+        info: *mut c_void,
+        retain: *const c_void,
+        release: *const c_void,
+        copy_description: *const c_void,
+    }
+
+    #[link(name = "CoreServices", kind = "framework")]
+    unsafe extern "C" {
+        fn FSEventStreamCreate(
+            allocator: *const c_void,
+            callback: Callback,
+            context: *const Context,
+            paths: *const c_void,
+            since: u64,
+            latency: f64,
+            flags: u32,
+        ) -> Stream;
+        fn FSEventStreamSetDispatchQueue(stream: Stream, queue: *mut c_void);
+        fn FSEventStreamStart(stream: Stream) -> u8;
+        fn FSEventStreamStop(stream: Stream);
+        fn FSEventStreamInvalidate(stream: Stream);
+        fn FSEventStreamRelease(stream: Stream);
+    }
+
+    #[link(name = "CoreFoundation", kind = "framework")]
+    unsafe extern "C" {
+        static kCFTypeArrayCallBacks: c_void;
+        fn CFStringCreateWithCString(
+            allocator: *const c_void,
+            text: *const c_char,
+            encoding: u32,
+        ) -> *const c_void;
+        fn CFArrayCreate(
+            allocator: *const c_void,
+            values: *const *const c_void,
+            count: isize,
+            callbacks: *const c_void,
+        ) -> *const c_void;
+        fn CFRelease(object: *const c_void);
+    }
+
+    unsafe extern "C" {
+        fn dispatch_queue_create(label: *const c_char, attributes: *const c_void) -> *mut c_void;
+    }
+
+    const UTF8: u32 = 0x0800_0100;
+    const SINCE_NOW: u64 = u64::MAX;
+    const NO_DEFER: u32 = 0x02;
+    const WATCH_ROOT: u32 = 0x04;
+    const FILE_EVENTS: u32 = 0x10;
+    const MUST_SCAN_SUBDIRS: u32 = 0x01;
+    const USER_DROPPED: u32 = 0x02;
+    const KERNEL_DROPPED: u32 = 0x04;
+    const ROOT_CHANGED: u32 = 0x20;
+    const ITEM_CREATED: u32 = 0x100;
+    const ITEM_REMOVED: u32 = 0x200;
+    const ITEM_RENAMED: u32 = 0x800;
+    const ITEM_MODIFIED: u32 = 0x1000;
+
+    struct Streams {
+        /// The serial queue every stream delivers on, created once.
+        queue: usize,
+        next: i32,
+        /// Each live descriptor's stream and the directory it watches, as the
+        /// kernel names it.
+        open: HashMap<i32, (usize, PathBuf)>,
+        /// The children each descriptor follows through the kqueue.
+        held_open: HashMap<i32, Vec<String>>,
+        /// Each followed file's descriptor, and the watch and child it is.
+        followed: HashMap<i32, (i32, String)>,
+        kqueue: i32,
+        events: Vec<Event>,
+    }
+
+    static STREAMS: OnceLock<(Mutex<Streams>, Condvar)> = OnceLock::new();
+
+    fn streams() -> &'static (Mutex<Streams>, Condvar) {
+        STREAMS.get_or_init(|| {
+            (
+                Mutex::new(Streams {
+                    queue: 0,
+                    next: 1,
+                    open: HashMap::new(),
+                    held_open: HashMap::new(),
+                    followed: HashMap::new(),
+                    kqueue: -1,
+                    events: Vec::new(),
+                }),
+                Condvar::new(),
+            )
+        })
+    }
+
+    pub fn open() -> Result<i32, Refusal> {
+        let mut state = streams().0.lock().expect("watch streams poisoned");
+        if state.queue == 0 {
+            let queue =
+                unsafe { dispatch_queue_create(c"roc-gui-watch".as_ptr(), std::ptr::null()) };
+            if queue.is_null() {
+                return Err(Refusal::ResourceLimit);
+            }
+            state.queue = queue as usize;
+        }
+        if state.kqueue < 0 {
+            let kqueue = unsafe { libc::kqueue() };
+            if kqueue < 0 {
+                return Err(Refusal::ResourceLimit);
+            }
+            std::thread::Builder::new()
+                .name("roc-gui-watch-files".into())
+                .spawn(move || follow_loop(kqueue))
+                .map_err(|_| Refusal::Io)?;
+            state.kqueue = kqueue;
+        }
+        Ok(0)
+    }
+
+    /// Follow `name` in `root` for `descriptor` from its current file,
+    /// replacing any file followed under that name before.
+    fn follow(state: &mut Streams, descriptor: i32, root: &Path, name: &str) {
+        let before = state
+            .followed
+            .iter()
+            .find(|(_, (owner, child))| *owner == descriptor && child == name)
+            .map(|(fd, _)| *fd);
+        if let Some(fd) = before {
+            state.followed.remove(&fd);
+            // Closing the file removes its kqueue registration.
+            unsafe { libc::close(fd) };
+        }
+        let Ok(path) = CString::new(root.join(name).as_os_str().as_bytes()) else {
+            return;
+        };
+        let fd = unsafe { libc::open(path.as_ptr(), libc::O_EVTONLY | libc::O_CLOEXEC) };
+        if fd < 0 {
+            // Not there yet: its creation is a name change the stream reports,
+            // and following begins then.
+            return;
+        }
+        let change = libc::kevent {
+            ident: fd as usize,
+            filter: libc::EVFILT_VNODE,
+            flags: libc::EV_ADD | libc::EV_CLEAR,
+            fflags: libc::NOTE_WRITE | libc::NOTE_EXTEND,
+            data: 0,
+            udata: std::ptr::null_mut(),
+        };
+        let added = unsafe {
+            libc::kevent(
+                state.kqueue,
+                &change,
+                1,
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null(),
+            )
+        };
+        if added < 0 {
+            unsafe { libc::close(fd) };
+            return;
+        }
+        state.followed.insert(fd, (descriptor, name.to_owned()));
+    }
+
+    fn follow_loop(kqueue: i32) {
+        let mut ready = [libc::kevent {
+            ident: 0,
+            filter: 0,
+            flags: 0,
+            fflags: 0,
+            data: 0,
+            udata: std::ptr::null_mut(),
+        }; 32];
+        let timeout = libc::timespec {
+            tv_sec: 0,
+            tv_nsec: 100_000_000,
+        };
+        loop {
+            let count = unsafe {
+                libc::kevent(
+                    kqueue,
+                    std::ptr::null(),
+                    0,
+                    ready.as_mut_ptr(),
+                    ready.len() as i32,
+                    &timeout,
+                )
+            };
+            if count < 0 {
+                if std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
+                    continue;
+                }
+                return;
+            }
+            if count == 0 {
+                continue;
+            }
+            let (lock, signal) = streams();
+            let mut state = lock.lock().expect("watch streams poisoned");
+            for event in &ready[..count as usize] {
+                if let Some((descriptor, name)) = state.followed.get(&(event.ident as i32)).cloned()
+                {
+                    state.events.push(Event {
+                        descriptor: Some(descriptor),
+                        name: Some(name),
+                        mask: WRITTEN,
+                    });
+                }
+            }
+            signal.notify_all();
+        }
+    }
+
+    fn cf_paths(path: &Path) -> Option<*const c_void> {
+        let text = CString::new(path.as_os_str().as_bytes()).ok()?;
+        let string = unsafe { CFStringCreateWithCString(std::ptr::null(), text.as_ptr(), UTF8) };
+        if string.is_null() {
+            return None;
+        }
+        let array = unsafe { CFArrayCreate(std::ptr::null(), &string, 1, &kCFTypeArrayCallBacks) };
+        unsafe { CFRelease(string) };
+        (!array.is_null()).then_some(array)
+    }
+
+    fn release(stream: Stream) {
+        unsafe {
+            FSEventStreamStop(stream);
+            FSEventStreamInvalidate(stream);
+            FSEventStreamRelease(stream);
+        }
+    }
+
+    pub fn add(fd: i32, directory: &Path, held_open: &[String]) -> Result<i32, Refusal> {
+        open()?;
+        let _ = fd;
+        // Streams report paths with every link resolved.
+        let root = std::fs::canonicalize(directory).map_err(|_| Refusal::Io)?;
+        let paths = cf_paths(&root).ok_or(Refusal::Io)?;
+        let mut state = streams().0.lock().expect("watch streams poisoned");
+        let descriptor = state.next;
+        state.next = state.next.checked_add(1).ok_or(Refusal::ResourceLimit)?;
+        let context = Context {
+            version: 0,
+            info: descriptor as isize as *mut c_void,
+            retain: std::ptr::null(),
+            release: std::ptr::null(),
+            copy_description: std::ptr::null(),
+        };
+        let stream = unsafe {
+            FSEventStreamCreate(
+                std::ptr::null(),
+                callback,
+                &context,
+                paths,
+                SINCE_NOW,
+                0.0,
+                FILE_EVENTS | NO_DEFER | WATCH_ROOT,
+            )
+        };
+        unsafe { CFRelease(paths) };
+        if stream.is_null() {
+            return Err(Refusal::ResourceLimit);
+        }
+        unsafe { FSEventStreamSetDispatchQueue(stream, state.queue as *mut c_void) };
+        // Registered before it starts: its first event may arrive at once.
+        state
+            .open
+            .insert(descriptor, (stream as usize, root.clone()));
+        state.held_open.insert(descriptor, held_open.to_vec());
+        for name in held_open {
+            follow(&mut state, descriptor, &root, name);
+        }
+        drop(state);
+        if unsafe { FSEventStreamStart(stream) } == 0 {
+            forget(descriptor);
+            release(stream);
+            return Err(Refusal::Io);
+        }
+        Ok(descriptor)
+    }
+
+    /// Stop following a descriptor's files and return its stream.
+    fn forget(descriptor: i32) -> Option<(usize, PathBuf)> {
+        let mut state = streams().0.lock().expect("watch streams poisoned");
+        state.held_open.remove(&descriptor);
+        let files: Vec<i32> = state
+            .followed
+            .iter()
+            .filter(|(_, (owner, _))| *owner == descriptor)
+            .map(|(fd, _)| *fd)
+            .collect();
+        for fd in files {
+            state.followed.remove(&fd);
+            unsafe { libc::close(fd) };
+        }
+        state.open.remove(&descriptor)
+    }
+
+    pub fn remove(_fd: i32, descriptor: i32) {
+        let removed = forget(descriptor);
+        // Released outside the lock: stopping waits for a callback in flight,
+        // which takes it.
+        if let Some((stream, _)) = removed {
+            release(stream as Stream);
+        }
+    }
+
+    extern "C" fn callback(
+        _stream: Stream,
+        info: *mut c_void,
+        count: usize,
+        paths: *mut c_void,
+        flags: *const u32,
+        _ids: *const u64,
+    ) {
+        let descriptor = info as isize as i32;
+        let paths = paths as *const *const c_char;
+        let (lock, signal) = streams();
+        let mut state = lock.lock().expect("watch streams poisoned");
+        let Some(root) = state.open.get(&descriptor).map(|(_, root)| root.clone()) else {
+            return;
+        };
+        for index in 0..count {
+            let flag = unsafe { *flags.add(index) };
+            if flag & (MUST_SCAN_SUBDIRS | USER_DROPPED | KERNEL_DROPPED) != 0 {
+                state.events.push(Event {
+                    descriptor: None,
+                    name: None,
+                    mask: 0,
+                });
+                continue;
+            }
+            if flag & ROOT_CHANGED != 0 {
+                state.events.push(Event {
+                    descriptor: Some(descriptor),
+                    name: None,
+                    mask: DIRECTORY_GONE,
+                });
+                continue;
+            }
+            let bytes = unsafe { CStr::from_ptr(*paths.add(index)) }.to_bytes();
+            let path = Path::new(OsStr::from_bytes(bytes));
+            if path.parent() != Some(root.as_path()) {
+                continue;
+            }
+            let mut mask = 0;
+            if flag & (ITEM_CREATED | ITEM_REMOVED | ITEM_RENAMED) != 0 {
+                mask |= NAME_CHANGED;
+            }
+            // SQLite writes its shared-memory index through a mapping, which
+            // inotify and `ReadDirectoryChangesW` never report and File System
+            // Events reports whenever a reader's mapping is flushed. Its
+            // contents are never a commit, so they are not reported here
+            // either, and reading a folder does not wake its own watch.
+            let mapped = path.as_os_str().as_bytes().ends_with(b"-shm");
+            if flag & ITEM_MODIFIED != 0 && !mapped {
+                mask |= WRITTEN;
+            }
+            if mask != 0 {
+                let name = path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned());
+                if mask & NAME_CHANGED != 0
+                    && let Some(child) = &name
+                    && state
+                        .held_open
+                        .get(&descriptor)
+                        .is_some_and(|held| held.contains(child))
+                {
+                    follow(&mut state, descriptor, &root, child);
+                }
+                state.events.push(Event {
+                    descriptor: Some(descriptor),
+                    name,
+                    mask,
+                });
+            }
+        }
+        signal.notify_all();
+    }
+
+    /// Wait up to `timeout` for events and take every one delivered.
+    pub fn read(_fd: i32, _buffer: &mut [u8], timeout: Duration) -> Result<Vec<Event>, ()> {
+        let (lock, signal) = streams();
+        let state = lock.lock().expect("watch streams poisoned");
+        let (mut state, _) = signal
+            .wait_timeout_while(state, timeout, |state| state.events.is_empty())
+            .expect("watch streams poisoned");
+        Ok(std::mem::take(&mut state.events))
+    }
+}
+
+/// Watching is implemented on Linux, macOS, and Windows; elsewhere a watch is
+/// refused as unsupported rather than silently never reporting.
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 mod sys {
     use super::{Event, Refusal};
     use std::{path::Path, time::Duration};
@@ -967,7 +1422,7 @@ mod sys {
         Err(Refusal::Unsupported)
     }
 
-    pub fn add(_fd: i32, _directory: &Path) -> Result<i32, Refusal> {
+    pub fn add(_fd: i32, _directory: &Path, _held_open: &[String]) -> Result<i32, Refusal> {
         Err(Refusal::Unsupported)
     }
 
@@ -1035,14 +1490,14 @@ mod tests {
         assert_eq!(Target::Directory.effect("a", 0), Effect::Nothing);
     }
 
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     #[test]
     fn a_watch_reports_a_replaced_file_once_writing_pauses() {
         let root = std::env::temp_dir().join(format!("roc-gui-watch-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let fd = sys::open().unwrap();
-        let descriptor = sys::add(fd, &root).unwrap();
+        let descriptor = sys::add(fd, &root, &["live.rgstats".into()]).unwrap();
         let watch = Watch {
             target: Target::Database {
                 name: "live.rgstats".into(),

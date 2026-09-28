@@ -519,6 +519,69 @@ pub(crate) fn graph_claim(graph: &MountedGraph, command: &Command) -> Option<Cla
     })
 }
 
+/// Say on standard error what a text locator that matched nothing was near:
+/// the texts under its scope (or the whole window) sharing the longest prefix
+/// with the one sought. Application text never enters a capture, so this goes
+/// to the person running the specification and not into the step's diagnostic.
+fn explain_missing_text(graph: &MountedGraph, locator: &Locator, line: usize) {
+    let sought = match locator.target() {
+        Locator::Text(text) | Locator::TextPrefix(text) => text,
+        _ => return,
+    };
+    let scopes: Option<std::collections::HashSet<u64>> = match locator {
+        Locator::Within(scope, _) => {
+            let found: std::collections::HashSet<u64> = matches(graph, scope).into_iter().collect();
+            if found.is_empty() {
+                eprintln!("line {line}: the locator's scope `{scope}` matched nothing on screen");
+                return;
+            }
+            Some(found)
+        }
+        _ => None,
+    };
+    let inside = |id: u64| {
+        let Some(scopes) = &scopes else { return true };
+        let mut next = graph.parent(id).map(|(parent, _)| parent);
+        while let Some(parent) = next {
+            if scopes.contains(&parent) {
+                return true;
+            }
+            next = graph.parent(parent).map(|(parent, _)| parent);
+        }
+        false
+    };
+    let mut near: Vec<(usize, &str)> = graph
+        .presented_preorder()
+        .into_iter()
+        .filter_map(|node| match &node.kind {
+            NodeKind::Text(text) | NodeKind::StyledText { value: text, .. } if inside(node.id) => {
+                let shared = text
+                    .chars()
+                    .zip(sought.chars())
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                Some((shared, text.as_str()))
+            }
+            _ => None,
+        })
+        .collect();
+    near.sort_by_key(|(shared, text)| (std::cmp::Reverse(*shared), *text));
+    near.dedup_by(|a, b| a.1 == b.1);
+    if near.is_empty() {
+        eprintln!("line {line}: no text is on screen where `{locator}` looked");
+    } else {
+        let shown: Vec<String> = near
+            .iter()
+            .take(3)
+            .map(|(_, text)| format!("{text:?}"))
+            .collect();
+        eprintln!(
+            "line {line}: `{locator}` matched nothing; the nearest text there is {}",
+            shown.join(", ")
+        );
+    }
+}
+
 /// Resolve a locator against the mounted graph.
 ///
 /// Shared with the window runner so both resolve locators identically rather
@@ -1563,6 +1626,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::ReplaceText(locator, value) => {
                 let found = matches(&graph, locator);
                 if found.len() != 1 {
+                    if found.is_empty() {
+                        explain_missing_text(&graph, locator, step.line);
+                    }
                     Err(format!(
                         "line {}: text locator matched {} nodes; expected exactly one",
                         step.line,
@@ -2148,6 +2214,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
                 if count == 0 {
+                    explain_missing_text(&graph, locator, step.line);
                     Err(format!(
                         "line {}: expected locator to be visible",
                         step.line

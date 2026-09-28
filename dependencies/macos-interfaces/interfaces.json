@@ -2789,6 +2789,120 @@
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
     },
     {
+      "name": "CoreServices",
+      "path": "System/Library/Frameworks/CoreServices.framework/CoreServices.tbd",
+      "install_name": "/System/Library/Frameworks/CoreServices.framework/CoreServices",
+      "path_sources": [
+        "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/OSX_Technology_Overview/SystemFrameworks/SystemFrameworks.html",
+        "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html"
+      ],
+      "load_requirement": "File System Events for granted directory and database watches",
+      "symbols": [
+        {
+          "name": "_FSEventStreamCreate",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreservices/1443980-fseventstreamcreate",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreservices/1443980-fseventstreamcreate.json",
+              "external_id": "c:@F@FSEventStreamCreate",
+              "title": "FSEventStreamCreate(_:_:_:_:_:_:_:)",
+              "documented_modules": [
+                "Core Services"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-28T03:13:37.271799+00:00",
+              "response_sha256": "d9f910e072c348dc4c2676cff66e2acf8f68eb9004ae46ca349b786a4446f95a"
+            }
+          ]
+        },
+        {
+          "name": "_FSEventStreamInvalidate",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreservices/1446990-fseventstreaminvalidate",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreservices/1446990-fseventstreaminvalidate.json",
+              "external_id": "c:@F@FSEventStreamInvalidate",
+              "title": "FSEventStreamInvalidate(_:)",
+              "documented_modules": [
+                "Core Services"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-28T03:13:37.562332+00:00",
+              "response_sha256": "dc3a3fcf81c59a3282ff0eb7f1d159c9afad055eb0fd289c1f4a9afd8bf90334"
+            }
+          ]
+        },
+        {
+          "name": "_FSEventStreamRelease",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreservices/1445989-fseventstreamrelease",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreservices/1445989-fseventstreamrelease.json",
+              "external_id": "c:@F@FSEventStreamRelease",
+              "title": "FSEventStreamRelease(_:)",
+              "documented_modules": [
+                "Core Services"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-28T03:13:37.861077+00:00",
+              "response_sha256": "bb3ec678549e0e50077363fe53221638e93670f6f0fb7fcb7b3a04556e407686"
+            }
+          ]
+        },
+        {
+          "name": "_FSEventStreamSetDispatchQueue",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreservices/1444164-fseventstreamsetdispatchqueue",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreservices/1444164-fseventstreamsetdispatchqueue.json",
+              "external_id": "c:@F@FSEventStreamSetDispatchQueue",
+              "title": "FSEventStreamSetDispatchQueue(_:_:)",
+              "documented_modules": [
+                "Core Services"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-28T03:17:00.671799+00:00",
+              "response_sha256": "d3e4c2886edff00f898a41638c2fcd3971baf79f4345cb5243a403d689d26495"
+            }
+          ]
+        },
+        {
+          "name": "_FSEventStreamStart",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreservices/1448000-fseventstreamstart",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreservices/1448000-fseventstreamstart.json",
+              "external_id": "c:@F@FSEventStreamStart",
+              "title": "FSEventStreamStart(_:)",
+              "documented_modules": [
+                "Core Services"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-28T03:13:38.913405+00:00",
+              "response_sha256": "181e40b5c1b0635360b4cfe7356cd19511c5773339e2277820e515cf218357e2"
+            }
+          ]
+        },
+        {
+          "name": "_FSEventStreamStop",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coreservices/1447673-fseventstreamstop",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coreservices/1447673-fseventstreamstop.json",
+              "external_id": "c:@F@FSEventStreamStop",
+              "title": "FSEventStreamStop(_:)",
+              "documented_modules": [
+                "Core Services"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-28T03:13:39.810306+00:00",
+              "response_sha256": "b40c7012ace9c23f03e9905710f313cb709344ae1e190c6c40a0f404561b0836"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "CoreText",
       "path": "System/Library/Frameworks/CoreText.framework/CoreText.tbd",
       "install_name": "/System/Library/Frameworks/CoreText.framework/CoreText",
@@ -6331,6 +6445,23 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:06:22.503452+00:00",
               "response_sha256": "4599ffb0d096ccec2cab4c6ae35caa7e4b50676397a6dcf68e7cdb5673ea0e5c"
+            }
+          ]
+        },
+        {
+          "name": "_dispatch_queue_create",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/dispatch/dispatch_queue_create",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/dispatch/dispatch_queue_create.json",
+              "external_id": "c:@F@dispatch_queue_create",
+              "title": "dispatch_queue_create",
+              "documented_modules": [
+                "Dispatch"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-09-28T03:17:00.735022+00:00",
+              "response_sha256": "9af46e3c00278c7fe21a3d25f1870b34d39237ce387366b77fd2a5d01455a6b4"
             }
           ]
         },

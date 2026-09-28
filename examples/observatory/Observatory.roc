@@ -1799,8 +1799,11 @@ grow! = |held, read_to, at| {
 	} else {
 		opened = Capture.read!(database, held.name)?
 		cycles = Capture.cycles!(database, { phase: at.phase, only: at.only, offset: at.cycle_offset })?
-		steps = Capture.run_steps!(database, at.run, at.step_offset)?
-		Ok(Grew({ opened, progress, at, cycles, steps }))
+		# A capture opened before its recorder began a run follows the first
+		# run once one is committed.
+		followed = if at.run == 0 { ..at, run: first_run(opened), step_offset: 0 } else at
+		steps = Capture.run_steps!(database, followed.run, followed.step_offset)?
+		Ok(Grew({ opened, progress, at: followed, cycles, steps }))
 	}
 }
 
@@ -1842,7 +1845,7 @@ regrown = |latest, fresh, id| {
 	} else {
 		latest.cycles
 	}
-	steps = if latest.steps.run == fresh.at.run { run: fresh.at.run, window: { offset: fresh.at.step_offset, rows: fresh.steps, read: id } } else latest.steps
+	steps = if latest.steps.run == fresh.at.run or latest.steps.run == 0 { run: fresh.at.run, window: { offset: fresh.at.step_offset, rows: fresh.steps, read: id } } else latest.steps
 	{ ..latest, capture: Some(opened), cycles, steps, strip: { strip: opened.strip, read: id }, live: { ..latest.live, progress: fresh.progress } }
 }
 

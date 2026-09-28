@@ -224,21 +224,7 @@ independent of any one application.
   `window-provide-1m.scm` have run only on Linux. Run them on macOS and
   Windows.
 
-- [ ] **A directory cannot be watched on macOS.** `directory.watch!()` and
-  `database.watch!()` answer `Unsupported` there. Implement the `sys` seam in
-  `crates/host/src/watch.rs` with FSEvents or kqueue, as Linux does with
-  inotify and Windows with `ReadDirectoryChangesW`, keeping the same coalesced
-  names, settle interval, and derived grant.
-
 ## Element appearance
-
-- [ ] **Windows draw no text on macOS.** Layout, borders and fills draw, but
-  no glyphs do, in every example. Specifications still pass because they read
-  semantic state, not pixels; counter's `screenshots.scm` shows empty buttons
-  and cards. `d6501f5` draws text, and the host after "Migrate host to
-  upstream GPUI HEAD" does not, with either Roc pin. Bisect 6ee3fd6, 874bd2f
-  and e0e8db9, then fix it, and add a screenshot check that fails when a
-  labelled element renders no glyphs.
 
 - [ ] **Three macOS window specifications fail on the migrated GPUI host.**
   `clipboard-history/specs/window-history.scm` reports "Cancel private next"
@@ -528,10 +514,28 @@ built on top of them; none is a defect in what is there.
   window and restores it after a resize rather than taking the system
   cursor's position. Run the full suite on Linux and macOS.
 
-- [ ] **Captures from Apple silicon record no CPU model.** `cpu_model` is read
-  from `/proc/cpuinfo` on Linux and from the processor's brand string on other
-  x86-64 hosts; on macOS arm64 it is `unavailable`, so the comparability gate
-  refuses every pair of macOS captures. Read `machdep.cpu.brand_string`.
+- [ ] **Publish link inputs that declare CoreServices.** macOS watching uses
+  File System Events, so `dependencies/macos-interfaces/interfaces.json` now
+  catalogues CoreServices, and `platform/main.roc` links its interface.
+  `build.py --source-inputs` generates it; the locked link-input release in
+  `link-inputs.lock.json` predates it, so a default build lacks
+  `CoreServices.tbd`. Produce and lock a new release.
+
+- [ ] **An application cannot show a chord as the person presses it.**
+  Shortcuts are declared portably (`secondary-k` is Cmd on macOS and Ctrl
+  elsewhere), but nothing gives the application the local spelling to display,
+  so Observatory's header, palette, and README say "Ctrl+K" on macOS, where the
+  chord is Cmd+K. Add a host-answered display spelling of a declared chord,
+  with its specification vocabulary, and use it in Observatory.
+
+- [ ] **Finish reducing Terminal Workspace's compiler stack overflow.**
+  `roc check` overflows on `nightly-2026-09-27-a3ce7f1` and passes on
+  `nightly-2026-09-24-f45bfbe`; `roc build --opt=dev` overflows on both. It
+  is caused by `Terminal.roc`'s unannotated `read_next`, which calls itself in
+  the `resolve` of the `Gui.Action.task` it returns: resolving a read with
+  `Gui.Action.update(...)` instead makes `check` pass. A self-recursive task
+  alone does not reproduce it; the remaining candidates are the `generation`
+  capture, the `Live({ pty, reading })` payload, and the missing annotations.
 
 `examples/observatory/requirements.md` describes a roc-gui application that
 opens `.rgstats` captures and queries their tables directly. It is also the
@@ -1082,47 +1086,60 @@ names the evidence so a fix can be verified against the same case.
   byte-identical. The Roc compiler's COFF link needs a deterministic
   timestamp (`/Brepro` or a fixed `/timestamp`).
 
-- [ ] **Observatory's arm64 dev build overruns ld64.lld's thunk range.** On
-  macOS 15 (arm64), `roc build --opt=dev examples/observatory/main.roc` fails in
-  the final link with `ld64.lld: error: finalize: FIXME: thunk range overrun`
-  (linker-input producer run 35925205033). The Linux dev build shows why: its
-  `.text` is 201 MB, against about 80 MB for a whole Database Browser binary,
-  and arm64 branches reach only ±128 MB. The LLVM backend cannot be used
-  instead on the pinned nightly (see the speed-backend entry), so until this is
-  fixed the arm64 producer and CI cannot run Observatory.
+- [ ] **Terminal Workspace overflows the compiler's stack on
+  `nightly-2026-09-27-a3ce7f1`.** `roc build --opt=dev
+  examples/terminal-workspace/main.roc` exits with "The Roc compiler
+  overflowed its stack memory". `scripts/run_specs.py` lists it in
+  `COMPILER_BLOCKED`. Reduce it with a Debug build of `origin/main`, file it
+  upstream, and remove the entry once a nightly builds it.
 
-  Root cause, reported as roc-lang/roc#11642: the dev backend copies aggregates
-  one 8-byte word at a time, fully unrolled, and on arm64 each word costs eight
-  instructions once the frame offset exceeds the `ldur`/`stur` immediate range.
-  It also reuses no stack slots, so the largest procs have frames of about
-  1.1 MB. Observatory's `State` is one wide record that holds its optional
-  fields inline, and every lens, update and handler copies all of it. In the
-  pinned app object, the ten largest procs are about 4.5 MB each and make up
-  21% of its 217 MB of `__text`. A counter app with 8 `Gui.translate` lenses
-  and an 8 KB `State` reproduces the overrun: 173 MB with `--opt=dev` against
-  13 MB with `--opt=speed`. `origin/main` (c7de7cf9b1) reduces the growth from
-  about 13 KB to about 5 KB of code per byte of `State`, but code size still
-  grows linearly with it.
+- [ ] **Every application fails ARC certification on Roc `origin/main`.** A
+  Debug build of `origin/main` (`c80043e3`), and of the 2026-09-27 nightly's
+  own commit `a3ce7f1`, panics building any roc-gui application:
+  `ARC: released struct representation is missing exact residual-shell
+  metadata` in `Internal.lower_work!`. The certifier runs only in Debug
+  compilers, so release nightlies build the same code unchecked; no wrong
+  behaviour was observed in them. The platform construct is reading a field of
+  a boxed record in a `while` loop, reassigning the box's record in one branch
+  of a `match`, then using the field:
 
-  - [ ] TODO roc-lang/roc#11642: once a nightly bounds the dev backend's
-    aggregate copies, rebuild Observatory for arm64 and restore it to the
-    producer and CI.
-  - [ ] TODO roc-lang/roc#11641: `origin/main` overflows the compiler's stack
-    in `lambda_mono` `Store.writeTypeDigest` on Observatory, with both
-    backends, apparently on a cyclic closure capture type. This also blocks
-    the nightly upgrade (PR #30). Bisect `220fd47..c7de7cf9b1` and add the
-    result to the issue.
-    On `nightly-2026-09-23-c7852fd` `roc build --opt=dev` overflows the stack
-    on Observatory on arm64 macOS, so `scripts/run_specs.py` lists it in
-    `COMPILER_BLOCKED` and skips its specifications on every target. Remove
-    the entry once a nightly builds it.
+  ```roc
+  Owner : { key : U64, revision : U64, name : Str }
 
-- [ ] **Redis Explorer does not compile on `nightly-2026-09-23-c7852fd`.**
-  Both `roc check` and `roc build --opt=dev examples/redis-explorer/main.roc`
-  run at 100% CPU with no output for over five minutes. `scripts/run_specs.py`
-  lists it in `COMPILER_BLOCKED`, which skips its specifications and its
-  README gallery GIF. Reduce it with a local compiler build, file the
-  upstream issue, and remove the entry once a nightly compiles it.
+  lower : List(Bool), { active : Box(Owner) } -> { active : Box(Owner) }
+  lower = |flags, boundaries| {
+  	var $i = 0
+  	var $boundaries = boundaries
+  	while $i < flags.len() {
+  		match flags.get($i) {
+  			Ok(flag) => {
+  				revision = (Box.unbox($boundaries.active)).revision
+  				match flag {
+  					Bool.False => {}
+  					Bool.True => {
+  						$boundaries = { active: Box.box({ ..Box.unbox($boundaries.active), key: $i }) }
+  					}
+  				}
+  				$i = $i + revision
+  			}
+  			Err(_) => crash "unreachable"
+  		}
+  	}
+  	$boundaries
+  }
+  ```
+
+  It needs the loop, both matches, the record wrapping the box, and a
+  refcounted field in `Owner`. File it upstream with this reproduction; until
+  it is fixed no roc-gui application can be built with a Debug compiler.
+
+- [ ] **`roc check` warns that runtime conditions are known at compile time.**
+  `nightly-2026-09-27-a3ce7f1` reports eight `unconditional condition`
+  warnings in Observatory on values read from a capture, where the 2026-09-24
+  nightly reports none. `if a == 0 0 else 1` after `a = count(6)`, where
+  `count` is a local closure over `List.find_first`, is enough; `roc test`
+  takes both branches. The same nightly's `roc check` takes 16 s on
+  Observatory against 7 s for the 2026-09-24 one. File both upstream.
 
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.

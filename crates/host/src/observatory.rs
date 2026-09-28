@@ -648,7 +648,25 @@ fn page_size_bytes() -> i64 {
     info.dwPageSize as i64
 }
 
-#[cfg(unix)]
+/// On macOS, the resident size the kernel reports for this task.
+#[cfg(target_os = "macos")]
+fn current_rss_bytes() -> Option<u64> {
+    let mut info = unsafe { std::mem::zeroed::<libc::mach_task_basic_info>() };
+    let mut count = libc::MACH_TASK_BASIC_INFO_COUNT;
+    // SAFETY: `info` is a `mach_task_basic_info` of `count` natural words.
+    #[allow(deprecated)]
+    let result = unsafe {
+        libc::task_info(
+            libc::mach_task_self(),
+            libc::MACH_TASK_BASIC_INFO,
+            (&mut info as *mut libc::mach_task_basic_info).cast(),
+            &mut count,
+        )
+    };
+    (result == libc::KERN_SUCCESS).then_some(info.resident_size)
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
 fn current_rss_bytes() -> Option<u64> {
     let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
     let resident_pages = statm.split_whitespace().nth(1)?.parse::<u64>().ok()?;
@@ -801,7 +819,53 @@ fn cpu_model() -> String {
     }
 }
 
-#[cfg(all(not(target_os = "linux"), not(target_arch = "x86_64")))]
+/// On Apple silicon, the brand string the kernel publishes, such as `Apple M2`.
+#[cfg(all(target_os = "macos", not(target_arch = "x86_64")))]
+fn cpu_model() -> String {
+    let name = c"machdep.cpu.brand_string";
+    let mut length: libc::size_t = 0;
+    // SAFETY: a null buffer asks only for the value's length.
+    let sized = unsafe {
+        libc::sysctlbyname(
+            name.as_ptr(),
+            std::ptr::null_mut(),
+            &mut length,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if sized != 0 || length == 0 {
+        return "unavailable".into();
+    }
+    let mut bytes = vec![0u8; length];
+    // SAFETY: the buffer holds `length` bytes, and the kernel writes at most that many.
+    let read = unsafe {
+        libc::sysctlbyname(
+            name.as_ptr(),
+            bytes.as_mut_ptr().cast(),
+            &mut length,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if read != 0 {
+        return "unavailable".into();
+    }
+    bytes.truncate(length);
+    let brand = String::from_utf8_lossy(&bytes);
+    let brand = brand.trim_matches(char::from(0)).trim();
+    if brand.is_empty() {
+        "unavailable".into()
+    } else {
+        brand.chars().take(256).collect()
+    }
+}
+
+#[cfg(all(
+    not(target_os = "linux"),
+    not(target_os = "macos"),
+    not(target_arch = "x86_64")
+))]
 fn cpu_model() -> String {
     "unavailable".into()
 }
