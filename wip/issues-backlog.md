@@ -709,19 +709,13 @@ built on top of them; none is a defect in what is there.
   until the window closes. Remember it in application data and choose it again
   at startup.
 
-- [ ] **A timeline mark cannot be followed to what it links.** Pressing a
-  list pass on the Timeline does nothing: the pass names its frame or cycle by
-  ordinal, but the view reads only frames and cycles as marks, so it cannot
-  select the linked frame or open the linked cycle. Read the linked row's key
-  with the pass and route it through `SelectFrame` or `InspectCycle`.
-
-- [ ] **No specification presses a frame on the Timeline itself.** A frame's
-  place on the Timeline follows the capture's own timing, which changes each
-  time the fixture is regenerated, so `timeline-cause.scm` presses the frame in
-  the Frames strip, whose columns are ordinal, and then follows its cause from
-  the Timeline. Only the init cycle, which starts the clock, has a stable place.
-  A specification step that presses a canvas primitive by its semantic label
-  would let a specification press any mark.
+- [ ] **No specification presses a frame on the Timeline itself.** A
+  `click` on a canvas-item now presses a mark by its label, and list passes are
+  named by their order on the clock, but a frame mark is the costliest frame of
+  its column, and which frame that is follows the capture's timing, which
+  changes each time the fixture is regenerated. `timeline-cause.scm` therefore
+  still presses the frame in the Frames strip. Name the frame marks, or choose
+  the fixture's frames, so a known frame is a mark of its own.
 
 - [ ] **Component work is not attributed to components (E5).** Component work
   is a per-cycle total. Define a stable, non-textual component identity that

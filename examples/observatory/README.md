@@ -93,7 +93,9 @@ on beside every other view until it is unpinned. Nine views follow:
   length draws the same number of marks. The wheel zooms around the instant
   under the pointer and pans sideways, hovering a mark reads it out, pressing a
   frame lists the cycles it was the first to draw and marks them in their
-  lanes, and pressing a cycle opens it in the inspector. A frame with no
+  lanes, pressing a cycle opens it in the inspector, and pressing a list pass
+  opens what its recorder linked it to: the frame that painted it, or the
+  cycle whose patch performed it. A frame with no
   recorded link says "cause not recorded", with the linkage family's status
   when it is not complete, and is never tied to the nearest cycle. A
   semantic-headless capture draws its cycles and shows the frame and list
@@ -315,6 +317,7 @@ changed specification's banner, the memory view, the duration
 distribution and its bucket filter, the Frames view of a window capture with
 its hover and a pressed frame, the Frames view of a headless capture, the
 Timeline of a window capture with its hover, zoom, and a pressed cycle, a
+list pass followed to the frame that painted it, a
 frame's recorded causes followed from the strip to the inspector, the
 Timeline of a headless capture, the
 comparability sheet of an A/A pair and of a contended run, a baseline's deltas

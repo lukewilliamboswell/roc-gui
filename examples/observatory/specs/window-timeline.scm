@@ -1,5 +1,6 @@
 ;; Drives the real window's own pointer over the Timeline: hovering marks what
-;; is under the pointer and reads it out, and the wheel zooms around it. Each
+;; is under the pointer and reads it out, the wheel zooms around it, and
+;; pressing the first list pass selects the frame that painted it. Each
 ;; state is photographed for review against wireframe W6.
 (test "the window hovers and zooms the Timeline"
   (grants
@@ -25,4 +26,12 @@
     (screenshot "timeline-zoomed" :region (role canvas :name "Timeline") :pad 4)
     (pointer-leave (role canvas :name "Timeline"))
     (settle)
-    (expect-not-visible (role canvas-item :name "Hovered mark"))))
+    (expect-not-visible (role canvas-item :name "Hovered mark"))
+    (click (role button :name "Show the whole timeline"))
+    (await-task)
+    (settle)
+    (click (role canvas-item :name "List pass 1"))
+    (await-task)
+    (settle)
+    (expect-visible (role canvas-item :name "Selected frame"))
+    (screenshot "timeline-pass" :region (role canvas :name "Timeline") :pad 4)))
