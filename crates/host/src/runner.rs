@@ -1155,6 +1155,7 @@ fn run_lifecycle(
 }
 
 fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
+    crate::recents::begin_lifecycle();
     let file_counter_baseline = crate::files::operation_counts();
     let mut graph = MountedGraph::default();
     let cycle_started = Instant::now();

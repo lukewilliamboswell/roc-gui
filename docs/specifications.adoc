@@ -134,7 +134,9 @@ extension is `EXT`, or `(copied "NAME")` for a direct child of
 the `(directory copy ...)` grant, which a `remove-file` or `replace-file` step
 can then take away or replace. Each entry is recorded as provisioned, and a
 provisioned list is never written anywhere the next run would read. A case
-without this grant starts with an empty list.
+without this grant starts with an empty list. Every lifecycle of a case starts
+from the same list, so a benchmark sample never opens on what the sample before
+it remembered.
 `(server "PATH" PORT)`:: A loopback service the runner starts before the case
 and stops after it. `PATH` names a script beside the application, and `PORT` is
 the port it reports readiness on. This grants the harness, not the application:
