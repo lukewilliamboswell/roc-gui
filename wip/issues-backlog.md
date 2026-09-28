@@ -229,12 +229,6 @@ independent of any one application.
 - [ ] **Run `expect-ink` in a window on Linux and Windows.** It passes on
   arm64 macOS for Counter's numeral and Observatory's palette chord.
 
-- [ ] **Observatory's disabled Back and Forward are barely legible.** Their
-  captions draw `#C4C9D0` on the header's `#ECEEF1`, about 1.4:1. Disabled
-  controls are exempt from WCAG contrast, but these name what the keyboard
-  chord does and read as missing. Raise the disabled caption to a legible dim
-  tone in both themes.
-
 - [ ] **Three macOS window specifications fail on the migrated GPUI host.**
   `clipboard-history/specs/window-history.scm` reports "Cancel private next"
   laid out at x 929–983 but not on screen, locally and on CI.

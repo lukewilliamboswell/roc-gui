@@ -392,7 +392,7 @@ travel = |caption, label, enabled, request| Gui.button({
 	hover_bg: Theme.quiet_hover,
 	active_bg: Theme.quiet_active,
 	disabled_bg: Theme.rail,
-	disabled_fg: Theme.edge,
+	disabled_fg: Theme.dim,
 	fg: Theme.ink,
 	border_color: Theme.line,
 	border_width: 1,
