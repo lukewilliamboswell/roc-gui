@@ -171,7 +171,7 @@
 		(provider "nix")
 		(ref "github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc")
 		(rev "6774f7bc253789b113a4f39285dc0fa100abeacc")) (
-		(digest "sha256:7e16ad96ca9e96588739fa13ef6dd36106fc0f3c529faf7c0e9a1b8220111c83")
+		(digest "sha256:5b23fd233633ceb3b61c4ddc22dd8e436cd42a59708f1aa0ccbf154d6cc36508")
 		(name "roc")
 		(provider "nix")
 		(ref "github:roc-lang/roc-overlay")
