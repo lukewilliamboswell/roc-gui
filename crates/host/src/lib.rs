@@ -7527,6 +7527,15 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let window_timeout_ms = args.window_timeout_ms;
     let window_require_shots = args.window_require_shots;
     let window_config = WINDOW_CONFIG.with(|config| config.borrow().clone());
+    // Without a Wayland compositor GPUI falls back to a headless client whose
+    // window draws once and never again, so nothing would ever respond.
+    #[cfg(target_os = "linux")]
+    if gpui::guess_compositor() != "Wayland" {
+        eprintln!("FAIL: no Wayland compositor to present a window (WAYLAND_DISPLAY is not set)");
+        clear_bridge();
+        set_roc_host(core::ptr::null_mut());
+        return 1;
+    }
     GPUI_SMOKE.store(args.host_gpui_smoke, Ordering::Relaxed);
     GPUI_SMOKE_RENDERS.store(0, Ordering::Relaxed);
     let gpui_smoke = args.host_gpui_smoke;
