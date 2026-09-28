@@ -1085,8 +1085,9 @@ names the evidence so a fix can be verified against the same case.
   overflows on both. Annotating `read_next : State, Gui.Process.Pty, U64 ->
   Gui.Action(State)` builds, and the application now carries it. A 35-line
   module on this platform reproduces it: an unannotated `read_next` that calls
-  itself in its task's `resolve`, reached from another task's `resolve`. File
-  it upstream with that reduction.
+  itself in its task's `resolve`, reached from another task's `resolve`.
+  Annotate self-recursive functions that return a `Gui.Action`. Not filed
+  upstream by choice.
 
 - [ ] **Every application fails ARC certification on Roc `origin/main`.** A
   Debug build of `origin/main` (`c80043e3`), and of the 2026-09-27 nightly's
@@ -1125,8 +1126,9 @@ names the evidence so a fix can be verified against the same case.
   ```
 
   It needs the loop, both matches, the record wrapping the box, and a
-  refcounted field in `Owner`. File it upstream with this reproduction; until
-  it is fixed no roc-gui application can be built with a Debug compiler.
+  refcounted field in `Owner`. Only a Debug compiler checks this, so release
+  nightlies are unaffected; build roc-gui with a release compiler. Not filed
+  upstream by choice; a reproduction is drafted if that changes.
 
 - [ ] **`roc check` warns that runtime conditions are known at compile time.**
   `nightly-2026-09-27-a3ce7f1` reports eight `unconditional condition`
@@ -1134,7 +1136,9 @@ names the evidence so a fix can be verified against the same case.
   nightly reports none. `if a == 0 0 else 1` after `a = count(6)`, where
   `count` is a local closure over `List.find_first`, is enough; `roc test`
   takes both branches. The same nightly's `roc check` takes 16 s on
-  Observatory against 7 s for the 2026-09-24 one. File both upstream.
+  Observatory against 7 s for the 2026-09-24 one. The warnings are harmless;
+  the specification runner reads compiler output as UTF-8, so their quoted
+  source no longer breaks Windows runs. Not filed upstream by choice.
 
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.
