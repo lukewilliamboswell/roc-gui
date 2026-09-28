@@ -64,8 +64,15 @@ Widgets := [].{
 	head_rest : Str -> Elem
 	head_rest = |text| Gui.row({ width: Fill, grow: True, padding: 0, gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face, align: Center }, [Gui.text(text)])
 
+	## A table keeps its columns at their widths and scrolls sideways when the
+	## view is narrower than they are.
 	table : Str, List(Elem) -> Elem
-	table = |label, children| Gui.col({ label, width: Fill, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius }, children)
+	table = |label, children| sideways(label, Gui.col({ label, width: Auto, min_width: Fill, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius }, children))
+
+	## Let wide content keep its width and scroll sideways, located as
+	## "LABEL columns", so a small window never hides a column.
+	sideways : Str, Elem -> Elem
+	sideways = |label, content| Gui.scroll({ label: "${label} columns", axis: Horizontal, width: Fill, gap: 0, content })
 
 	key : { caption : Str, label : Str, selected : Bool, on_press : Observatory.State, Gui.Event.Press => Gui.Action(Observatory.State) } -> Elem
 	key = |props| Gui.button({

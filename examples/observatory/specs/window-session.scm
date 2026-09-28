@@ -5,6 +5,8 @@
   (grants
     (directory "fixture/session"))
   (steps
+    ; The smallest window the suite supports, as a small laptop or CI display gives.
+    (resize 1024 656)
     (click (role button :name "Open folder"))
     (await-task)
     (click (role button :name "Capture database-browser-session.rgstats"))
@@ -19,8 +21,12 @@
     (expect-count (within (role virtual-list :name "Cycles") (text "reading")) 0)
     (expect-rows (role virtual-list :name "Cycles") :count 10000 :first 3992)
     (screenshot "session-cycle-4000")
+    (scroll (role scroll :name "Triggers columns") :to (role button :name "Filter input replace"))
+    (settle)
     (click (role button :name "Filter input replace"))
     (await-task)
+    (settle)
+    (scroll (role scroll :name "Interactions scroll") :to (role button :name "Cycle r1 #9998"))
     (settle)
     (click (role button :name "Cycle r1 #9998"))
     (await-task)

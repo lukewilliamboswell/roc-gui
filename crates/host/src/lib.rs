@@ -3464,8 +3464,16 @@ impl Render for NodeView {
                 }
                 element = match axis {
                     ScrollAxis::Vertical => element.min_h_0().max_h_full().overflow_y_scroll(),
-                    ScrollAxis::Horizontal => element.min_w_0().max_w_full().overflow_x_scroll(),
+                    // A column stretches its children to its own width, which
+                    // would fit content to the viewport and leave nothing to
+                    // scroll sideways; content keeps its own width instead.
+                    ScrollAxis::Horizontal => element
+                        .items_start()
+                        .min_w_0()
+                        .max_w_full()
+                        .overflow_x_scroll(),
                     ScrollAxis::Both => element
+                        .items_start()
                         .min_h_0()
                         .max_h_full()
                         .min_w_0()

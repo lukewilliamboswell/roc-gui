@@ -8,6 +8,8 @@
     (directory "fixture/captures")
     (clipboard fixture))
   (steps
+    ; The smallest window the suite supports, as a small laptop or CI display gives.
+    (resize 1024 656)
     (settle)
     (click (role button :name "Open folder"))
     (await-task)
@@ -29,6 +31,9 @@
     (expect-not-visible (role dialog :name "Command palette"))
     (expect-on-screen (role row :name "Capture bar"))
     (key "secondary-2")
+    (settle)
+    (screenshot "small-interactions")
+    (scroll (role scroll :name "Interactions scroll") :to (role virtual-list :name "Cycles"))
     (settle)
     (expect-on-screen (role virtual-list :name "Cycles"))
     (key "j")

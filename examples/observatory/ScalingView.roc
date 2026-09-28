@@ -96,8 +96,8 @@ chooser = |state| match state.folder {
 					),
 				],
 			),
-			Gui.col(
-				{ label: "Scaling choices", width: Fill, height: Px(Theme.row_height * 8), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+			Widgets.sideways("Scaling choices", Gui.col(
+				{ label: "Scaling choices", width: Auto, min_width: Fill, height: Px(Theme.row_height * 8), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 				[
 					Widgets.table_head("Scaling choice columns", [Widgets.head_cell("file", 240), Widgets.head_cell("app", 150), Widgets.head_cell("spec", 220), Widgets.head_figure("scale", 70), Widgets.head_cell("set", 110), Widgets.head_cell("A/A", 110), Widgets.head_rest("")]),
 					Gui.virtual_rows({
@@ -110,7 +110,7 @@ chooser = |state| match state.folder {
 						},
 					}),
 				],
-			),
+			)),
 		]
 	}
 }

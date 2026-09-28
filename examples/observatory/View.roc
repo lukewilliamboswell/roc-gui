@@ -184,10 +184,15 @@ head_rest = |text| Gui.row(
 	[Gui.text(text)],
 )
 
+## A table keeps its columns at their widths and scrolls sideways when the
+## view is narrower than they are, so a small window never hides a column.
 table : Str, List(Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
-table = |label, children| Gui.col(
-	{ label, width: Fill, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
-	children,
+table = |label, children| Widgets.sideways(
+	label,
+	Gui.col(
+		{ label, width: Auto, min_width: Fill, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+		children,
+	),
 )
 
 ## Controls
