@@ -26,10 +26,10 @@ jobs:
       - name: Install native Linux runtime libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig xvfb
       - name: Build and test through Blueprint
         run: |
-          nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
+          xvfb-run -a nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
             blueprint run check
             git diff --exit-code -- Blueprint.lock
             # The macOS shell must evaluate; nothing is built for it here.
