@@ -1,8 +1,7 @@
 # One package authority: the root nixpkgs input of Blueprint.lock.
 let
   root = ../..;
-  lock = builtins.fromJSON (builtins.readFile (root + /Blueprint.lock));
-  pin = lock.nodes.${lock.nodes.${lock.root}.inputs.nixpkgs}.locked;
+  pin = import (root + /dependencies/nixpkgs-pin.nix) (root + /Blueprint.lock);
   pkgs = import (builtins.fetchTree pin) { system = "x86_64-linux"; };
   lib = pkgs.lib;
   # The component recipe requires Meson 1.12; nixpkgs supplies 1.10.2.
@@ -25,7 +24,7 @@ let
   source = name: script: lib.fileset.toSource {
     root = root;
     fileset = lib.fileset.unions ([
-      ../../Blueprint.lock ./default.nix
+      ../../Blueprint.lock ../nixpkgs-pin.nix ./default.nix
       (root + "/dependencies/${if name == "alsa" then "alsa-interface" else name}.json")
       (root + "/scripts/${script}.py")
       ../../scripts/nix_link_inputs.py ../../scripts/dependency_archive.py ../../scripts/dependency_artifacts.py
