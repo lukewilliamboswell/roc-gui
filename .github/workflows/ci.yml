@@ -26,17 +26,17 @@ jobs:
       - name: Install native Linux runtime libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig xvfb libvulkan1 mesa-vulkan-drivers
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig
       - name: Build and test through Blueprint
         run: |
-          xvfb-run -a nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
+          nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
             blueprint run check
             git diff --exit-code -- Blueprint.lock
             # The macOS shell must evaluate; nothing is built for it here.
             nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
             blueprint run lint
             blueprint run build
-            blueprint run test -- --only semantic --jobs 2 --timeout 300
+            ROC_GUI_FIXTURE_WINDOWS=0 blueprint run test -- --only semantic --jobs 2 --timeout 300 --exclude examples/observatory/specs/frames.scm --exclude examples/observatory/specs/frames-scale.scm --exclude examples/observatory/specs/timeline.scm --exclude examples/observatory/specs/timeline-scale.scm --exclude examples/observatory/specs/timeline-cause.scm
           '
 
   # Each target's host is produced once; its tests wait only for that host.

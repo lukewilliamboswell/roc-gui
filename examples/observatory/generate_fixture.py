@@ -106,6 +106,10 @@ FAILING = "failing/counter-regressed.rgstats"
 FAILING_SPEC = "examples/counter/specs/counting.scm"
 GUARD = "ROC_GUI_OBSERVATORY_FIXTURE"
 STAMP = FIXTURE / "stamp"
+# A host that cannot present a window (a Linux runner's virtual display) sets
+# this to 0. The real-window sessions are then absent, and said to be, and the
+# cases that read them are excluded where it is set.
+WINDOWS = os.environ.get("ROC_GUI_FIXTURE_WINDOWS", "1") != "0"
 
 
 def recorder_schema() -> str:
@@ -386,7 +390,7 @@ def stamp_text() -> str:
         f"contended={contended};rerun={RERUN};scales={scales};"
         f"session={SESSION_CYCLES};window={WINDOW}={WINDOW_SPEC};"
         f"frames={FRAME_SESSION_FRAMES}x{FRAME_SESSION_SCROLLS};failing={FAILING}={FAILING_SPEC};"
-        f"inputs={input_digest()}\n"
+        f"windows={int(WINDOWS)};inputs={input_digest()}\n"
     )
 
 
@@ -457,10 +461,15 @@ def generate(staging: Path) -> None:
 
     record_session(runs, staging / SESSION)
     write_sources(runs, staging)
-    record_window(runs, ROOT / WINDOW_SPEC, staging / WINDOW)
-    frames_spec = runs / "frames.scm"
-    frames_spec.write_text(frame_session_spec(), newline="\n")
-    record_window(runs, frames_spec, staging / FRAME_SESSION, FRAME_SESSION_FRAMES)
+    if WINDOWS:
+        record_window(runs, ROOT / WINDOW_SPEC, staging / WINDOW)
+        frames_spec = runs / "frames.scm"
+        frames_spec.write_text(frame_session_spec(), newline="\n")
+        record_window(runs, frames_spec, staging / FRAME_SESSION, FRAME_SESSION_FRAMES)
+    else:
+        # The folder stays, empty, so every case's grants still resolve.
+        (staging / WINDOW).parent.mkdir(parents=True, exist_ok=True)
+        print(f"SKIP {WINDOW} and {FRAME_SESSION}: ROC_GUI_FIXTURE_WINDOWS=0, no window can be presented", flush=True)
     shutil.rmtree(runs)
 
 
