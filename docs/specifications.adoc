@@ -272,6 +272,12 @@ same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
++
+A canvas-item locator presses the one primitive it names: the pointer goes down
+and up at the primitive's centre, through its canvas's pointer route, as a
+`drag` that does not move. A mark is therefore pressed by what it means rather
+than by where the capture's data put it. The step fails when the canvas's own
+hit test would give that point to another primitive drawn over it.
 `(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Rest the pointer on, or
 take it off, the located node. The transition goes through the canonical
 mounted graph to every hover target the pointer then rests on: each popover or

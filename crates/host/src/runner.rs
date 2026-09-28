@@ -150,6 +150,54 @@ pub(crate) fn component_work_claim(
     }
 }
 
+/// The press a `click` on a canvas-item locator stands for: a press and
+/// release at the centre of the named primitive, as a `drag` that does not
+/// move. `None` for any other step. Refused when the primitive is not the one
+/// the canvas's own hit test finds at that point, because a press there would
+/// reach whatever lies on top of it instead.
+pub(crate) fn canvas_press(
+    graph: &MountedGraph,
+    command: &Command,
+) -> Option<Result<Command, String>> {
+    let Command::Click(locator) = command else {
+        return None;
+    };
+    if !matches!(
+        locator.target(),
+        Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+    ) {
+        return None;
+    }
+    Some(
+        canvas_press_point(graph, locator).map(|(x, y)| Command::Drag(locator.clone(), x, y, x, y)),
+    )
+}
+
+fn canvas_press_point(graph: &MountedGraph, locator: &Locator) -> Result<(i32, i32), String> {
+    let (canvas, item) = canvas_item(graph, locator)
+        .ok_or_else(|| "click locator must match exactly one canvas primitive".to_owned())?;
+    let (x, y) = match item.kind {
+        crate::bridge::CanvasPrimitiveKind::Line => {
+            ((item.x + item.x2) / 2, (item.y + item.y2) / 2)
+        }
+        _ => (
+            item.x.saturating_add((item.width / 2) as i32),
+            item.y.saturating_add((item.height / 2) as i32),
+        ),
+    };
+    let primitives = match graph.node(canvas).map(|node| &node.kind) {
+        Some(NodeKind::Canvas { primitives, .. }) => primitives,
+        _ => return Err("the primitive's canvas is not mounted".to_owned()),
+    };
+    match crate::canvas_target(primitives, x, y) {
+        Some(key) if key == item.key => Ok((x, y)),
+        _ => Err(format!(
+            "canvas primitive `{}` is not what a press at its centre ({x}, {y}) reaches",
+            item.label
+        )),
+    }
+}
+
 /// The one primitive a canvas-item locator names, and the canvas that owns it.
 ///
 /// `matches` answers with the canvas node for these locators, because that is
@@ -1247,7 +1295,19 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         let mut tcp_counter_evidence = None;
         let mut component_work_evidence = None;
         let mut patch_evidence = None;
-        let result = match &step.command {
+        // A click on a canvas primitive is a press and release at its centre,
+        // through the canvas's own pointer route, as a person presses it.
+        let (command, refusal) = match canvas_press(&graph, &step.command) {
+            Some(Ok(press)) => (press, None),
+            Some(Err(message)) => (step.command.clone(), Some(message)),
+            None => (step.command.clone(), None),
+        };
+        let result = match &command {
+            _ if refusal.is_some() => Err(format!(
+                "line {}: {}",
+                step.line,
+                refusal.clone().unwrap_or_default()
+            )),
             // Unreachable in practice: `spec::check_runner` rejects window-only
             // steps before a case reaches this runner. Kept as a real arm so the
             // refusal is stated here too rather than silently skipped.
@@ -2814,6 +2874,30 @@ mod locator_tests {
         let (owner, item) = canvas_item(&graph, &item).unwrap();
         assert_eq!(owner, 12);
         assert_eq!(item.label, "Dot one");
+    }
+
+    #[test]
+    fn a_click_on_a_primitive_presses_its_centre_unless_another_covers_it() {
+        let graph = graph();
+        let alone = within(
+            Locator::PanelName("Right".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert_eq!(
+            canvas_press(&graph, &Command::Click(alone.clone())),
+            Some(Ok(Command::Drag(alone, 5, 5, 5, 5)))
+        );
+        // "Dot two" is drawn over "Dot one" on the left canvas.
+        let covered = within(
+            Locator::PanelName("Left".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert!(matches!(
+            canvas_press(&graph, &Command::Click(covered)),
+            Some(Err(_))
+        ));
+        let control = Locator::TextInputName("Value".into());
+        assert_eq!(canvas_press(&graph, &Command::Click(control)), None);
     }
 
     #[test]

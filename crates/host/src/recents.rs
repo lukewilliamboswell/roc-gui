@@ -231,7 +231,13 @@ pub fn begin_lifecycle() {
         if store.backing.is_none() {
             store.entries = store.initial.clone();
             store.next_key = store.next_key.max(
-                store.initial.iter().map(|entry| entry.key).max().unwrap_or(0) + 1,
+                store
+                    .initial
+                    .iter()
+                    .map(|entry| entry.key)
+                    .max()
+                    .unwrap_or(0)
+                    + 1,
             );
             store.held.clear();
         }

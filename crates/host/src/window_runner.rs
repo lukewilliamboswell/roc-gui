@@ -818,7 +818,25 @@ async fn run_step(
     file_baseline: [u64; 4],
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
-    match &step.command {
+    // A click on a canvas primitive is a press and release at its centre, the
+    // semantic runner's reading of the same step, found on the painted graph.
+    let pressed = if matches!(&step.command, Command::Click(locator) if matches!(locator.target(), Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)))
+    {
+        await_painted(window, options.timeout, cx).await?;
+        window
+            .update(cx, |runtime, _, _| {
+                runner::canvas_press(&runtime.graph, &step.command)
+            })
+            .map_err(|_| StepError::WindowClosed)?
+    } else {
+        None
+    };
+    let command = match pressed {
+        Some(Ok(press)) => press,
+        Some(Err(message)) => return Err(StepError::Geometry(message)),
+        None => step.command.clone(),
+    };
+    match &command {
         Command::Screenshot(request) => {
             // A photograph is the most painted question there is.
             await_painted(window, options.timeout, cx).await?;
