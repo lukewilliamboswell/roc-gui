@@ -359,6 +359,9 @@ pub enum Command {
     ExpectBounds(Locator, BoundsExpectation),
     /// Photograph the window, or one region of it.
     Screenshot(Screenshot),
+    /// Photograph a located element and require that it drew ink: pixels
+    /// that differ from its ground, as a glyph does.
+    ExpectInk(Locator),
     /// Type text one real keystroke at a time into the focused element.
     Type(String),
     /// Press one key chord, such as "ctrl-k": through the window's real
@@ -562,6 +565,7 @@ impl Command {
             Self::ExpectRenderedCount(_, _) => "expect-rendered-count",
             Self::ExpectBounds(_, _) => "expect-bounds",
             Self::Screenshot(_) => "screenshot",
+            Self::ExpectInk(_) => "expect-ink",
             Self::Type(_) => "type",
             Self::Key(_) => "key",
             Self::Resize { .. } => "resize",
@@ -589,6 +593,7 @@ impl Command {
             | Self::ExpectRenderedCount(_, _)
             | Self::ExpectBounds(_, _)
             | Self::Screenshot(_)
+            | Self::ExpectInk(_)
             | Self::Type(_)
             | Self::Resize { .. }
             // Feedback for files held over a target is something drawn.
@@ -1526,6 +1531,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 pad: keywords.u32_in(":pad", 0..=256)?.unwrap_or(0),
             })
         }
+        "expect-ink" if values.len() == 2 => Command::ExpectInk(parse_locator(&values[1])?),
         "expect-on-screen" if values.len() == 2 => {
             Command::ExpectOnScreen(parse_locator(&values[1])?)
         }

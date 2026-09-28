@@ -1261,6 +1261,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectRenderedCount(_, _)
             | Command::ExpectBounds(_, _)
             | Command::Screenshot(_)
+            | Command::ExpectInk(_)
             | Command::Type(_)
             | Command::Resize { .. }
             | Command::DragFiles(..)

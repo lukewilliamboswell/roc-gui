@@ -8,6 +8,9 @@
     (screenshot "whole-window")
     (screenshot "left-card" :region (role column :name "Left counter") :pad 12)
     (screenshot "negative-numeral" :region (text "-1") :pad 24)
+    ; Laid-out text that draws no glyphs would pass every semantic check;
+    ; the numeral must ink its own bounds.
+    (expect-ink (text "-1"))
     (screenshot "increment-button" :region (role button :name "Left increment"))
     (screenshot "increment-in-context" :region (role button :name "Left increment") :pad 24)
     (screenshot "title-strip" :region (rect 0 0 640 96))))

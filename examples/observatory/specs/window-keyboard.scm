@@ -21,6 +21,8 @@
     (expect-value (role textbox :name "Palette query") "scale 100")
     (expect-count (button-prefix "Palette ") 1)
     (screenshot "palette")
+    ; The host spells the chord, and it must draw.
+    (expect-ink (within (role row :name "Palette hint") (chord "secondary-k")))
     (key "enter")
     (await-task)
     (settle)

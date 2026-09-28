@@ -824,6 +824,9 @@ async fn run_step(
             await_painted(window, options.timeout, cx).await?;
             return take_screenshot(request, ordinal, window, options, cx).await;
         }
+        Command::ExpectInk(locator) => {
+            return expect_ink(locator, ordinal, window, options, cx).await;
+        }
         Command::MarkNativeWork => window
             .update(cx, |_, _, _| {
                 crate::observatory::mark_native_work();
@@ -1817,7 +1820,124 @@ async fn take_screenshot(
     options: &Options,
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
-    let (client, screen, scale, native, readback) = window
+    let (client, screen, scale, native, readback) = resolve_shot(request, window, cx)?;
+
+    let file_name = format!("{ordinal:02}-{}.png", request.name);
+    let destination = options.shot_dir.join(&file_name);
+    let result = capture_to(
+        &destination,
+        window,
+        client,
+        screen,
+        scale,
+        native,
+        readback,
+        cx,
+    )
+    .await?;
+    match result {
+        Ok(bytes) => Ok(Some(ShotRecord {
+            name: request.name.clone(),
+            file: Some(file_name),
+            bytes,
+            reason: None,
+            hint: None,
+        })),
+        Err(error) if options.require_shots => Err(StepError::Screenshot(error)),
+        Err(error) => Ok(Some(ShotRecord {
+            name: request.name.clone(),
+            file: None,
+            bytes: 0,
+            reason: Some(error.reason()),
+            hint: Some(error.hint()),
+        })),
+    }
+}
+
+/// Photograph a region already resolved to client and screen rectangles into
+/// `destination`, by frame readback where the renderer offers it and by the
+/// platform's capture otherwise.
+#[allow(clippy::too_many_arguments)]
+async fn capture_to(
+    destination: &std::path::Path,
+    window: WindowHandle<Runtime>,
+    client: Option<screenshot::Geometry>,
+    screen: Option<screenshot::Geometry>,
+    scale: f32,
+    native: NativeWindow,
+    readback: bool,
+    cx: &mut AsyncApp,
+) -> Result<Result<u64, ShotError>, StepError> {
+    let result = if readback {
+        // The renderer copies out the next frame it presents. Ask for frames
+        // the way settling does until one has been presented and read.
+        let mut captured = None;
+        for _ in 0..READBACK_FRAMES {
+            next_frame(window, cx).await?;
+            captured = window
+                .update(cx, |_, window, _| window.take_captured_frame())
+                .map_err(|_| StepError::WindowClosed)?;
+            if captured.is_some() {
+                break;
+            }
+        }
+        match (captured, client) {
+            (Some(frame), Some(client)) => screenshot::save_client_region(
+                screenshot::READBACK,
+                frame.width,
+                frame.height,
+                &frame.rgba,
+                scale,
+                client,
+                destination,
+            ),
+            _ => Err(ShotError::ToolFailed {
+                tool: screenshot::READBACK,
+                status: None,
+                detail: format!("no frame was presented within {READBACK_FRAMES} frames"),
+            }),
+        }
+    } else {
+        // Windows captures by asking the window to render, which is a message
+        // the window's own thread answers. This step runs on that thread;
+        // driving it from the background executor would wait for a pump that
+        // may never come.
+        #[cfg(windows)]
+        let _ = screen;
+        match native {
+            #[cfg(windows)]
+            Some((hwnd, scale)) => match client {
+                Some(client) => screenshot::capture_window(hwnd, scale, client, &destination),
+                None => Err(ShotError::DegenerateRegion),
+            },
+            #[cfg(windows)]
+            None => Err(ShotError::UnsupportedPlatform),
+            #[cfg(not(windows))]
+            () => match screen {
+                Some(screen) => screenshot::capture(screen, destination),
+                None => Err(ShotError::DegenerateRegion),
+            },
+        }
+    };
+    Ok(result)
+}
+
+/// Where a shot's region lies in the window's content and on the screen, and
+/// how the platform can photograph it.
+type ResolvedShot = (
+    Option<screenshot::Geometry>,
+    Option<screenshot::Geometry>,
+    f32,
+    NativeWindow,
+    bool,
+);
+
+fn resolve_shot(
+    request: &Screenshot,
+    window: WindowHandle<Runtime>,
+    cx: &mut AsyncApp,
+) -> Result<ResolvedShot, StepError> {
+    window
         .update(cx, |runtime, window, _| {
             let size = window.viewport_size();
             let viewport = Rect {
@@ -1858,78 +1978,104 @@ async fn take_screenshot(
                 readback,
             ))
         })
-        .map_err(|_| StepError::WindowClosed)??;
+        .map_err(|_| StepError::WindowClosed)?
+}
 
-    let file_name = format!("{ordinal:02}-{}.png", request.name);
-    let destination = options.shot_dir.join(&file_name);
-    let result = if readback {
-        // The renderer copies out the next frame it presents. Ask for frames
-        // the way settling does until one has been presented and read.
-        let mut captured = None;
-        for _ in 0..READBACK_FRAMES {
-            next_frame(window, cx).await?;
-            captured = window
-                .update(cx, |_, window, _| window.take_captured_frame())
-                .map_err(|_| StepError::WindowClosed)?;
-            if captured.is_some() {
-                break;
-            }
-        }
-        match (captured, client) {
-            (Some(frame), Some(client)) => screenshot::save_client_region(
-                screenshot::READBACK,
-                frame.width,
-                frame.height,
-                &frame.rgba,
-                scale,
-                client,
-                &destination,
-            ),
-            _ => Err(ShotError::ToolFailed {
-                tool: screenshot::READBACK,
-                status: None,
-                detail: format!("no frame was presented within {READBACK_FRAMES} frames"),
-            }),
-        }
-    } else {
-        // Windows captures by asking the window to render, which is a message
-        // the window's own thread answers. This step runs on that thread;
-        // driving it from the background executor would wait for a pump that
-        // may never come.
-        #[cfg(windows)]
-        let _ = screen;
-        match native {
-            #[cfg(windows)]
-            Some((hwnd, scale)) => match client {
-                Some(client) => screenshot::capture_window(hwnd, scale, client, &destination),
-                None => Err(ShotError::DegenerateRegion),
-            },
-            #[cfg(windows)]
-            None => Err(ShotError::UnsupportedPlatform),
-            #[cfg(not(windows))]
-            () => match screen {
-                Some(screen) => screenshot::capture(screen, &destination),
-                None => Err(ShotError::DegenerateRegion),
-            },
-        }
+#[cfg(windows)]
+type NativeWindow = Option<(isize, f32)>;
+#[cfg(not(windows))]
+type NativeWindow = ();
+
+/// Pixels an element's text must ink for `expect-ink`: at least this many,
+/// each differing from the region's commonest colour by more than
+/// `INK_CONTRAST` in some channel. A glyph of the smallest supported size
+/// inks many more; a region of flat ground inks none.
+const INK_PIXELS: usize = 8;
+const INK_CONTRAST: i32 = 48;
+
+/// Photograph a located element and count the pixels that differ from its
+/// ground, so a text element that lays out but draws no glyphs fails.
+async fn expect_ink(
+    locator: &Locator,
+    ordinal: usize,
+    window: WindowHandle<Runtime>,
+    options: &Options,
+    cx: &mut AsyncApp,
+) -> Result<Option<ShotRecord>, StepError> {
+    await_painted(window, options.timeout, cx).await?;
+    let request = Screenshot {
+        name: "ink".to_owned(),
+        region: Region::Locator(locator.clone()),
+        pad: 0,
     };
-    match result {
-        Ok(bytes) => Ok(Some(ShotRecord {
-            name: request.name.clone(),
-            file: Some(file_name),
-            bytes,
-            reason: None,
-            hint: None,
-        })),
+    let (client, screen, scale, native, readback) = resolve_shot(&request, window, cx)?;
+    // The photograph the verdict is drawn from is kept beside the others.
+    let file_name = format!("{ordinal:02}-ink.png");
+    let destination = options.shot_dir.join(&file_name);
+    let captured = capture_to(
+        &destination,
+        window,
+        client,
+        screen,
+        scale,
+        native,
+        readback,
+        cx,
+    )
+    .await?;
+    match captured {
+        Ok(bytes) => {
+            let image = image::open(&destination)
+                .map_err(|error| StepError::Geometry(format!("unreadable ink capture: {error}")))?
+                .to_rgba8();
+            let inked = ink_pixels(&image);
+            if inked < INK_PIXELS {
+                return Err(StepError::Geometry(format!(
+                    "{} drew {inked} pixels of ink; expected at least {INK_PIXELS}",
+                    describe(locator)
+                )));
+            }
+            Ok(Some(ShotRecord {
+                name: request.name,
+                file: Some(file_name),
+                bytes,
+                reason: None,
+                hint: None,
+            }))
+        }
         Err(error) if options.require_shots => Err(StepError::Screenshot(error)),
         Err(error) => Ok(Some(ShotRecord {
-            name: request.name.clone(),
+            name: request.name,
             file: None,
             bytes: 0,
             reason: Some(error.reason()),
             hint: Some(error.hint()),
         })),
     }
+}
+
+/// Pixels that differ from the image's commonest colour by more than
+/// `INK_CONTRAST` in any channel.
+fn ink_pixels(image: &image::RgbaImage) -> usize {
+    let mut counts = std::collections::HashMap::new();
+    for pixel in image.pixels() {
+        *counts.entry(pixel.0).or_insert(0usize) += 1;
+    }
+    let Some(ground) = counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(colour, _)| colour)
+    else {
+        return 0;
+    };
+    image
+        .pixels()
+        .filter(|pixel| {
+            (0..3).any(|channel| {
+                (i32::from(pixel.0[channel]) - i32::from(ground[channel])).abs() > INK_CONTRAST
+            })
+        })
+        .count()
 }
 
 /// Frames to wait for a requested readback before calling it failed. The
@@ -2152,6 +2298,21 @@ pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &m
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn flat_ground_has_no_ink_and_a_glyph_does() {
+        let mut image = image::RgbaImage::from_pixel(40, 16, image::Rgba([250, 250, 248, 255]));
+        assert_eq!(ink_pixels(&image), 0);
+        // Anti-aliased edges within the contrast threshold are not ink.
+        image.put_pixel(0, 0, image::Rgba([230, 230, 228, 255]));
+        assert_eq!(ink_pixels(&image), 0);
+        for x in 10..14 {
+            for y in 4..12 {
+                image.put_pixel(x, y, image::Rgba([20, 20, 30, 255]));
+            }
+        }
+        assert_eq!(ink_pixels(&image), 32);
+    }
 
     #[test]
     fn native_work_assertion_uses_owner_completed_frame_maxima() {

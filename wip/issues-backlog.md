@@ -226,12 +226,11 @@ independent of any one application.
 
 ## Element appearance
 
-- [ ] **No window check fails when text draws no glyphs.** macOS windows once
-  drew layout, borders, and fills but no glyphs, and every specification still
-  passed because they read semantic state. Text draws again (Observatory's and
-  Counter's window screenshots on arm64 macOS, 2026-09-28), but nothing would
-  catch a recurrence. Add a window assertion that a labelled text element's
-  bounds contain ink distinct from its ground, and use it in a screenshot case.
+- [ ] **Run `expect-ink` in a window on macOS, Linux, and Windows.** The
+  assertion photographs a located element and fails when it drew no ink, and
+  Counter's `screenshots.scm` and Observatory's `window-keyboard.scm` use it. It
+  was added while the macOS session was locked, so no window run has exercised
+  it yet on any platform.
 
 - [ ] **Three macOS window specifications fail on the migrated GPUI host.**
   `clipboard-history/specs/window-history.scm` reports "Cancel private next"

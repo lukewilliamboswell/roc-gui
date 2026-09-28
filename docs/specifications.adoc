@@ -704,6 +704,12 @@ the coordinates the owner drew at — the mapping `canvas_target` inverts to
 decide what a press landed on — clipped to that surface. A line is expanded by
 half its stroke, since its coordinates describe its centre. Give it `:pad`: a
 marker a few points across is unreadable cropped to itself.
+`(expect-ink LOCATOR)`:: Photograph a located element, keep the photograph
+beside the shots, and fail unless it drew ink: at least eight pixels that differ
+from the region's commonest colour by more than 48 in some channel. Laid-out text
+that draws no glyphs passes every semantic assertion; this is the check that
+does not. A capture the platform cannot take is reported as unavailable, as a
+screenshot's is, never as a pass.
 `(screenshot NAME :region (rect X Y WIDTH HEIGHT))`:: Crop to an explicit
 content-relative rectangle.
 `:pad N`:: Expand the region by `N` points on every side, then clamp to the
