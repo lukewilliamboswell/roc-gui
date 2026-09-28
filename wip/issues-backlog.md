@@ -1083,9 +1083,10 @@ names the evidence so a fix can be verified against the same case.
   `roc check` overflows the compiler's stack on `nightly-2026-09-27-a3ce7f1`
   (it passes on `nightly-2026-09-24-f45bfbe`), and `roc build --opt=dev`
   overflows on both. Annotating `read_next : State, Gui.Process.Pty, U64 ->
-  Gui.Action(State)` builds, and the application now carries it. A
-  self-recursive task alone does not reproduce the overflow; reduce the rest of
-  `Terminal.roc` to a standalone case and file it upstream.
+  Gui.Action(State)` builds, and the application now carries it. A 35-line
+  module on this platform reproduces it: an unannotated `read_next` that calls
+  itself in its task's `resolve`, reached from another task's `resolve`. File
+  it upstream with that reduction.
 
 - [ ] **Every application fails ARC certification on Roc `origin/main`.** A
   Debug build of `origin/main` (`c80043e3`), and of the 2026-09-27 nightly's
