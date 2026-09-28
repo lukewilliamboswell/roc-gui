@@ -554,19 +554,50 @@ captures_rows = |sorted| Gui.virtual_rows({
 recent_shown : U64
 recent_shown = 8
 
-recent_row : Gui.Files.Recent -> Gui.Elem(Observatory.State)
-recent_row = |entry| {
+## What a recent entry holds, once it has been read: a capture's
+## application, specification, backend, and verdict, or a folder's count of
+## captures. A capture Observatory cannot read says why, as the capture list
+## does.
+glimpse_detail : Observatory.Glimpse -> { text : Str, verdict : [None, Some(Capture.Verdict)] }
+glimpse_detail = |glimpse| match glimpse {
+	Capture(listing) => match listing.verdict {
+		Unsupported(reason) => { text: reason, verdict: Some(listing.verdict) }
+		_ => {
+			named = [listing.application, listing.spec, listing.backend].keep_if(|part| !part.is_empty())
+			{ text: Str.join_with(named, " · "), verdict: Some(listing.verdict) }
+		}
+	}
+	Folder(count) => { text: if count == 1 "1 capture" else "${count.to_str()} captures", verdict: None }
+}
+
+recent_row : Gui.Files.Recent, [None, Some(Observatory.Glimpse)] -> Gui.Elem(Observatory.State)
+recent_row = |entry, glimpse| {
 	key_value = entry.key
+	refused = match glimpse {
+		Some(Capture(listing)) => match listing.verdict {
+			Unsupported(_) => True
+			_ => False
+		}
+		_ => False
+	}
 	available = entry.status == Available
 	glyph = match (entry.status, entry.kind) {
-		(Available, File) => "●"
+		(Available, File) => if refused "⚠" else "●"
 		(Available, Directory) => "○"
 		(Unavailable(_), _) => "⚠"
 	}
-	detail = match (entry.status, entry.kind) {
-		(Available, File) => { text: "capture", ink: Theme.dim }
-		(Available, Directory) => { text: "folder", ink: Theme.dim }
-		(Unavailable(reason), _) => { text: Observatory.unavailable_reason(reason), ink: Theme.alarm_ink }
+	detail = match (entry.status, entry.kind, glimpse) {
+		(Available, _, Some(read)) => {
+			shown = glimpse_detail(read)
+			{ text: shown.text, ink: if refused Theme.alarm_ink else Theme.dim, verdict: if refused None else shown.verdict }
+		}
+		(Available, File, None) => { text: "capture", ink: Theme.dim, verdict: None }
+		(Available, Directory, None) => { text: "folder", ink: Theme.dim, verdict: None }
+		(Unavailable(reason), _, _) => { text: Observatory.unavailable_reason(reason), ink: Theme.alarm_ink, verdict: None }
+	}
+	badge = match detail.verdict {
+		Some(verdict) => [Gui.row({ padding: 0, gap: 0, fg: verdict_ink(verdict), font_size: Theme.meta }, [Gui.text(verdict_badge(verdict))])]
+		None => []
 	}
 	reopen = match entry.kind {
 		File => Reopen(key_value)
@@ -605,7 +636,10 @@ recent_row = |entry| {
 					}),
 				],
 			),
-			Gui.row({ grow: True, min_width: Px(0), padding: 0, gap: 0, fg: detail.ink, font_size: Theme.meta, text_overflow: Ellipsis }, [Gui.text(detail.text)]),
+			Gui.row({ label: "Recent detail ${entry.name}", grow: True, min_width: Px(0), padding: 0, gap: 0, fg: detail.ink, font_size: Theme.meta, text_overflow: Ellipsis }, [Gui.text(detail.text)]),
+		]
+		.concat(badge)
+		.append(
 			Gui.button({
 				caption: "Forget",
 				label: "Forget ${entry.name}",
@@ -622,14 +656,20 @@ recent_row = |entry| {
 				border_color: Theme.line,
 				border_width: 1,
 			}),
-		],
+		),
 	)
 }
 
 ## The captures and folders opened before, most recent first. Only the rows
 ## near the list's viewport are built, however many are remembered.
-recent_list : List(Gui.Files.Recent) -> List(Gui.Elem(Observatory.State))
-recent_list = |recent| if recent.is_empty() {
+recent_list : Observatory.State -> List(Gui.Elem(Observatory.State))
+recent_list = |state| {
+	recent = state.recent
+	recent_table(recent, |entry| recent_row(entry, Observatory.glance_of(state, entry.key)))
+}
+
+recent_table : List(Gui.Files.Recent), (Gui.Files.Recent -> Gui.Elem(Observatory.State)) -> List(Gui.Elem(Observatory.State))
+recent_table = |recent, row| if recent.is_empty() {
 	[]
 } else {
 	shown = if recent.len() < recent_shown recent.len() else recent_shown
@@ -643,7 +683,7 @@ recent_list = |recent| if recent.is_empty() {
 					row_height: Theme.row_height,
 					count: recent.len(),
 					render_row: |index| match recent.get(index) {
-						Ok(entry) => recent_row(entry)
+						Ok(entry) => row(entry)
 						Err(_) => table_row([])
 					},
 					row_key: |index| match recent.get(index) {
@@ -677,7 +717,7 @@ capture_list = |state| {
 	}
 	Gui.col(
 		{ label: "Start", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },
-		[meta("Drop .rgstats files anywhere to open them.")].concat(recent_list(state.recent)).concat(body),
+		[meta("Drop .rgstats files anywhere to open them.")].concat(recent_list(state)).concat(body),
 	)
 }
 
@@ -2911,7 +2951,7 @@ render = |state| {
 			.concat([
 			match state.capture {
 				Some(_) => workspace(state)
-				None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort and a.recent == b.recent, capture_list)
+				None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort and a.recent == b.recent and a.glances == b.glances, capture_list)
 			},
 		])
 			.concat(palette)

@@ -23,7 +23,10 @@ outside Observatory's own storage, and the list is read as the window opens.
 Pressing an entry reopens it without choosing it again. The host checks what
 is at the entry's place first, so a capture that was deleted, one another file
 was moved over, or one Observatory may no longer read is shown as unavailable
-with that reason, and is not reopened; any entry can be forgotten.
+with that reason, and is not reopened; any entry can be forgotten. Once the
+list is shown, each entry is read on a worker: a capture shows its
+application, specification, backend, and verdict, or why Observatory cannot
+read it, and a folder how many captures it holds.
 
 A capture of any schema other than 25 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a

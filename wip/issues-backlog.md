@@ -552,15 +552,6 @@ built on top of them; none is a defect in what is there.
   produces such a cycle (a rejected turn, or a callback whose span stack does
   not close) should become a fixture.
 
-- [ ] **A recent capture is listed without its summary (US-3, W0).** The start
-  page lists each remembered capture and folder with whether it can be
-  reopened and why not, from the host's check of what is at its place. W0 also
-  shows each capture's application, specification, backend, and verdict, and a
-  capture of an unsupported schema as unavailable with that reason. That needs
-  each entry reopened and its metadata read, which `on_open` must not do for
-  128 entries on the window thread: read the summaries in a task after the
-  list is shown, as the folder list is read.
-
 - [ ] **A folder cannot be dropped (US-4).** A dropped folder is refused as
   `NotFile`. W0's "drop .rgstats files anywhere" covers files; dropping a
   benchmark output folder to list it is the folder counterpart, and needs a

@@ -317,6 +317,12 @@ Capture := [].{
 	summarize! : Gui.Files.Dir.Read, Str => Listing
 	summarize! = summarize!
 
+	summarize_file! : Gui.Files.File.Read, Str => Listing
+	summarize_file! = summarize_file!
+
+	listing_of : Opened -> Listing
+	listing_of = listing_of
+
 	## Open one capture, refuse it unless it is schema 25, and read every table
 	## the views present.
 	open! : Gui.Files.Dir.Read, Str => Try(Opened, Str)
@@ -1005,22 +1011,22 @@ read_trust! = |database, entries| {
 }
 
 summarize! : Gui.Files.Dir.Read, Str => Listing
-summarize! = |directory, name| {
+summarize! = |directory, name| listing!(Gui.Sqlite.open_read!(directory, name), name)
+
+## Summarize one capture a single-file grant reaches, as a folder's captures
+## are summarized.
+summarize_file! : Gui.Files.File.Read, Str => Listing
+summarize_file! = |file, name| listing!(Gui.Sqlite.open_file_read!(file), name)
+
+listing! : Try(Gui.Sqlite.Db, Gui.Sqlite.SqliteErr), Str => Listing
+listing! = |opened, name| {
 	blank = { name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unsupported("unreadable") }
-	match Gui.Sqlite.open_read!(directory, name) {
+	match opened {
 		Err(error) => { ..blank, verdict: Unsupported("not a readable database: ${Gui.Sqlite.detail(error)}") }
 		Ok(database) => match read_metadata!(database) {
 			Err(detail) => { ..blank, verdict: Unsupported("not a capture: ${detail}") }
 			Ok(entries) => {
-				listed = {
-					..blank,
-					capture_id: lookup(entries, "capture_id"),
-					application: lookup(entries, "app_name"),
-					spec: lookup(entries, "spec_name"),
-					backend: lookup(entries, "backend"),
-					scale: lookup(entries, "benchmark_scale"),
-					detail: lookup(entries, "effective_detail"),
-				}
+				listed = described(blank, entries)
 				match schema_gate(lookup(entries, "schema_version")) {
 					Err(reason) => { ..listed, verdict: Unsupported(reason) }
 					Ok({}) => match read_trust!(database, entries) {
@@ -1031,6 +1037,25 @@ summarize! = |directory, name| {
 			}
 		}
 	}
+}
+
+## A listing's identity, from a capture's metadata.
+described : Listing, List(Entry) -> Listing
+described = |blank, entries| {
+	..blank,
+	capture_id: lookup(entries, "capture_id"),
+	application: lookup(entries, "app_name"),
+	spec: lookup(entries, "spec_name"),
+	backend: lookup(entries, "backend"),
+	scale: lookup(entries, "benchmark_scale"),
+	detail: lookup(entries, "effective_detail"),
+}
+
+## The listing of a capture already read, as summarizing its file would give.
+listing_of : Opened -> Listing
+listing_of = |opened| {
+	blank = { name: opened.name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: opened.verdict }
+	described(blank, opened.metadata)
 }
 
 read_families! : Gui.Sqlite.Db => Try(List(Family), Str)
