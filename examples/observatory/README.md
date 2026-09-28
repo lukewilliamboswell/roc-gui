@@ -281,8 +281,6 @@ platform, or the host's sources and locks.
 ## Not yet built
 
 - Tabs cannot be dragged into another order, and a folder cannot be dropped.
-- A recent capture is listed without its application, specification, and
-  verdict.
 - The scaling charts have no metric selector.
 - Only six tables have Copy; the Overview tiles, the inspector's work and
   allocation sections, the run lifecycle and process resources, the Frames and
