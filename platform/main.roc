@@ -10,6 +10,7 @@ platform ""
 	hosted {
 		"roc_gui_node_text": Host.node_text!,
 		"roc_gui_node_styled_text": Host.node_styled_text!,
+		"roc_gui_node_chord": Host.node_chord!,
 		"roc_gui_children_begin": Host.children_begin!,
 		"roc_gui_children_push": Host.children_push!,
 		"roc_gui_keyed_seed": Host.keyed_seed!,

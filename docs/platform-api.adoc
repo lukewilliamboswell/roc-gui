@@ -631,6 +631,14 @@ it again, and 0 asks for nothing.
 receives an `Event.Key` whose `keys` is the chord in the host's canonical
 spelling, modifiers in a fixed order, whatever spelling was declared.
 
+`Gui.chord(keys)`:: Show a chord as text, declared exactly as a shortcut
+declares it, in the spelling of the platform it runs on: `Gui.chord("secondary-k")`
+reads `⌘K` on macOS and `ctrl-K` on Linux and Windows. It inherits colour and
+size from its container and restyles as text does. A hint built this way always
+names the keys the person presses; a hint written as literal text is right on
+one platform only. A chord the host itself takes, such as `escape`, may be
+shown, since naming it is not declaring it.
+
 [source,roc]
 ----
 navigation = [

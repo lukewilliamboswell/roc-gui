@@ -754,6 +754,9 @@ pub enum Locator {
     TooltipName(String),
     /// A presented region that answers a chord, in canonical spelling.
     Shortcut(String),
+    /// Text the host spelled from a chord, by that chord in canonical spelling,
+    /// so a specification names the keys and not one platform's rendering.
+    Chord(String),
     PanelName(String),
     RowName(String),
     ScrollName(String),
@@ -803,6 +806,7 @@ impl fmt::Display for Locator {
             Self::TabName(value) => ("(role tab :name", value),
             Self::DropTargetName(value) => ("(role drop-target :name", value),
             Self::Shortcut(value) => ("(shortcut", value),
+            Self::Chord(value) => ("(chord", value),
             Self::PanelName(value) => ("(role panel :name", value),
             Self::RowName(value) => ("(role row :name", value),
             Self::ScrollName(value) => ("(role scroll :name", value),
@@ -2387,6 +2391,14 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             crate::keyboard::canonical_chord(written)
                 .map(Locator::Shortcut)
                 .map_err(|detail| error(node, format!("shortcut locator: {detail}")))
+        }
+        Some("chord") if values.len() == 2 => {
+            let written = values[1]
+                .string()
+                .ok_or_else(|| error(node, "chord locator requires a chord string"))?;
+            crate::keyboard::displayed_chord(written)
+                .map(|(canonical, _)| Locator::Chord(canonical))
+                .map_err(|detail| error(node, format!("chord locator: {detail}")))
         }
         Some("button-prefix") if values.len() == 2 => values[1]
             .string()

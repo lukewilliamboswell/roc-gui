@@ -55,7 +55,7 @@ use roc_platform_abi::{
     HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeDropTargetArgs,
     HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodePopover, HostGlueNodePopoverArgs,
     HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeSplit, HostGlueNodeSplitArgs,
-    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeChordArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
     HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueResizeEventRetRecord,
     HostGlueShortcutEvent, HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs,
     HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
@@ -827,6 +827,28 @@ pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> 
             font_weight: args.font_weight,
             font_face: decode_font_face(args.font_face),
             runs,
+            chord: None,
+        },
+        vec![],
+    )
+}
+
+/// Stage a key chord as text in this platform's spelling.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_chord(args: HostGlueNodeChordArgs) -> u64 {
+    let written = args.keys.as_str().to_owned();
+    unsafe { args.decref(roc_host()) };
+    let (canonical, shown) = keyboard::displayed_chord(&written)
+        .unwrap_or_else(|message| panic!("invalid chord: {message}"));
+    stage_node(
+        NodeKind::StyledText {
+            value: shown,
+            fg: decode_color(args.fg),
+            font_size: args.font_size,
+            font_weight: args.font_weight,
+            font_face: decode_font_face(args.font_face),
+            runs: Vec::new(),
+            chord: Some(canonical),
         },
         vec![],
     )
@@ -3513,6 +3535,7 @@ impl Render for NodeView {
                 font_weight,
                 font_face,
                 runs,
+                ..
             } => {
                 element = single_line_text(element, window);
                 element = if runs.is_empty() {

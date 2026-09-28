@@ -521,13 +521,6 @@ built on top of them; none is a defect in what is there.
   `link-inputs.lock.json` predates it, so a default build lacks
   `CoreServices.tbd`. Produce and lock a new release.
 
-- [ ] **An application cannot show a chord as the person presses it.**
-  Shortcuts are declared portably (`secondary-k` is Cmd on macOS and Ctrl
-  elsewhere), but nothing gives the application the local spelling to display,
-  so Observatory's header, palette, and README say "Ctrl+K" on macOS, where the
-  chord is Cmd+K. Add a host-answered display spelling of a declared chord,
-  with its specification vocabulary, and use it in Observatory.
-
 - [ ] **Finish reducing Terminal Workspace's compiler stack overflow.**
   `roc check` overflows on `nightly-2026-09-27-a3ce7f1` and passes on
   `nightly-2026-09-24-f45bfbe`; `roc build --opt=dev` overflows on both. It
@@ -1085,6 +1078,15 @@ names the evidence so a fix can be verified against the same case.
   pair must share one build rather than one source. Linux and macOS links are
   byte-identical. The Roc compiler's COFF link needs a deterministic
   timestamp (`/Brepro` or a fixed `/timestamp`).
+
+- [ ] **Relock Blueprint once roc-overlay carries `nightly-2026-09-27-a3ce7f1`.**
+  The Blueprint `dev` environment installs `rocpkgs.<.roc-version>` from
+  roc-overlay, and the locked overlay (`06198bd`) stops at the 2026-09-23
+  nightly, so the linker-input producer's Linux final link fails with
+  "attribute 'nightly-2026-09-27-a3ce7f1' missing". roc-lang/roc-overlay#34
+  adds it. When it merges, relock `Blueprint.lock` with
+  `blueprint run check`, then run the producer and publisher for the
+  CoreServices interface.
 
 - [ ] **Terminal Workspace overflows the compiler's stack on
   `nightly-2026-09-27-a3ce7f1`.** `roc build --opt=dev

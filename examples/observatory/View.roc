@@ -369,7 +369,7 @@ header = |state| {
 			meta("roc-gui captures, schema ${Capture.supported_schema}, read only"),
 			travel("◀ Back", "Back", Observatory.can_go_back(state), Back),
 			travel("Forward ▶", "Forward", Observatory.can_go_forward(state), Forward),
-			meta("Ctrl+K commands"),
+			Gui.row({ label: "Palette hint", padding: 0, gap: 4, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.chord("secondary-k"), Gui.text("commands")]),
 		]
 			.concat(copied)
 			.append(Gui.row({ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.text(right)])),
@@ -399,7 +399,7 @@ travel = |caption, label, enabled, request| Gui.button({
 })
 
 ## US-38 anywhere in the window: the palette, back and forward, and a view for
-## each of Ctrl+1 to Ctrl+9 in the rail's order.
+## each of Secondary+1 to Secondary+9 (Cmd on macOS, Ctrl elsewhere) in the rail's order.
 window_keys : List(Gui.Shortcut(Observatory.State))
 window_keys = [
 	{ keys: "secondary-k", on_press: |current, _| Gui.Action.update(Observatory.open_palette(current)) },

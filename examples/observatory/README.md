@@ -151,7 +151,8 @@ changes; the palette's Theme commands choose light or dark over it, or follow
 the system again. Every colour is a light and dark pair, so the scales keep
 their order and their contrast with the ground in both.
 
-The keyboard reaches everything. Ctrl+K opens a command palette that finds, as
+The keyboard reaches everything. Chords are shown as the platform spells
+them, with Cmd on macOS where Linux and Windows use Ctrl. Cmd+K or Ctrl+K opens a command palette that finds, as
 you type, the commands (open a folder or a capture, back, forward, set or clear
 the baseline, close the capture, choose a theme), the views, the folder's captures, and every
 trigger of every phase; `cycle N` inspects the cycle with that ordinal in the
@@ -159,7 +160,7 @@ selected run and `step N` shows its step in Spec. Up and Down move the
 highlight and Enter chooses it. Opening a cycle, its step, a frame, or a
 palette target remembers the place left, and Alt+Left and Alt+Right, or the
 Back and Forward buttons in the header, move over those places, restoring the
-view, what it had selected, and where its lists were. Ctrl+1 to Ctrl+9 show
+view, what it had selected, and where its lists were. Cmd+1 to Cmd+9, or Ctrl+1 to Ctrl+9, show
 the views in the rail's order. In Interactions, J and K inspect the next and
 the previous cycle of the list, bringing it into view, and I moves keyboard
 focus into the inspector.

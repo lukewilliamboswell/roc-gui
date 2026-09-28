@@ -112,6 +112,12 @@ Gui := [].{
 	text : Str -> Elem.Elem(a)
 	text = |value| Elem.text(value)
 
+	## Display a key chord, declared as a shortcut declares it (`secondary-k`),
+	## in the spelling of the platform it runs on: `⌘K` on macOS and `ctrl-K`
+	## elsewhere, so a hint always names the keys a person presses.
+	chord : Str -> Elem.Elem(a)
+	chord = |keys| Elem.chord(keys)
+
 	## Display text in its own colour, size, weight, and face.
 	styled_text : Elem.TextProps -> Elem.Elem(a)
 	styled_text = |props| Elem.styled_text(props)

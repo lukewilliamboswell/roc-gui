@@ -880,6 +880,16 @@ Internal := [].{
 			id = Host.node_styled_text!({ value: value.value, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face), runs })
 			{ root: id, routes, boundaries }
 		}
+		Chord(value) => {
+			if value.style.font_size > max_style_value {
+				crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
+			}
+			if value.style.font_weight != 0 and (value.style.font_weight < 100 or value.style.font_weight > 900) {
+				crash "Gui font_weight is 0 for the native default, or 100 through 900"
+			}
+			id = Host.node_chord!({ keys: value.keys, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face) })
+			{ root: id, routes, boundaries }
+		}
 		ActionButton(button_value) => {
 			style = style_args(button_value.style)
 			hover_enter = match button_value.on_hover_enter {

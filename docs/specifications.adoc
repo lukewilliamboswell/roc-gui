@@ -193,6 +193,11 @@ anything in its content matches.
 `(shortcut "CHORD")`:: Every presented element that declares a shortcut for
 `CHORD`, which is compared in the host's canonical spelling, so
 `"shift-ctrl-k"` finds a shortcut declared as `"ctrl-shift-k"`.
+`(chord "CHORD")`:: Text the host spelled from `Gui.chord`, found by the chord
+it shows in the host's canonical spelling rather than by its rendering, so one
+specification locates `(chord "secondary-k")` on every platform while a person
+reads `⌘K` on macOS and `ctrl-K` elsewhere. The rendering is also text, and a
+text locator finds it.
 `(role textarea :name "name")`:: A multiline editor identified by its semantic
 name. Locator matching never records its value.
 `(role textbox :name "label")`:: A controlled text input identified by its

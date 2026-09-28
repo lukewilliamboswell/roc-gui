@@ -703,6 +703,13 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (
+                Locator::Chord(expected),
+                NodeKind::StyledText {
+                    chord: Some(actual),
+                    ..
+                },
+            ) if expected == actual => Some(node.id),
             (Locator::Shortcut(expected), NodeKind::Popover { shortcuts, .. })
                 if shortcuts.iter().any(|shortcut| &shortcut.keys == expected) =>
             {

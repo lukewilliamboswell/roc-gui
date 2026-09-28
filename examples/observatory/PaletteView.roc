@@ -60,7 +60,11 @@ baseline = |state| match state.baseline {
 }
 
 candidate : Str, Str, Str, Act -> Candidate
-candidate = |kind, title, detail, act| { kind, title, detail, act }
+candidate = |kind, title, detail, act| { kind, title, detail, keys: "", act }
+
+## A candidate with the chord that does the same, shown as the person presses it.
+chorded : Str, Str, Str, Str, Act -> Candidate
+chorded = |kind, title, detail, keys, act| { kind, title, detail, keys, act }
 
 numbered : Observatory.State, Str -> List(Candidate)
 numbered = |state, query| match (state.capture, Palette.numbered(query)) {
@@ -78,8 +82,8 @@ commands = |state| {
 		candidate("Command", "Theme: light", "light whatever the desktop asks", Prefer(Light)),
 		candidate("Command", "Theme: dark", "dark whatever the desktop asks", Prefer(Dark)),
 	]
-	back = if Observatory.can_go_back(state) [candidate("Command", "Back", "return to the place before the last jump · Alt+Left", Ask(Back))] else []
-	forward = if Observatory.can_go_forward(state) [candidate("Command", "Forward", "return to the place Back left · Alt+Right", Ask(Forward))] else []
+	back = if Observatory.can_go_back(state) [chorded("Command", "Back", "return to the place before the last jump", "alt-left", Ask(Back))] else []
+	forward = if Observatory.can_go_forward(state) [chorded("Command", "Forward", "return to the place Back left", "alt-right", Ask(Forward))] else []
 	open = match state.capture {
 		Some(_) => {
 			set = [candidate("Command", "Set as baseline", "compare every view against the open capture", Ask(SetBaseline))]
@@ -96,7 +100,7 @@ commands = |state| {
 
 views : Observatory.State -> List(Candidate)
 views = |state| match state.capture {
-	Some(_) => Observatory.views.map_with_index(|view, index| candidate("View", Observatory.view_name(view), "Ctrl+${(index + 1).to_str()}", Ask(Visit(view))))
+	Some(_) => Observatory.views.map_with_index(|view, index| chorded("View", Observatory.view_name(view), "show this view", "secondary-${(index + 1).to_str()}", Ask(Visit(view))))
 	None => []
 }
 
@@ -185,7 +189,8 @@ result_row = |found, lit| Gui.row(
 			text_overflow: Ellipsis,
 		}),
 		Widgets.rest_cell(found.detail, Theme.dim),
-	],
+	]
+		.concat(if Str.is_empty(found.keys) [] else [Gui.row({ padding: 0, padding_right: Px(Theme.inset), gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.chord(found.keys)])]),
 )
 
 palette : Observatory.State -> Elem
