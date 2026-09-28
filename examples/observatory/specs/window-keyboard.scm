@@ -12,6 +12,8 @@
     (click (role button :name "Open folder"))
     (await-task)
     (settle)
+    ; The host spells the palette's chord in the header, and it must draw.
+    (expect-ink (within (role row :name "Palette hint") (chord "secondary-k")))
     (key "secondary-k")
     (settle)
     (expect-on-screen (role dialog :name "Command palette"))
@@ -21,8 +23,6 @@
     (expect-value (role textbox :name "Palette query") "scale 100")
     (expect-count (button-prefix "Palette ") 1)
     (screenshot "palette")
-    ; The host spells the chord, and it must draw.
-    (expect-ink (within (role row :name "Palette hint") (chord "secondary-k")))
     (key "enter")
     (await-task)
     (settle)

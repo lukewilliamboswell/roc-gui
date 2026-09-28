@@ -191,8 +191,13 @@ impl Frame<'_> {
 
 /// An invisible element that reports its parent's laid-out bounds.
 pub fn marker(id: u64) -> impl IntoElement {
+    // Anchored at the corner: an absolute element with no inset sits at its
+    // static position, which is after a text node's string and inside a
+    // container's padding, so the recorded rectangle would miss the node.
     canvas(move |bounds, _, _| record(id, bounds), |_, _, _, _| {})
         .absolute()
+        .top_0()
+        .left_0()
         .size_full()
 }
 

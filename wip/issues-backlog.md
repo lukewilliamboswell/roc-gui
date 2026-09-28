@@ -226,11 +226,14 @@ independent of any one application.
 
 ## Element appearance
 
-- [ ] **Run `expect-ink` in a window on macOS, Linux, and Windows.** The
-  assertion photographs a located element and fails when it drew no ink, and
-  Counter's `screenshots.scm` and Observatory's `window-keyboard.scm` use it. It
-  was added while the macOS session was locked, so no window run has exercised
-  it yet on any platform.
+- [ ] **Run `expect-ink` in a window on Linux and Windows.** It passes on
+  arm64 macOS for Counter's numeral and Observatory's palette chord.
+
+- [ ] **Observatory's disabled Back and Forward are barely legible.** Their
+  captions draw `#C4C9D0` on the header's `#ECEEF1`, about 1.4:1. Disabled
+  controls are exempt from WCAG contrast, but these name what the keyboard
+  chord does and read as missing. Raise the disabled caption to a legible dim
+  tone in both themes.
 
 - [ ] **Three macOS window specifications fail on the migrated GPUI host.**
   `clipboard-history/specs/window-history.scm` reports "Cancel private next"
