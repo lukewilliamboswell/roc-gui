@@ -26,7 +26,7 @@ jobs:
       - name: Install native Linux runtime libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig xvfb
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig xvfb libvulkan1 mesa-vulkan-drivers
       - name: Build and test through Blueprint
         run: |
           xvfb-run -a nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
