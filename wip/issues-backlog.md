@@ -226,6 +226,13 @@ independent of any one application.
 
 ## Element appearance
 
+- [ ] **No window check fails when text draws no glyphs.** macOS windows once
+  drew layout, borders, and fills but no glyphs, and every specification still
+  passed because they read semantic state. Text draws again (Observatory's and
+  Counter's window screenshots on arm64 macOS, 2026-09-28), but nothing would
+  catch a recurrence. Add a window assertion that a labelled text element's
+  bounds contain ink distinct from its ground, and use it in a screenshot case.
+
 - [ ] **Three macOS window specifications fail on the migrated GPUI host.**
   `clipboard-history/specs/window-history.scm` reports "Cancel private next"
   laid out at x 929–983 but not on screen, locally and on CI.
@@ -520,20 +527,6 @@ built on top of them; none is a defect in what is there.
   `build.py --source-inputs` generates it; the locked link-input release in
   `link-inputs.lock.json` predates it, so a default build lacks
   `CoreServices.tbd`. Produce and lock a new release.
-
-- [ ] **Finish reducing Terminal Workspace's compiler stack overflow.**
-  `roc check` overflows on `nightly-2026-09-27-a3ce7f1` and passes on
-  `nightly-2026-09-24-f45bfbe`; `roc build --opt=dev` overflows on both. It
-  is caused by `Terminal.roc`'s unannotated `read_next`, which calls itself in
-  the `resolve` of the `Gui.Action.task` it returns: resolving a read with
-  `Gui.Action.update(...)` instead makes `check` pass. A self-recursive task
-  alone does not reproduce it; the remaining candidates are the `generation`
-  capture, the `Live({ pty, reading })` payload, and the missing annotations.
-
-`examples/observatory/requirements.md` describes a roc-gui application that
-opens `.rgstats` captures and queries their tables directly. It is also the
-pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
-ideal and the repository. P- and E-numbers refer to that document.
 
 - [ ] **A flat scaling result reads as "sub-linear".** When every step ratio of
   a trigger and metric lies within the A/A noise band of 1, Scaling reports
@@ -1088,12 +1081,15 @@ names the evidence so a fix can be verified against the same case.
   `blueprint run check`, then run the producer and publisher for the
   CoreServices interface.
 
-- [ ] **Terminal Workspace overflows the compiler's stack on
-  `nightly-2026-09-27-a3ce7f1`.** `roc build --opt=dev
-  examples/terminal-workspace/main.roc` exits with "The Roc compiler
-  overflowed its stack memory". `scripts/run_specs.py` lists it in
-  `COMPILER_BLOCKED`. Reduce it with a Debug build of `origin/main`, file it
-  upstream, and remove the entry once a nightly builds it.
+- [ ] **An unannotated self-recursive task overflows the compiler's stack.**
+  Terminal Workspace's `read_next` resolved each read by calling itself inside
+  the `resolve` of the `Gui.Action.task` it returns. Without a type annotation,
+  `roc check` overflows the compiler's stack on `nightly-2026-09-27-a3ce7f1`
+  (it passes on `nightly-2026-09-24-f45bfbe`), and `roc build --opt=dev`
+  overflows on both. Annotating `read_next : State, Gui.Process.Pty, U64 ->
+  Gui.Action(State)` builds, and the application now carries it. A
+  self-recursive task alone does not reproduce the overflow; reduce the rest of
+  `Terminal.roc` to a standalone case and file it upstream.
 
 - [ ] **Every application fails ARC certification on Roc `origin/main`.** A
   Debug build of `origin/main` (`c80043e3`), and of the 2026-09-27 nightly's

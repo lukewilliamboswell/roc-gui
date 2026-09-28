@@ -192,7 +192,6 @@ SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
 # skipped and named on every run; each is tracked in wip/issues-backlog.md
 # under "Compiler and toolchain defects" and removed when its fix lands.
 COMPILER_BLOCKED = {
-    "examples/terminal-workspace": "compiler stack overflow on nightly-2026-09-27-a3ce7f1",
 }
 
 

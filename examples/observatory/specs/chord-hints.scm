@@ -1,7 +1,8 @@
 ;; Chord hints (US-38). Every hint names a chord as its shortcut declares it,
 ;; and the host spells it as the person presses it: Cmd on macOS, Ctrl on
-;; Linux and Windows. The header names the palette's chord, and each view in
-;; the palette names the chord that shows it.
+;; Linux and Windows. The header names the palette's chord, each view in the
+;; palette names the chord that shows it, and Back and Forward, once offered,
+;; name theirs.
 (test "every chord hint is spelled as the platform presses it"
   (grants
     (directory "fixture/captures"))
@@ -20,4 +21,17 @@
     ; Nothing was jumped between, so Back and Forward are not offered, and
     ; neither is their chord.
     (expect-count (chord "alt-left") 0)
-    (expect-count (chord "alt-right") 0)))
+    (expect-count (chord "alt-right") 0)
+    ; After a jump and a step back, both are offered, each with its chord.
+    (press-key Escape)
+    (click (role button :name "Cycle r4 #7"))
+    (await-task)
+    (click (role button :name "Show step"))
+    (await-task)
+    (key "alt-left")
+    (await-task)
+    (key "secondary-k")
+    (replace-text (role textbox :name "Palette query") "back")
+    (expect-count (within (role row :name "Palette row Command Back") (chord "alt-left")) 1)
+    (replace-text (role textbox :name "Palette query") "forward")
+    (expect-count (within (role row :name "Palette row Command Forward") (chord "alt-right")) 1)))
