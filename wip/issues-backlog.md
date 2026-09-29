@@ -621,12 +621,6 @@ built on top of them; none is a defect in what is there.
   column, but neither shows it on hover nor opens Health at the family. Draw
   them with the same pressable, hoverable dash the other views use.
 
-- [ ] **The scaling charts have no metric selector (US-29).**
-  `ScalingView.chart` draws a log-log canvas for every trigger and metric,
-  with a dashed line of linear growth through the smallest scale. W7 asks for
-  one chart per trigger with a metric selector, and for hovering a point to
-  read out its ratio; the charts have neither.
-
 - [ ] **A baseline applies to three views, and no chart overlays it (US-32).**
   The triggers table, the cycle inspector, and Memory's allocations by trigger
   gain Δ, ratio, and noise. The Overview tiles, the cycle list's bars, the run

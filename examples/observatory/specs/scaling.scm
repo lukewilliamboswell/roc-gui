@@ -1,7 +1,9 @@
 ;; A scaling set is chosen from the folder: one executable's benchmark at 100,
 ;; 1,000, and 10,000 rows. Each trigger's mean work is shown as an observed
 ;; ratio against the scale ratio, with a verdict only where every step has
-;; evidence, beside the count assertions each capture made. A set that mixes
+;; evidence, beside the count assertions each capture made. The charts draw
+;; one metric at a time, chosen above them, and hovering a point reads out the
+;; ratio of the step that reached it. A set that mixes
 ;; in a contended run, or two captures of one scale, is refused with its key.
 (test "a scaling set shows each trigger's growth and refuses what it cannot compare"
   (grants
@@ -39,6 +41,16 @@
     (expect-not-visible (within (role row :name "Ratio task callback") (text "—")))
     (expect-not-visible (within (role row :name "Ratio click graph apply") (text "—")))
     (expect-visible (role canvas-item :name "Point task callback 10000"))
+    ; one chart per trigger for the chosen metric, callback first
+    (expect-not-visible (role canvas-item :name "Point task span allocated bytes 10000"))
+    (pointer-move (role canvas-item :name "Point task callback 10000"))
+    (expect-visible (role canvas-item :name "Hovered point task callback"))
+    (click (role button :name "Scaling metric span allocated bytes"))
+    (expect-not-visible (role canvas-item :name "Point task callback 10000"))
+    (expect-not-visible (role canvas-item :name "Hovered point task callback"))
+    ; hovering a point reads out the step that reached it
+    (pointer-move (role canvas-item :name "Point task span allocated bytes 10000"))
+    (expect-value (role canvas-item :name "Title task span allocated bytes") "task span allocated bytes at 10000: 3.6 MiB · 1.0× from 1000, for 10.0× the scale")
     (expect-visible (within (role row :name "Scaling A/A verdict") (text "No A/A capture: ratios carry no noise band.")))
     ; a contended run fails isolation and job count, and repeats a scale
     (click (role button :name "Scaling set browse-100-jobs-2.rgstats"))

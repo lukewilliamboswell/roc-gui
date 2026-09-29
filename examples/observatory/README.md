@@ -141,8 +141,10 @@ on beside every other view until it is unpinned. Nine views follow:
   span allocation as an observed ratio from scale to scale against the scale
   ratio. A verdict of linear, sub-linear, or super-linear is given only when
   every step has evidence, and an A/A capture at one of the set's scales marks
-  the ratios within its noise band. A log-log chart per trigger and metric
-  plots each mean against its scale beside a dashed line of linear growth.
+  the ratios within its noise band. A log-log chart per trigger plots the
+  chosen metric's mean against its scale beside a dashed line of linear
+  growth; a selector above the charts picks the metric, and hovering a point
+  reads out its value and the ratio of the step that reached it.
 
 Every number belongs to a measurement family. A family whose status is not
 `complete` is shown as `—` with its status and reason, never as zero; hovering
@@ -287,7 +289,6 @@ platform, or the host's sources and locks.
 ## Not yet built
 
 - Tabs cannot be dragged into another order, and a folder cannot be dropped.
-- The scaling charts have no metric selector.
 - Only six tables have Copy; the Overview tiles, the inspector's work and
   allocation sections, the run lifecycle and process resources, the Frames and
   Timeline tables, and the Compare and Scaling sheets have none.

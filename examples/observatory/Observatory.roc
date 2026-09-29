@@ -202,6 +202,9 @@ State : {
 	baseline : [None, Some(Capture.Opened)],
 	noise : [None, Some(Scaling.Member)],
 	scaling : Scaling.Selection,
+	## The metric the scaling charts draw, and the point under the pointer.
+	scaling_metric : Scaling.Metric,
+	scaling_hover : [None, Some({ trigger : Str, index : U64 })],
 	## The frame budget, in hertz, frames are drawn against.
 	budget : I64,
 	strip : Strip,
@@ -303,6 +306,8 @@ Observatory := [].{
 		baseline: None,
 		noise: None,
 		scaling: Scaling.empty,
+		scaling_metric: Callback,
+		scaling_hover: None,
 		budget: 60,
 		strip: { strip: { start: 0, span: 0, total: 0, bars: [] }, read: 0 },
 		strip_reading: None,
