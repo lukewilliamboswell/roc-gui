@@ -121,7 +121,8 @@ Trust : {
 ## How far a capture may be trusted. `Unsupported` captures are refused before
 ## any of their tables are read. `Withheld` is a capture not yet finalised,
 ## which has no verdict until its recorder decides the families it rests on.
-Verdict : [Complete, Partial(Str), Untrusted(Str), Unsupported(Str), Withheld(Str)]
+## `Unread` is a listed capture whose summary has not been read yet.
+Verdict : [Complete, Partial(Str), Untrusted(Str), Unsupported(Str), Withheld(Str), Unread]
 
 ## What the capture list shows for one file. `capture_id` names the capture a
 ## file holds, so a file replaced by another capture is told from one that grew.
@@ -320,6 +321,10 @@ Capture := [].{
 	summarize_file! : Gui.Files.File.Read, Str => Listing
 	summarize_file! = summarize_file!
 
+	## A capture listed by name before its summary is read.
+	unread : Str -> Listing
+	unread = |name| { name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unread }
+
 	listing_of : Opened -> Listing
 	listing_of = listing_of
 
@@ -498,6 +503,7 @@ Capture := [].{
 		Untrusted(_) => "untrusted"
 		Unsupported(_) => "unsupported"
 		Withheld(_) => "withheld"
+		Unread => "unread"
 	}
 
 	verdict_reason : Verdict -> Str
@@ -507,6 +513,7 @@ Capture := [].{
 		Untrusted(reason) => reason
 		Unsupported(reason) => reason
 		Withheld(reason) => reason
+		Unread => "not read yet"
 	}
 
 	## Refuse any capture whose schema is not the one this application reads.

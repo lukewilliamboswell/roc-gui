@@ -552,12 +552,6 @@ built on top of them; none is a defect in what is there.
   produces such a cycle (a rejected turn, or a callback whose span stack does
   not close) should become a fixture.
 
-- [ ] **A folder of a thousand captures shows nothing until every one is
-  summarized.** `scale-1000.scm`'s listing task takes about 680 ms before the
-  first row appears, because `list_folder!` opens and summarizes every
-  capture before it answers. List the names at once and summarize them in
-  pages near the table's viewport, as the recent list and the cycle list do.
-
 - [ ] **A folder cannot be dropped (US-4).** A dropped folder is refused as
   `NotFile`. W0's "drop .rgstats files anywhere" covers files; dropping a
   benchmark output folder to list it is the folder counterpart, and needs a

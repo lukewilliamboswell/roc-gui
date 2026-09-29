@@ -4,7 +4,9 @@ A read-only explorer for `.rgstats` captures, the SQLite databases the roc-gui
 recorder writes for every specification, benchmark, and recorded session. It
 opens one capture from a single-file grant, offering only `.rgstats` files, or
 takes a directory grant, lists every capture in the folder with its identity and
-a health badge, and opens one. Either way the capture is read through the
+a health badge, and opens one. Every name is listed at once with the first
+screenful summarized; a larger folder's other captures show "… reading" and
+are summarized in pages on a worker while the heading counts them in. Either way the capture is read through the
 platform's ordinary SQLite capability. It queries the capture's tables itself and depends on no other
 tool.
 
@@ -340,7 +342,8 @@ folder of 100 is replaced, and only it is read again.
 of 101 remembered captures, and the host checks the hundred left, while only
 the rows near the list's viewport are built.
 `scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases for a
-folder: each opens a benchmark output folder of that many real captures, and
+folder: each opens a benchmark output folder of that many real captures, the
+larger two showing the list before most of it is summarized, and
 `scale-compare.scm` compares two of a thousand and chooses a scaling set among
 them.
 `scale-tabs-10.scm` and `scale-tabs-50.scm` are the scaling cases for tabs:

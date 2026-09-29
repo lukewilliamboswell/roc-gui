@@ -114,6 +114,7 @@ verdict_ink = |verdict| match verdict {
 	Untrusted(_) => Theme.alarm_ink
 	Unsupported(_) => Theme.alarm_ink
 	Withheld(_) => Theme.caution
+	Unread => Theme.dim
 }
 
 verdict_badge : Capture.Verdict -> Str
@@ -123,6 +124,7 @@ verdict_badge = |verdict| match verdict {
 	Untrusted(_) => "✗ untrusted"
 	Unsupported(reason) => "✗ ${reason}"
 	Withheld(_) => "… withheld"
+	Unread => "… reading"
 }
 
 ## Tables. A cell clips rather than wraps, so every row is one line tall and a
@@ -259,27 +261,11 @@ absence_line = |family_name, reason| Gui.row(
 
 SortKey : [Text(Str), Number(I64)]
 
-compare_text : Str, Str -> [Before, Same, After]
-compare_text = |left, right| {
-	left_bytes = left.to_utf8()
-	right_bytes = right.to_utf8()
-	var $result = Same
-	for item in List.map2(left_bytes, right_bytes, |a, b| if a < b Before else if a > b After else Same) {
-		if $result == Same {
-			$result = item
-		}
-	}
-	if $result == Same {
-		if left_bytes.len() < right_bytes.len() Before else if left_bytes.len() > right_bytes.len() After else Same
-	} else {
-		$result
-	}
-}
 
 compare_keys : SortKey, SortKey -> [Before, Same, After]
 compare_keys = |left, right| match (left, right) {
 	(Number(a), Number(b)) => if a < b Before else if a > b After else Same
-	(Text(a), Text(b)) => compare_text(a, b)
+	(Text(a), Text(b)) => Format.compare_text(a, b)
 	(Number(_), Text(_)) => Before
 	(Text(_), Number(_)) => After
 }
@@ -526,27 +512,34 @@ capture_key = |listing, column| match column {
 	_ => Text(verdict_badge(listing.verdict))
 }
 
-sorted_captures : List(Capture.Listing), Observatory.Sort -> List(Capture.Listing)
+## Each capture with its place in the folder's name-ordered list, which keys
+## its row whichever column the table is sorted by.
+sorted_captures : List(Capture.Listing), Observatory.Sort -> List({ at : U64, listing : Capture.Listing })
 sorted_captures = |captures, sort| List.sort_with(
-	captures,
+	captures.map_with_index(|listing, at| { at, listing }),
 	|left, right| {
-		order = compare_keys(capture_key(left, sort.column), capture_key(right, sort.column))
+		order = compare_keys(capture_key(left.listing, sort.column), capture_key(right.listing, sort.column))
 		if sort.descending reverse_order(order) else order
 	},
 )
 
 ## Only the rows near the viewport are built, so a folder of a thousand
 ## captures costs what a screenful does.
-captures_rows : List(Capture.Listing) -> Gui.Elem(Observatory.State)
+captures_rows : List({ at : U64, listing : Capture.Listing }) -> Gui.Elem(Observatory.State)
 captures_rows = |sorted| Gui.virtual_rows({
 	label: "Captures",
 	row_height: Theme.row_height,
 	count: sorted.len(),
 	render_row: |index| match sorted.get(index) {
-		Ok(listing) => capture_row(listing)
+		Ok(found) => capture_row(found.listing)
 		Err(_) => table_row([])
 	},
+	row_key: |index| match sorted.get(index) {
+		Ok(found) => found.at
+		Err(_) => index
+	},
 })
+
 
 ## The recent list (US-3)
 
@@ -696,6 +689,13 @@ recent_table = |recent, row| if recent.is_empty() {
 	]
 }
 
+## How far a large folder's summaries have been read, while they are.
+reading_caption : List(Capture.Listing) -> Str
+reading_caption = |captures| {
+	unread = captures.count_if(|listing| listing.verdict == Unread)
+	if unread == 0 "" else " · read ${(captures.len() - unread).to_str()} of ${captures.len().to_str()}"
+}
+
 capture_list : Observatory.State -> Gui.Elem(Observatory.State)
 capture_list = |state| {
 	body = match state.folder {
@@ -704,7 +704,7 @@ capture_list = |state| {
 			[note("The folder holds no .rgstats captures.")]
 		} else {
 			[
-				meta("CAPTURES IN ${folder.name} · ${folder.captures.len().to_str()}"),
+				meta("CAPTURES IN ${folder.name} · ${folder.captures.len().to_str()}${reading_caption(folder.captures)}"),
 				Gui.col(
 					{ label: "Capture table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 					[
