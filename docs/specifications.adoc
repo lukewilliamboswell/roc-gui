@@ -327,6 +327,11 @@ in canvas coordinates. The window runner moves the window's own pointer to that
 point of the painted surface; the semantic runner delivers the event that
 movement produces. A move to the point already delivered delivers nothing. The
 canvas must handle `on_hover`.
+`(pointer-move ITEM)`:: Rest an unpressed pointer on the centre of the one canvas
+primitive a canvas-item locator names, through the same route, so a mark is
+hovered by what it means rather than where the data put it. As with `click`,
+the step fails when the canvas's hit test would give that point to a
+primitive drawn over it.
 `(pointer-leave LOCATOR)`:: Take a hovering pointer off a canvas. The canvas
 receives `Leave` at the last point delivered, and nothing when it was not
 hovered.

@@ -150,32 +150,39 @@ pub(crate) fn component_work_claim(
     }
 }
 
-/// The press a `click` on a canvas-item locator stands for: a press and
-/// release at the centre of the named primitive, as a `drag` that does not
-/// move. `None` for any other step. Refused when the primitive is not the one
-/// the canvas's own hit test finds at that point, because a press there would
+/// The pointer step a canvas-item locator stands for. A `click` is a press
+/// and release at the centre of the named primitive, as a `drag` that does
+/// not move, and a `pointer-move` with no coordinates rests the pointer there.
+/// `None` for any other step. Refused when the primitive is not the one the
+/// canvas's own hit test finds at that point, because the pointer there would
 /// reach whatever lies on top of it instead.
 pub(crate) fn canvas_press(
     graph: &MountedGraph,
     command: &Command,
 ) -> Option<Result<Command, String>> {
-    let Command::Click(locator) = command else {
-        return None;
-    };
-    if !matches!(
-        locator.target(),
-        Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
-    ) {
-        return None;
+    match command {
+        Command::Click(locator)
+            if matches!(
+                locator.target(),
+                Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+            ) =>
+        {
+            Some(
+                canvas_press_point(graph, locator)
+                    .map(|(x, y)| Command::Drag(locator.clone(), x, y, x, y)),
+            )
+        }
+        Command::PointerOver(locator) => Some(
+            canvas_press_point(graph, locator)
+                .map(|(x, y)| Command::PointerMove(locator.clone(), x, y)),
+        ),
+        _ => None,
     }
-    Some(
-        canvas_press_point(graph, locator).map(|(x, y)| Command::Drag(locator.clone(), x, y, x, y)),
-    )
 }
 
 fn canvas_press_point(graph: &MountedGraph, locator: &Locator) -> Result<(i32, i32), String> {
     let (canvas, item) = canvas_item(graph, locator)
-        .ok_or_else(|| "click locator must match exactly one canvas primitive".to_owned())?;
+        .ok_or_else(|| "the locator must match exactly one canvas primitive".to_owned())?;
     let (x, y) = match item.kind {
         crate::bridge::CanvasPrimitiveKind::Line => {
             ((item.x + item.x2) / 2, (item.y + item.y2) / 2)
@@ -1467,6 +1474,12 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Ok(())
                 }
             }
+            // `canvas_press` has already read this as a `pointer-move` to the
+            // primitive's centre, or refused it; it never reaches here.
+            Command::PointerOver(_) => Err(format!(
+                "line {}: pointer-move with no coordinates names one canvas primitive",
+                step.line
+            )),
             Command::Drag(locator, from_x, from_y, to_x, to_y) => {
                 let found = matches(&graph, locator);
                 if found.len() != 1 {
@@ -1570,7 +1583,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::PointerLeave(locator)
             | Command::Wheel(locator, _, _, _, _) => {
                 let found = matches(&graph, locator);
-                let listening = match (found.as_slice(), &step.command) {
+                let listening = match (found.as_slice(), &command) {
                     ([id], _) => match graph.node(*id).map(|node| &node.kind) {
                         Some(NodeKind::Canvas {
                             primitives,
@@ -1612,7 +1625,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             Some(NodeKind::Canvas { label, .. }) => label.clone(),
                             _ => String::new(),
                         };
-                        let event = match &step.command {
+                        let event = match &command {
                             Command::PointerMove(_, x, y) => {
                                 (hovering != Some((canvas.clone(), (*x, *y)))).then(|| {
                                     hovering = Some((canvas.clone(), (*x, *y)));
@@ -2896,6 +2909,14 @@ mod locator_tests {
             canvas_press(&graph, &Command::Click(covered)),
             Some(Err(_))
         ));
+        let rest = within(
+            Locator::PanelName("Right".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert_eq!(
+            canvas_press(&graph, &Command::PointerOver(rest.clone())),
+            Some(Ok(Command::PointerMove(rest, 5, 5)))
+        );
         let control = Locator::TextInputName("Value".into());
         assert_eq!(canvas_press(&graph, &Command::Click(control)), None);
     }

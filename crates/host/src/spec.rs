@@ -228,6 +228,9 @@ pub enum Command {
     /// Move an unpressed pointer to a point in canvas coordinates, through the
     /// canvas's production hover route.
     PointerMove(Locator, i32, i32),
+    /// Rest an unpressed pointer on the centre of one canvas primitive, named
+    /// by a canvas-item locator: `pointer-move` with no coordinates.
+    PointerOver(Locator),
     /// Take a hovering pointer off a canvas.
     PointerLeave(Locator),
     /// Scroll a wheel over a point of a canvas by a distance in pixels.
@@ -495,7 +498,7 @@ impl Command {
             Self::MarkNativeWork => "mark-native-work",
             Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
-            Self::PointerMove(..) => "pointer-move",
+            Self::PointerMove(..) | Self::PointerOver(_) => "pointer-move",
             Self::PointerLeave(_) => "pointer-leave",
             Self::Wheel(..) => "wheel",
             Self::ReplaceText(_, _) => "replace-text",
@@ -610,6 +613,7 @@ impl Command {
             // pointer produces, through the same route; a window run moves
             // the pointer itself.
             | Self::PointerMove(..)
+            | Self::PointerOver(_)
             | Self::PointerLeave(_)
             | Self::Wheel(..)
             // Both runners measure a drag from the press through one shared
@@ -716,6 +720,7 @@ impl Command {
                 | Self::HoverExit(_)
                 | Self::Drag(..)
                 | Self::PointerMove(..)
+                | Self::PointerOver(_)
                 | Self::PointerLeave(_)
                 | Self::Wheel(..)
                 | Self::ReplaceText(_, _)
@@ -1448,6 +1453,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             parse_i32(&values[2], "pointer coordinate")?,
             parse_i32(&values[3], "pointer coordinate")?,
         ),
+        "pointer-move" if values.len() == 2 => Command::PointerOver(parse_locator(&values[1])?),
         "pointer-leave" if values.len() == 2 => Command::PointerLeave(parse_locator(&values[1])?),
         "wheel" if values.len() == 6 => Command::Wheel(
             parse_locator(&values[1])?,

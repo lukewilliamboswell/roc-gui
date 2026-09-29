@@ -818,9 +818,11 @@ async fn run_step(
     file_baseline: [u64; 4],
     cx: &mut AsyncApp,
 ) -> Result<Option<ShotRecord>, StepError> {
-    // A click on a canvas primitive is a press and release at its centre, the
-    // semantic runner's reading of the same step, found on the painted graph.
-    let pressed = if matches!(&step.command, Command::Click(locator) if matches!(locator.target(), Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)))
+    // A click on a canvas primitive is a press and release at its centre, and
+    // a pointer-move onto one rests there: the semantic runner's reading of
+    // the same step, found on the painted graph.
+    let pressed = if matches!(&step.command, Command::PointerOver(_))
+        || matches!(&step.command, Command::Click(locator) if matches!(locator.target(), Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)))
     {
         await_painted(window, options.timeout, cx).await?;
         window
@@ -934,7 +936,7 @@ async fn run_step(
             // The window's own pointer, at a point of the canvas's painted
             // surface: GPUI hit-tests it and the canvas's production
             // listeners turn it into the event, exactly as a person's would.
-            let (x, y) = match &step.command {
+            let (x, y) = match &command {
                 Command::PointerMove(_, x, y) | Command::Wheel(_, x, y, _, _) => (*x, *y),
                 _ => (0, 0),
             };
@@ -950,7 +952,7 @@ async fn run_step(
                 })
                 .map_err(|_| StepError::WindowClosed)??;
             let position = point(origin.x + px(x as f32), origin.y + px(y as f32));
-            let input = match &step.command {
+            let input = match &command {
                 Command::PointerMove(..) => gpui::PlatformInput::MouseMove(MouseMoveEvent {
                     position,
                     pressed_button: None,
