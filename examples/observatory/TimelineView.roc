@@ -138,7 +138,7 @@ hit_name : Hit -> Str
 hit_name = |hit| match hit {
 	OnCycle(mark) => "Cycle ${cycle_name(mark.cycle)}"
 	OnFrame(mark) => "Frame ${frame_name(mark.bar)}"
-	OnPass(mark) => "List ${mark.list_id.to_str()} pass ${mark.column.to_str()}"
+	OnPass(mark) => "List pass ${mark.order.to_str()}"
 }
 
 more : I64, Str -> Str
@@ -147,10 +147,20 @@ more = |count, noun| if count > 1 " · longest of ${count.to_str()} ${noun} here
 ## A pass names what produced it only through the key the recorder wrote.
 pass_origin : Timeline.PassMark -> Str
 pass_origin = |mark| match (mark.origin, mark.frame, mark.cycle) {
-	("paint", Some(ordinal), _) => "painted by frame #${ordinal.to_str()}"
+	("paint", Some(bar), _) => "painted by frame ${frame_name(bar)}"
 	("paint", None, _) => "paint pass, frame not recorded"
-	(_, _, Some(ordinal)) => "patch of cycle #${ordinal.to_str()}"
+	(_, _, Some(cycle)) => "patch of cycle ${cycle_name(cycle)}"
 	_ => "patch of no recorded cycle"
+}
+
+## A pass opens what its recorder linked it to: the frame that painted it, or
+## the cycle whose patch performed it. A pass with no recorded link opens
+## nothing.
+pass_link : Timeline.PassMark -> [None, Frame(Capture.Bar), Cycle(Capture.Cycle)]
+pass_link = |mark| match (mark.origin, mark.frame, mark.cycle) {
+	("paint", Some(bar), _) => Frame(bar)
+	("patch", _, Some(cycle)) => Cycle(cycle)
+	_ => None
 }
 
 readout : Timeline.Window, Hit -> Str
@@ -262,7 +272,7 @@ chart = |state, opened| {
 	}
 	readout_text = match hovered {
 		Some(hit) => readout(window, hit)
-		None => "Hover a mark for its detail; press a frame for the cycles it drew, or a cycle to inspect it; scroll to zoom."
+		None => "Hover a mark for its detail; press a frame for the cycles it drew, a cycle to inspect it, or a list pass for the frame or cycle that produced it; scroll to zoom."
 	}
 	stop = window.start + window.span
 	guides = [
@@ -307,6 +317,14 @@ chart = |state, opened| {
 			on_pointer: |current, event| match (event.phase, hit_of_target(event.target)) {
 				(Begin, Some(OnFrame(mark))) => Observatory.ask(current, SelectFrame(mark.bar))
 				(End, Some(OnCycle(mark))) => Observatory.ask(current, InspectCycle(mark.cycle))
+				(Begin, Some(OnPass(mark))) => match pass_link(mark) {
+					Frame(bar) => Observatory.ask(current, SelectFrame(bar))
+					_ => Gui.Action.none
+				}
+				(End, Some(OnPass(mark))) => match pass_link(mark) {
+					Cycle(cycle) => Observatory.ask(current, InspectCycle(cycle))
+					_ => Gui.Action.none
+				}
 				_ => Gui.Action.none
 			},
 			on_hover: Some(
@@ -397,3 +415,17 @@ timeline = |state, opened| {
 	}
 	Gui.col({ label: "Timeline", width: Fill, padding: Theme.inset, gap: Theme.inset }, body)
 }
+
+passed : Timeline.PassMark
+passed = { column: 0, order: 1, passes: 1, list_id: 1, origin: "paint", frame: None, cycle: None, visible: 0, materialized: 0, start: 0, end: 0 }
+
+bar : Capture.Bar
+bar = { column: 0, frames: 1, id: 7, run_id: 1, ordinal: 3, layout: 0, prepaint: 0, paint: 0 }
+
+cycle : Capture.Cycle
+cycle = { id: 9, run_id: 1, ordinal: 4, step_ordinal: None, phase: "measured", trigger: "click", patch_kind: "update", duration: 0, callback: 0, validate: 0, apply: 0, target: None }
+
+expect pass_link({ ..passed, frame: Some(bar) }) == Frame(bar)
+expect pass_link(passed) == None
+expect pass_link({ ..passed, origin: "patch", cycle: Some(cycle) }) == Cycle(cycle)
+expect pass_link({ ..passed, origin: "patch", frame: Some(bar) }) == None

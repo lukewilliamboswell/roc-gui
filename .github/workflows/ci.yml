@@ -26,7 +26,7 @@ jobs:
       - name: Install native Linux runtime libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig sway grim libvulkan1 mesa-vulkan-drivers
       - name: Build and test through Blueprint
         run: |
           nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
@@ -36,7 +36,7 @@ jobs:
             nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
             blueprint run lint
             blueprint run build
-            blueprint run test -- --only semantic --jobs 2 --timeout 300
+            python3 scripts/headless_wayland.py -- blueprint run test -- --only semantic --jobs 2 --timeout 300
           '
 
   # Each target's host is produced once; its tests wait only for that host.

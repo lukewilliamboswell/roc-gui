@@ -4,7 +4,9 @@ A read-only explorer for `.rgstats` captures, the SQLite databases the roc-gui
 recorder writes for every specification, benchmark, and recorded session. It
 opens one capture from a single-file grant, offering only `.rgstats` files, or
 takes a directory grant, lists every capture in the folder with its identity and
-a health badge, and opens one. Either way the capture is read through the
+a health badge, and opens one. Every name is listed at once with the first
+screenful summarized; a larger folder's other captures show "… reading" and
+are summarized in pages on a worker while the heading counts them in. Either way the capture is read through the
 platform's ordinary SQLite capability. It queries the capture's tables itself and depends on no other
 tool.
 
@@ -23,7 +25,10 @@ outside Observatory's own storage, and the list is read as the window opens.
 Pressing an entry reopens it without choosing it again. The host checks what
 is at the entry's place first, so a capture that was deleted, one another file
 was moved over, or one Observatory may no longer read is shown as unavailable
-with that reason, and is not reopened; any entry can be forgotten.
+with that reason, and is not reopened; any entry can be forgotten. Once the
+list is shown, each entry is read on a worker: a capture shows its
+application, specification, backend, and verdict, or why Observatory cannot
+read it, and a folder how many captures it holds.
 
 A capture of any schema other than 25 is refused with its reason before a single
 table is read. An open capture always shows its identity and health first: a
@@ -81,7 +86,9 @@ on beside every other view until it is unpinned. Nine views follow:
   nineteen frame-work counts grouped as cached and replayed, fresh, and moved
   and rebased, with the share of scene operations replayed; and each virtual
   list's last pass, flagged when it materialised more than three times what it
-  showed, with a chart of its passes. A semantic-headless capture draws no
+  showed, with a chart of its passes. A session can mount a list hundreds of
+  times, so the table builds only the rows near its viewport, and resizing the
+  window redraws the charts without rebuilding it. A semantic-headless capture draws no
   frame, and the view says so with the family's status and reason.
 - **Timeline**: what happened, in order. Lanes of cycles by trigger, drawn
   frames, and virtual-list passes share the capture's one process-relative
@@ -90,7 +97,9 @@ on beside every other view until it is unpinned. Nine views follow:
   length draws the same number of marks. The wheel zooms around the instant
   under the pointer and pans sideways, hovering a mark reads it out, pressing a
   frame lists the cycles it was the first to draw and marks them in their
-  lanes, and pressing a cycle opens it in the inspector. A frame with no
+  lanes, pressing a cycle opens it in the inspector, and pressing a list pass
+  opens what its recorder linked it to: the frame that painted it, or the
+  cycle whose patch performed it. A frame with no
   recorded link says "cause not recorded", with the linkage family's status
   when it is not complete, and is never tied to the nearest cycle. A
   semantic-headless capture draws its cycles and shows the frame and list
@@ -132,8 +141,10 @@ on beside every other view until it is unpinned. Nine views follow:
   span allocation as an observed ratio from scale to scale against the scale
   ratio. A verdict of linear, sub-linear, or super-linear is given only when
   every step has evidence, and an A/A capture at one of the set's scales marks
-  the ratios within its noise band. A log-log chart per trigger and metric
-  plots each mean against its scale beside a dashed line of linear growth.
+  the ratios within its noise band. A log-log chart per trigger plots the
+  chosen metric's mean against its scale beside a dashed line of linear
+  growth; a selector above the charts picks the metric, and hovering a point
+  reads out its value and the ratio of the step that reached it.
 
 Every number belongs to a measurement family. A family whose status is not
 `complete` is shown as `—` with its status and reason, never as zero; hovering
@@ -151,7 +162,8 @@ changes; the palette's Theme commands choose light or dark over it, or follow
 the system again. Every colour is a light and dark pair, so the scales keep
 their order and their contrast with the ground in both.
 
-The keyboard reaches everything. Ctrl+K opens a command palette that finds, as
+The keyboard reaches everything. Chords are shown as the platform spells
+them, with Cmd on macOS where Linux and Windows use Ctrl. Cmd+K or Ctrl+K opens a command palette that finds, as
 you type, the commands (open a folder or a capture, back, forward, set or clear
 the baseline, close the capture, choose a theme), the views, the folder's captures, and every
 trigger of every phase; `cycle N` inspects the cycle with that ordinal in the
@@ -159,7 +171,7 @@ selected run and `step N` shows its step in Spec. Up and Down move the
 highlight and Enter chooses it. Opening a cycle, its step, a frame, or a
 palette target remembers the place left, and Alt+Left and Alt+Right, or the
 Back and Forward buttons in the header, move over those places, restoring the
-view, what it had selected, and where its lists were. Ctrl+1 to Ctrl+9 show
+view, what it had selected, and where its lists were. Cmd+1 to Cmd+9, or Ctrl+1 to Ctrl+9, show
 the views in the rail's order. In Interactions, J and K inspect the next and
 the previous cycle of the list, bringing it into view, and I moves keyboard
 focus into the inspector.
@@ -229,7 +241,7 @@ is being read holds the places of its unread rows.
 ```sh
 python3 build.py
 python3 examples/observatory/generate_fixture.py
-roc build --output=observatory examples/observatory/main.roc
+roc build --opt=dev --output=observatory examples/observatory/main.roc
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures
 ./observatory -- --host-cap-dir examples/observatory/fixture/compare
 ./observatory -- --host-cap-file examples/observatory/fixture/captures/counter-counting.rgstats
@@ -277,9 +289,6 @@ platform, or the host's sources and locks.
 ## Not yet built
 
 - Tabs cannot be dragged into another order, and a folder cannot be dropped.
-- A recent capture is listed without its application, specification, and
-  verdict.
-- The scaling charts have no metric selector.
 - Only six tables have Copy; the Overview tiles, the inspector's work and
   allocation sections, the run lifecycle and process resources, the Frames and
   Timeline tables, and the Compare and Scaling sheets have none.
@@ -313,6 +322,7 @@ changed specification's banner, the memory view, the duration
 distribution and its bucket filter, the Frames view of a window capture with
 its hover and a pressed frame, the Frames view of a headless capture, the
 Timeline of a window capture with its hover, zoom, and a pressed cycle, a
+list pass followed to the frame that painted it, a
 frame's recorded causes followed from the strip to the inspector, the
 Timeline of a headless capture, the
 comparability sheet of an A/A pair and of a contended run, a baseline's deltas
@@ -333,7 +343,8 @@ folder of 100 is replaced, and only it is read again.
 of 101 remembered captures, and the host checks the hundred left, while only
 the rows near the list's viewport are built.
 `scale-10.scm`, `scale-100.scm`, and `scale-1000.scm` are the scaling cases for a
-folder: each opens a benchmark output folder of that many real captures, and
+folder: each opens a benchmark output folder of that many real captures, the
+larger two showing the list before most of it is summarized, and
 `scale-compare.scm` compares two of a thousand and chooses a scaling set among
 them.
 `scale-tabs-10.scm` and `scale-tabs-50.scm` are the scaling cases for tabs:
@@ -348,7 +359,8 @@ renders the window alone.
 annotates the session's own specification of ten thousand lines, building only
 the lines near the viewport, and opens a late cycle's step on its line.
 `frames-scale.scm` is the scaling case for the frame strip: it opens the
-session of at least 1,000 frames and zooms into it with the wheel, and
+session of at least 1,000 frames, whose 452 virtual lists the table builds
+only near its viewport, and zooms into it with the wheel, and
 `timeline-scale.scm` opens the same session on the Timeline and zooms and pans
 it.
 `window-session.scm` scrolls the same list four thousand cycles down in the

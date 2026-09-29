@@ -121,7 +121,8 @@ Trust : {
 ## How far a capture may be trusted. `Unsupported` captures are refused before
 ## any of their tables are read. `Withheld` is a capture not yet finalised,
 ## which has no verdict until its recorder decides the families it rests on.
-Verdict : [Complete, Partial(Str), Untrusted(Str), Unsupported(Str), Withheld(Str)]
+## `Unread` is a listed capture whose summary has not been read yet.
+Verdict : [Complete, Partial(Str), Untrusted(Str), Unsupported(Str), Withheld(Str), Unread]
 
 ## What the capture list shows for one file. `capture_id` names the capture a
 ## file holds, so a file replaced by another capture is told from one that grew.
@@ -317,6 +318,16 @@ Capture := [].{
 	summarize! : Gui.Files.Dir.Read, Str => Listing
 	summarize! = summarize!
 
+	summarize_file! : Gui.Files.File.Read, Str => Listing
+	summarize_file! = summarize_file!
+
+	## A capture listed by name before its summary is read.
+	unread : Str -> Listing
+	unread = |name| { name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unread }
+
+	listing_of : Opened -> Listing
+	listing_of = listing_of
+
 	## Open one capture, refuse it unless it is schema 25, and read every table
 	## the views present.
 	open! : Gui.Files.Dir.Read, Str => Try(Opened, Str)
@@ -492,6 +503,7 @@ Capture := [].{
 		Untrusted(_) => "untrusted"
 		Unsupported(_) => "unsupported"
 		Withheld(_) => "withheld"
+		Unread => "unread"
 	}
 
 	verdict_reason : Verdict -> Str
@@ -501,6 +513,7 @@ Capture := [].{
 		Untrusted(reason) => reason
 		Unsupported(reason) => reason
 		Withheld(reason) => reason
+		Unread => "not read yet"
 	}
 
 	## Refuse any capture whose schema is not the one this application reads.
@@ -1005,22 +1018,22 @@ read_trust! = |database, entries| {
 }
 
 summarize! : Gui.Files.Dir.Read, Str => Listing
-summarize! = |directory, name| {
+summarize! = |directory, name| listing!(Gui.Sqlite.open_read!(directory, name), name)
+
+## Summarize one capture a single-file grant reaches, as a folder's captures
+## are summarized.
+summarize_file! : Gui.Files.File.Read, Str => Listing
+summarize_file! = |file, name| listing!(Gui.Sqlite.open_file_read!(file), name)
+
+listing! : Try(Gui.Sqlite.Db, Gui.Sqlite.SqliteErr), Str => Listing
+listing! = |opened, name| {
 	blank = { name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unsupported("unreadable") }
-	match Gui.Sqlite.open_read!(directory, name) {
+	match opened {
 		Err(error) => { ..blank, verdict: Unsupported("not a readable database: ${Gui.Sqlite.detail(error)}") }
 		Ok(database) => match read_metadata!(database) {
 			Err(detail) => { ..blank, verdict: Unsupported("not a capture: ${detail}") }
 			Ok(entries) => {
-				listed = {
-					..blank,
-					capture_id: lookup(entries, "capture_id"),
-					application: lookup(entries, "app_name"),
-					spec: lookup(entries, "spec_name"),
-					backend: lookup(entries, "backend"),
-					scale: lookup(entries, "benchmark_scale"),
-					detail: lookup(entries, "effective_detail"),
-				}
+				listed = described(blank, entries)
 				match schema_gate(lookup(entries, "schema_version")) {
 					Err(reason) => { ..listed, verdict: Unsupported(reason) }
 					Ok({}) => match read_trust!(database, entries) {
@@ -1031,6 +1044,25 @@ summarize! = |directory, name| {
 			}
 		}
 	}
+}
+
+## A listing's identity, from a capture's metadata.
+described : Listing, List(Entry) -> Listing
+described = |blank, entries| {
+	..blank,
+	capture_id: lookup(entries, "capture_id"),
+	application: lookup(entries, "app_name"),
+	spec: lookup(entries, "spec_name"),
+	backend: lookup(entries, "backend"),
+	scale: lookup(entries, "benchmark_scale"),
+	detail: lookup(entries, "effective_detail"),
+}
+
+## The listing of a capture already read, as summarizing its file would give.
+listing_of : Opened -> Listing
+listing_of = |opened| {
+	blank = { name: opened.name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: opened.verdict }
+	described(blank, opened.metadata)
 }
 
 read_families! : Gui.Sqlite.Db => Try(List(Family), Str)

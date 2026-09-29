@@ -4,9 +4,9 @@
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")
-    (await-ticks 1)
+    (await-ticks 2)
     (clipboard-text "beta task")
-    (await-ticks 1)
+    (await-ticks 2)
     (replace-text (role textbox :name "Search history") "no such entry")
     (expect-visible (text "0 matching items"))
     (expect-not-visible (text "alpha note"))

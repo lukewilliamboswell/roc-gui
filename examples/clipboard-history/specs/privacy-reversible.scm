@@ -22,7 +22,7 @@
     (expect-not-visible (role row :name "Privacy armed"))
     (expect-visible (text "Capturing clipboard changes"))
     (clipboard-text "kept after cancelling")
-    (await-ticks 1)
+    (await-ticks 2)
     (expect-visible (text "kept after cancelling"))
     (expect-visible (text "1 matching items"))
     ; Arming and then pausing releases the arming rather than carrying it across
@@ -41,6 +41,6 @@
     ; Resuming captures the item that arrives, because nothing is still armed.
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "captured after resuming")
-    (await-ticks 1)
+    (await-ticks 2)
     (expect-visible (text "captured after resuming"))
     (expect-visible (text "2 matching items"))))

@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / 'dependencies/windows-gnu-runtime.json'
 REPRODUCTION = (
     'dependencies/windows-gnu-runtime.json', 'dependencies/windows-gnu-runtime/default.nix',
-    'Blueprint.lock', 'scripts/nix_link_inputs.py',
+    'Blueprint.lock', 'dependencies/nixpkgs-pin.nix', 'scripts/nix_link_inputs.py',
     'dependencies/windows-gnu-runtime/DISCLAIMER.PD', 'dependencies/windows-gnu-runtime/ucrt-inventory.json',
     'scripts/build_windows_gnu_runtime.py', 'scripts/windows_runtime_validation.py',
     'scripts/audit_windows_archive.py', 'scripts/build_glibc.py', 'scripts/dependency_archive.py',

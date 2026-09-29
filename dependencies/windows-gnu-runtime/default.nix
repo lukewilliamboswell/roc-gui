@@ -1,14 +1,13 @@
 # Windows target, Linux build host; use the same package authority as Blueprint.
 let
   root = ../..;
-  lock = builtins.fromJSON (builtins.readFile (root + /Blueprint.lock));
-  pin = lock.nodes.${lock.nodes.${lock.root}.inputs.nixpkgs}.locked;
+  pin = import (root + /dependencies/nixpkgs-pin.nix) (root + /Blueprint.lock);
   pkgs = import (builtins.fetchTree pin) { system = "x86_64-linux"; };
   recipe = builtins.fromJSON (builtins.readFile ../windows-gnu-runtime.json);
   source = pkgs.lib.fileset.toSource {
     inherit root;
     fileset = pkgs.lib.fileset.unions [
-      ../../Blueprint.lock ./default.nix ../windows-gnu-runtime.json
+      ../../Blueprint.lock ../nixpkgs-pin.nix ./default.nix ../windows-gnu-runtime.json
       ./DISCLAIMER.PD ./ucrt-inventory.json
       ../../scripts/build_windows_gnu_runtime.py ../../scripts/windows_runtime_validation.py
       ../../scripts/audit_windows_archive.py ../../scripts/build_glibc.py

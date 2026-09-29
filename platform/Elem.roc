@@ -30,6 +30,7 @@ Elem(a) :: [
 	Split({ children : List(Elem(a)), props : SplitNode(a) }),
 	DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 	StyledText(TextNode),
+	Chord(ChordNode),
 	Text(Str),
 ].{
 	KeyedOperation : [KeyedInsert(Key, KeyedSeq.Placement), KeyedMove(Key, KeyedSeq.Placement), KeyedRemove(Key), KeyedSet(Key)]
@@ -407,6 +408,10 @@ Elem(a) :: [
 	## is empty for text of one style; otherwise `value` is the spans' texts in
 	## order, and each span restyles its own part of it.
 	TextNode := { value : Str, style : Style, spans : List(TextSpan) }
+
+	## Platform representation of a key chord shown as text. `keys` is the chord
+	## as a shortcut declares it; the host spells it as the person presses it.
+	ChordNode := { keys : Str, style : Style }
 
 	## One styled run of rich text: its text, and what it sets over the
 	## element's own type. `Default` colours and weight 0 keep the element's.
@@ -1307,6 +1312,13 @@ Elem(a) :: [
 	text : Str -> Elem(a)
 	text = |value| Text(value)
 
+	## Display a key chord, declared as a shortcut declares it (`secondary-k`),
+	## in the spelling of the platform it runs on: `⌘K` on macOS and `ctrl-K`
+	## elsewhere. It inherits colour and size from its container, and
+	## `with_style` restyles it as it restyles text.
+	chord : Str -> Elem(a)
+	chord = |keys| Chord({ keys, style: Style.{} })
+
 	## Display text in its own colour, size, weight, and face, without a
 	## container element that exists only to carry them.
 	styled_text : TextProps -> Elem(a)
@@ -1402,6 +1414,7 @@ Elem(a) :: [
 	with_style = |elem, change| match elem {
 		Text(value) => StyledText({ value, style: change(Style.{}), spans: [] })
 		StyledText(value) => StyledText({ ..value, style: change(value.style) })
+		Chord(value) => Chord({ ..value, style: change(value.style) })
 		Row(value) => Row({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Column(value) => Column({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, style: change(value.props.style) } })
@@ -2171,6 +2184,7 @@ Elem(a) :: [
 	lift_shell = |elem, project, set_child, adapt_action| match elem {
 		Text(value) => Text(value)
 		StyledText(text_value) => StyledText(text_value)
+		Chord(chord_value) => Chord(chord_value)
 		Row(value) => Row({ props: value.props, children: [] })
 		Column(value) => Column({ props: value.props, children: [] })
 		KeyedColumn(_) => crash "keyed_col cannot be lifted; construct it at its owning state boundary"
@@ -2393,6 +2407,7 @@ Elem(a) :: [
 		Split({ children : List(Elem(a)), props : SplitNode(a) }),
 		DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 		StyledText(TextNode),
+		Chord(ChordNode),
 		Text(Str),
 	]
 	inspect = |value| match value {
@@ -2414,6 +2429,7 @@ Elem(a) :: [
 		Split(split_value) => Split(split_value)
 		DropTarget(drop_value) => DropTarget(drop_value)
 		StyledText(styled_value) => StyledText(styled_value)
+		Chord(chord_value) => Chord(chord_value)
 		Text(text_value) => Text(text_value)
 	}
 }

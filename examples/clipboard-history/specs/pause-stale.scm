@@ -4,7 +4,7 @@
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "first")
-    (await-ticks 1)
+    (await-ticks 2)
     (await-ticks 2)
     (expect-count (text "first") 1)
     (click (role button :name "Pause clipboard capture"))
@@ -14,4 +14,4 @@
     (click (role button :name "Start clipboard capture"))
     (await-ticks 1)
     (expect-visible (text "while paused"))
-    (expect-clipboard-counters 1 2 4 0)))
+    (expect-clipboard-counters 1 2 5 0)))

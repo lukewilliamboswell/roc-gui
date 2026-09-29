@@ -219,7 +219,7 @@ def materialize(lock_path, identities, cache, output):
 
 def nix_source_inventory(name):
     """Exact corresponding-source inventory for the Linux schema-2 archives."""
-    common = {"Blueprint.lock", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py",
+    common = {"Blueprint.lock", "dependencies/nixpkgs-pin.nix", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py",
               "scripts/dependency_archive.py", "scripts/dependency_artifacts.py"}
     common.update({f"scripts/build_{'alsa_interface' if name == 'alsa' else name}.py",
                    f"dependencies/{'alsa-interface' if name == 'alsa' else name}.json"})

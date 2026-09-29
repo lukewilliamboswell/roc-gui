@@ -11,7 +11,7 @@ import tempfile
 from dependency_artifacts import sha256
 
 ROOT = Path(__file__).resolve().parents[1]
-REPRODUCTION_FILES = ("Blueprint.lock", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py")
+REPRODUCTION_FILES = ("Blueprint.lock", "dependencies/nixpkgs-pin.nix", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py")
 
 
 def build(name, output, *, rebuild=False, recipe="dependencies/linux/default.nix", filename=None):

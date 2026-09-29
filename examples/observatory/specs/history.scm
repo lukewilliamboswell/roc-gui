@@ -35,7 +35,7 @@
     (await-task)
     (expect-visible (text "CYCLE r4 #7 · task · replace · measured"))
     ; a new jump from here forgets the step ahead
-    (key "ctrl-k")
+    (key "secondary-k")
     (replace-text (role textbox :name "Palette query") "view health")
     (submit (role textbox :name "Palette query"))
     (expect-visible (role column :name "Measurement families"))

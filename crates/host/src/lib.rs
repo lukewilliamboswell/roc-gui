@@ -55,7 +55,7 @@ use roc_platform_abi::{
     HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeDropTargetArgs,
     HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodePopover, HostGlueNodePopoverArgs,
     HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeSplit, HostGlueNodeSplitArgs,
-    HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
+    HostGlueNodeChordArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
     HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueResizeEventRetRecord,
     HostGlueShortcutEvent, HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs,
     HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
@@ -827,6 +827,28 @@ pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> 
             font_weight: args.font_weight,
             font_face: decode_font_face(args.font_face),
             runs,
+            chord: None,
+        },
+        vec![],
+    )
+}
+
+/// Stage a key chord as text in this platform's spelling.
+#[unsafe(no_mangle)]
+pub extern "C" fn roc_gui_node_chord(args: HostGlueNodeChordArgs) -> u64 {
+    let written = args.keys.as_str().to_owned();
+    unsafe { args.decref(roc_host()) };
+    let (canonical, shown) = keyboard::displayed_chord(&written)
+        .unwrap_or_else(|message| panic!("invalid chord: {message}"));
+    stage_node(
+        NodeKind::StyledText {
+            value: shown,
+            fg: decode_color(args.fg),
+            font_size: args.font_size,
+            font_weight: args.font_weight,
+            font_face: decode_font_face(args.font_face),
+            runs: Vec::new(),
+            chord: Some(canonical),
         },
         vec![],
     )
@@ -3442,8 +3464,16 @@ impl Render for NodeView {
                 }
                 element = match axis {
                     ScrollAxis::Vertical => element.min_h_0().max_h_full().overflow_y_scroll(),
-                    ScrollAxis::Horizontal => element.min_w_0().max_w_full().overflow_x_scroll(),
+                    // A column stretches its children to its own width, which
+                    // would fit content to the viewport and leave nothing to
+                    // scroll sideways; content keeps its own width instead.
+                    ScrollAxis::Horizontal => element
+                        .items_start()
+                        .min_w_0()
+                        .max_w_full()
+                        .overflow_x_scroll(),
                     ScrollAxis::Both => element
+                        .items_start()
                         .min_h_0()
                         .max_h_full()
                         .min_w_0()
@@ -3513,6 +3543,7 @@ impl Render for NodeView {
                 font_weight,
                 font_face,
                 runs,
+                ..
             } => {
                 element = single_line_text(element, window);
                 element = if runs.is_empty() {
@@ -7496,6 +7527,15 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let window_timeout_ms = args.window_timeout_ms;
     let window_require_shots = args.window_require_shots;
     let window_config = WINDOW_CONFIG.with(|config| config.borrow().clone());
+    // Without a Wayland compositor GPUI falls back to a headless client whose
+    // window draws once and never again, so nothing would ever respond.
+    #[cfg(target_os = "linux")]
+    if gpui::guess_compositor() != "Wayland" {
+        eprintln!("FAIL: no Wayland compositor to present a window (WAYLAND_DISPLAY is not set)");
+        clear_bridge();
+        set_roc_host(core::ptr::null_mut());
+        return 1;
+    }
     GPUI_SMOKE.store(args.host_gpui_smoke, Ordering::Relaxed);
     GPUI_SMOKE_RENDERS.store(0, Ordering::Relaxed);
     let gpui_smoke = args.host_gpui_smoke;

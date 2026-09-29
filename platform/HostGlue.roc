@@ -9,6 +9,7 @@ HostGlue := [].{
 	node_text! : Str => U64
 
 	node_styled_text! : { value : Str, fg : U64, font_size : U32, font_weight : U32, font_face : U8, runs : List({ len : U64, fg : U64, bg : U64, font_weight : U32, underline : Bool, monospace : Bool }) } => U64
+	node_chord! : { keys : Str, fg : U64, font_size : U32, font_weight : U32, font_face : U8 } => U64
 	children_begin! : () => U64
 	children_push! : U64, U64 => {}
 	keyed_seed! : { container : U64, revision : U64, keys : List(List(U8)) } => {}

@@ -134,6 +134,9 @@ struct Store {
     /// to, so withdrawing one forgets its entry.
     held: HashMap<GrantId, u64>,
     counters: [u64; 4],
+    /// The list a run without `backing` began with, which every lifecycle of
+    /// a scripted run starts from again.
+    initial: Vec<Entry>,
 }
 
 static STORE: OnceLock<Mutex<Store>> = OnceLock::new();
@@ -204,6 +207,11 @@ pub fn configure(backing: Option<PathBuf>, seeds: &[PathBuf]) -> Result<(), Stri
     };
     with(|store| {
         store.next_key = entries.iter().map(|entry| entry.key).max().unwrap_or(0) + 1;
+        store.initial = if backing.is_none() {
+            entries.clone()
+        } else {
+            Vec::new()
+        };
         store.entries = entries;
         store.backing = backing;
         store.sources.clear();
@@ -211,6 +219,29 @@ pub fn configure(backing: Option<PathBuf>, seeds: &[PathBuf]) -> Result<(), Stri
         store.counters = [0; 4];
     });
     Ok(())
+}
+
+/// Start a lifecycle of a run that keeps no list between runs from the list
+/// it was configured with, so each benchmark sample opens the application on
+/// the same list rather than on what the previous sample remembered. A run
+/// with a backing store is a person's, and its list is left as it is.
+/// Counters keep counting across the run's lifecycles.
+pub fn begin_lifecycle() {
+    with(|store| {
+        if store.backing.is_none() {
+            store.entries = store.initial.clone();
+            store.next_key = store.next_key.max(
+                store
+                    .initial
+                    .iter()
+                    .map(|entry| entry.key)
+                    .max()
+                    .unwrap_or(0)
+                    + 1,
+            );
+            store.held.clear();
+        }
+    });
 }
 
 /// Remembered, reopened, refused, and forgotten, then the entries listed now.
@@ -647,6 +678,20 @@ mod tests {
     }
 
     const CHOSEN: Origin = Origin::TrustedSelection(Enforcement::ConsentOnly);
+
+    #[test]
+    fn each_lifecycle_of_a_scripted_run_starts_from_the_list_it_was_given() {
+        let root = scratch("lifecycle");
+        let file = root.join("one.rgstats");
+        std::fs::write(&file, b"one").unwrap();
+        let _turn = fresh(None);
+        choose(Kind::Document, 1, &file, CHOSEN);
+        remember(Kind::Document, 1).unwrap();
+        assert_eq!(list().len(), 1, "the first lifecycle remembers");
+        begin_lifecycle();
+        assert!(list().is_empty(), "the next lifecycle starts empty again");
+        assert_eq!(counters()[REMEMBERED], 1, "counters span the run");
+    }
 
     #[test]
     fn a_remembered_file_survives_a_restart_and_reopens_as_itself() {

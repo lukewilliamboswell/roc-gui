@@ -5,6 +5,7 @@
 ## task of their own. The mounted presentation lives in `View.roc`.
 import pf.Gui
 import Capture
+import Format
 import History
 import Scaling
 import SpecSource
@@ -201,6 +202,9 @@ State : {
 	baseline : [None, Some(Capture.Opened)],
 	noise : [None, Some(Scaling.Member)],
 	scaling : Scaling.Selection,
+	## The metric the scaling charts draw, and the point under the pointer.
+	scaling_metric : Scaling.Metric,
+	scaling_hover : [None, Some({ trigger : Str, index : U64 })],
 	## The frame budget, in hertz, frames are drawn against.
 	budget : I64,
 	strip : Strip,
@@ -243,6 +247,9 @@ State : {
 	## The captures and folders the host remembers for Observatory, most
 	## recent first, as last read.
 	recent : List(Gui.Files.Recent),
+	## What each recent entry holds, read after the list is shown: a
+	## capture's identity and verdict, or how many captures a folder lists.
+	glances : List(Glance),
 	## A capture dropped on an open capture, waiting for the person to open
 	## it or compare it with the capture on screen.
 	offer : [None, Some(Gui.Files.FileSelection)],
@@ -270,6 +277,8 @@ Observatory := [].{
 	Tab : Tab
 	Parked : Parked
 	Inspector : Inspector
+	Glance : Glance
+	Glimpse : Glimpse
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -297,6 +306,8 @@ Observatory := [].{
 		baseline: None,
 		noise: None,
 		scaling: Scaling.empty,
+		scaling_metric: Callback,
+		scaling_hover: None,
 		budget: 60,
 		strip: { strip: { start: 0, span: 0, total: 0, bars: [] }, read: 0 },
 		strip_reading: None,
@@ -320,6 +331,7 @@ Observatory := [].{
 		inspector: { size: 360, collapsed: False, pinned: None },
 		request: None,
 		recent: [],
+		glances: [],
 		offer: None,
 	}
 
@@ -327,7 +339,14 @@ Observatory := [].{
 	## host checks each entry against what is at its place now, so an entry
 	## that cannot be reopened is listed with its reason.
 	opened! : State => Gui.Action(State)
-	opened! = |state| Gui.Action.update({ ..state, recent: state.access.recent!() })
+	opened! = |state| glance({ ..state, recent: state.access.recent!() })
+
+	## What a recent entry was last read to hold, if it has been read.
+	glance_of : State, U64 -> [None, Some(Glimpse)]
+	glance_of = |state, key| match state.glances.find_first(|held| held.key == key) {
+		Ok(held) => Some(held.glimpse)
+		Err(_) => None
+	}
 
 	## Captures dropped on the window. On the start page every dropped capture
 	## opens, each in a tab; on an open capture one dropped capture waits for
@@ -1000,13 +1019,78 @@ still_held_or_declined = |grant| match grant {
 is_capture : Gui.Files.Entry -> Bool
 is_capture = |entry| entry.kind == File and Str.ends_with(entry.name, ".rgstats")
 
+## How many captures are summarized before the folder is shown: more than a
+## screenful, so a folder of this many or fewer opens fully read, and a larger
+## one shows every name at once with its first screen summarized.
+first_page : U64
+first_page = 64
+
+## How many captures each later read summarizes. Each page that lands redraws
+## the list on the window thread, so the rest are read in few, large pages.
+summary_page : U64
+summary_page = 256
+
+## Every capture of the folder by name, in name order, with the first page
+## summarized and the rest listed unread.
 list_captures! : Gui.Files.Dir.Read, List(Gui.Files.Entry) => List(Capture.Listing)
 list_captures! = |directory, entries| {
+	names = entries.keep_if(is_capture).map(|entry| entry.name).sort_with(Format.compare_text)
+	summarized = summarize_names!(directory, names.take_first(first_page))
+	summarized.concat(names.drop_first(first_page).map(Capture.unread))
+}
+
+summarize_names! : Gui.Files.Dir.Read, List(Str) => List(Capture.Listing)
+summarize_names! = |directory, names| {
 	var $listed = []
-	for entry in entries.keep_if(is_capture) {
-		$listed = $listed.append(Capture.summarize!(directory, entry.name))
+	for name in names {
+		$listed = $listed.append(Capture.summarize!(directory, name))
 	}
 	$listed
+}
+
+summary_key : Str
+summary_key = "summaries"
+
+## Summarize the folder's next page of unread captures on a worker, and the
+## page after it once that lands, then watch the folder. The watch was started
+## with the listing, so a change made meanwhile is waited for, not lost. A
+## folder replaced meanwhile ends the chain; the new one runs its own.
+read_summaries : State, [None, Some(Gui.Files.Watch)], U64 -> Gui.Action(State)
+read_summaries = |state, watch, generation| match state.folder {
+	None => Gui.Action.update(state)
+	Some(folder) => {
+		# Unread captures follow the summarized ones in name order, so the
+		# next page is the run that starts at the first of them.
+		at = match folder.captures.find_first_index(|listing| listing.verdict == Unread) {
+			Ok(index) => index
+			Err(_) => folder.captures.len()
+		}
+		names = folder.captures.drop_first(at).take_first(summary_page).map(|listing| listing.name)
+		if names.is_empty() {
+			match watch {
+				Some(started) => wait_folder(state, started, generation)
+				None => Gui.Action.update({ ..state, folder_watch: 0 })
+			}
+		} else {
+			directory = folder.directory
+			revision = folder.revision
+			Gui.Action.keyed_task({
+				key: summary_key,
+				pending: state,
+				run: || summarize_names!(directory, names),
+				resolve: |latest, read| match latest.folder {
+					Some(current) if current.revision == revision => {
+						captures = current.captures.take_first(at).concat(read).concat(current.captures.drop_first(at + read.len()))
+						# A new revision, so every view of the folder draws the
+						# summaries read.
+						merged_at = latest.next_request
+						read_summaries({ ..latest, next_request: merged_at + 1, folder: Some({ ..current, revision: merged_at, captures }) }, watch, generation)
+					}
+					_ => Gui.Action.none
+				},
+			})
+		}
+	}
 }
 
 choose : State -> Gui.Action(State)
@@ -1025,6 +1109,74 @@ choose = |state| {
 			_ => Gui.Action.none
 		},
 	})
+}
+
+## What a recent entry holds, read without opening it on screen.
+Glimpse : [Capture(Capture.Listing), Folder(U64)]
+Glance : { key : U64, glimpse : Glimpse }
+
+glance_key : Str
+glance_key = "glance"
+
+## Read what every available recent entry holds, on a worker, after the list
+## is shown: each is reopened as a grant of its own, summarized as a folder's
+## captures are, and released. An entry that cannot be reopened keeps the
+## reason the list gave it.
+glance : State -> Gui.Action(State)
+glance = |state| {
+	access = state.access
+	available = state.recent.keep_if(|entry| entry.status == Available)
+	if available.is_empty() {
+		Gui.Action.update(state)
+	} else {
+		Gui.Action.keyed_task({
+			key: glance_key,
+			pending: state,
+			run: || glance_all!(access, available),
+			resolve: |latest, read| Gui.Action.update({ ..latest, glances: merged(latest.glances, read) }),
+		})
+	}
+}
+
+glance_all! : Gui.Access, List(Gui.Files.Recent) => List(Glance)
+glance_all! = |access, entries| {
+	var $read = []
+	for entry in entries {
+		match glance_one!(access, entry) {
+			Some(glimpse) => {
+				$read = $read.append({ key: entry.key, glimpse })
+			}
+			None => {}
+		}
+	}
+	$read
+}
+
+glance_one! : Gui.Access, Gui.Files.Recent => [None, Some(Glimpse)]
+glance_one! = |access, entry| match entry.kind {
+	File => match access.reopen_file!(entry.key) {
+		Ok(selection) => Some(Capture(Capture.summarize_file!(selection.file, selection.name)))
+		Err(_) => None
+	}
+	Directory => match access.reopen_directory!(entry.key) {
+		Ok(selection) => match selection.directory.list!() {
+			Ok(listed) => Some(Folder(listed.keep_if(is_capture).len()))
+			Err(_) => None
+		}
+		Err(_) => None
+	}
+}
+
+## Newer glances replace older ones of the same entry.
+merged : List(Glance), List(Glance) -> List(Glance)
+merged = |held, read| held.drop_if(|old| read.any(|new| new.key == old.key)).concat(read)
+
+## The entry a capture or folder just remembered heads the list under its
+## name, so its glance comes from what opening it read.
+glanced : List(Glance), List(Gui.Files.Recent), Str, [File, Directory], Glimpse -> List(Glance)
+glanced = |held, recent, name, kind, glimpse| match recent.find_first(|entry| entry.name == name and entry.kind == kind) {
+	Ok(entry) => merged(held, [{ key: entry.key, glimpse }])
+	Err(_) => held
 }
 
 ## What choosing or reopening a folder found.
@@ -1057,12 +1209,10 @@ folder_listed : State, Listed, U64 -> Gui.Action(State)
 folder_listed = |latest, result, id| match result {
 	ChosenFolder(chosen) => {
 		folder = { revision: chosen.revision, name: chosen.name, directory: chosen.directory, captures: chosen.captures }
-		listed = { ..latest, folder: Some(folder), grant: Granted(chosen.name), capture: None, status: Ready, source: None, live: idle, changed: False, recent: chosen.recent }
-		match chosen.watch {
-			# Request identities start at zero, and zero means no watch.
-			Some(watch) => wait_folder(listed, watch, id + 1)
-			None => Gui.Action.update({ ..listed, folder_watch: 0 })
-		}
+		glances = glanced(latest.glances, chosen.recent, chosen.name, Directory, Folder(chosen.captures.len()))
+		listed = { ..latest, folder: Some(folder), grant: Granted(chosen.name), capture: None, status: Ready, source: None, live: idle, changed: False, recent: chosen.recent, glances }
+		# Request identities start at zero, and zero means no watch.
+		read_summaries(listed, chosen.watch, id + 1)
 	}
 	ChooseCanceled => Gui.Action.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
 	ChooseFailed => Gui.Action.update({
@@ -1206,7 +1356,14 @@ open_files = |state, selections, view| {
 ## leaves the others open.
 shown_files : State, OpenedFiles, U64, View -> Gui.Action(State)
 shown_files = |latest, opened, id, view| {
-	start = { state: { ..latest, recent: opened.recent }, live: None, failed: None, at: id }
+	glances = opened.opened.fold(
+		latest.glances,
+		|held, item| match item.loaded {
+			Ok(loaded) => glanced(held, opened.recent, loaded.opened.name, File, Capture(Capture.listing_of(loaded.opened)))
+			Err(_) => held
+		},
+	)
+	start = { state: { ..latest, recent: opened.recent, glances }, live: None, failed: None, at: id }
 	walked = opened.opened.fold(
 		start,
 		|held, item| match item.loaded {
@@ -1799,8 +1956,11 @@ grow! = |held, read_to, at| {
 	} else {
 		opened = Capture.read!(database, held.name)?
 		cycles = Capture.cycles!(database, { phase: at.phase, only: at.only, offset: at.cycle_offset })?
-		steps = Capture.run_steps!(database, at.run, at.step_offset)?
-		Ok(Grew({ opened, progress, at, cycles, steps }))
+		# A capture opened before its recorder began a run follows the first
+		# run once one is committed.
+		followed = if at.run == 0 { ..at, run: first_run(opened), step_offset: 0 } else at
+		steps = Capture.run_steps!(database, followed.run, followed.step_offset)?
+		Ok(Grew({ opened, progress, at: followed, cycles, steps }))
 	}
 }
 
@@ -1842,7 +2002,7 @@ regrown = |latest, fresh, id| {
 	} else {
 		latest.cycles
 	}
-	steps = if latest.steps.run == fresh.at.run { run: fresh.at.run, window: { offset: fresh.at.step_offset, rows: fresh.steps, read: id } } else latest.steps
+	steps = if latest.steps.run == fresh.at.run or latest.steps.run == 0 { run: fresh.at.run, window: { offset: fresh.at.step_offset, rows: fresh.steps, read: id } } else latest.steps
 	{ ..latest, capture: Some(opened), cycles, steps, strip: { strip: opened.strip, read: id }, live: { ..latest.live, progress: fresh.progress } }
 }
 
@@ -1951,7 +2111,7 @@ relist_captures! : Gui.Files.Dir.Read, List(Gui.Files.Entry), List(Capture.Listi
 relist_captures! = |directory, entries, held, changes| {
 	var $listed = []
 	for entry in entries.keep_if(is_capture) {
-		kept = if changes.overflowed or changes.names.contains(entry.name) Err(NotFound) else held.find_first(|listing| listing.name == entry.name)
+		kept = if changes.overflowed or changes.names.contains(entry.name) Err(NotFound) else held.find_first(|listing| listing.name == entry.name and listing.verdict != Unread)
 		listing = match kept {
 			Ok(found) => found
 			Err(_) => Capture.summarize!(directory, entry.name)

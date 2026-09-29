@@ -114,6 +114,7 @@ verdict_ink = |verdict| match verdict {
 	Untrusted(_) => Theme.alarm_ink
 	Unsupported(_) => Theme.alarm_ink
 	Withheld(_) => Theme.caution
+	Unread => Theme.dim
 }
 
 verdict_badge : Capture.Verdict -> Str
@@ -123,6 +124,7 @@ verdict_badge = |verdict| match verdict {
 	Untrusted(_) => "✗ untrusted"
 	Unsupported(reason) => "✗ ${reason}"
 	Withheld(_) => "… withheld"
+	Unread => "… reading"
 }
 
 ## Tables. A cell clips rather than wraps, so every row is one line tall and a
@@ -184,10 +186,15 @@ head_rest = |text| Gui.row(
 	[Gui.text(text)],
 )
 
+## A table keeps its columns at their widths and scrolls sideways when the
+## view is narrower than they are, so a small window never hides a column.
 table : Str, List(Gui.Elem(Observatory.State)) -> Gui.Elem(Observatory.State)
-table = |label, children| Gui.col(
-	{ label, width: Fill, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
-	children,
+table = |label, children| Widgets.sideways(
+	label,
+	Gui.col(
+		{ label, width: Auto, min_width: Fill, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius },
+		children,
+	),
 )
 
 ## Controls
@@ -254,27 +261,11 @@ absence_line = |family_name, reason| Gui.row(
 
 SortKey : [Text(Str), Number(I64)]
 
-compare_text : Str, Str -> [Before, Same, After]
-compare_text = |left, right| {
-	left_bytes = left.to_utf8()
-	right_bytes = right.to_utf8()
-	var $result = Same
-	for item in List.map2(left_bytes, right_bytes, |a, b| if a < b Before else if a > b After else Same) {
-		if $result == Same {
-			$result = item
-		}
-	}
-	if $result == Same {
-		if left_bytes.len() < right_bytes.len() Before else if left_bytes.len() > right_bytes.len() After else Same
-	} else {
-		$result
-	}
-}
 
 compare_keys : SortKey, SortKey -> [Before, Same, After]
 compare_keys = |left, right| match (left, right) {
 	(Number(a), Number(b)) => if a < b Before else if a > b After else Same
-	(Text(a), Text(b)) => compare_text(a, b)
+	(Text(a), Text(b)) => Format.compare_text(a, b)
 	(Number(_), Text(_)) => Before
 	(Text(_), Number(_)) => After
 }
@@ -369,7 +360,7 @@ header = |state| {
 			meta("roc-gui captures, schema ${Capture.supported_schema}, read only"),
 			travel("◀ Back", "Back", Observatory.can_go_back(state), Back),
 			travel("Forward ▶", "Forward", Observatory.can_go_forward(state), Forward),
-			meta("Ctrl+K commands"),
+			Gui.row({ label: "Palette hint", padding: 0, gap: 4, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.chord("secondary-k"), Gui.text("commands")]),
 		]
 			.concat(copied)
 			.append(Gui.row({ padding: 0, gap: 0, grow: True, justify: End, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.text(right)])),
@@ -392,14 +383,14 @@ travel = |caption, label, enabled, request| Gui.button({
 	hover_bg: Theme.quiet_hover,
 	active_bg: Theme.quiet_active,
 	disabled_bg: Theme.rail,
-	disabled_fg: Theme.edge,
+	disabled_fg: Theme.dim,
 	fg: Theme.ink,
 	border_color: Theme.line,
 	border_width: 1,
 })
 
 ## US-38 anywhere in the window: the palette, back and forward, and a view for
-## each of Ctrl+1 to Ctrl+9 in the rail's order.
+## each of Secondary+1 to Secondary+9 (Cmd on macOS, Ctrl elsewhere) in the rail's order.
 window_keys : List(Gui.Shortcut(Observatory.State))
 window_keys = [
 	{ keys: "secondary-k", on_press: |current, _| Gui.Action.update(Observatory.open_palette(current)) },
@@ -521,27 +512,34 @@ capture_key = |listing, column| match column {
 	_ => Text(verdict_badge(listing.verdict))
 }
 
-sorted_captures : List(Capture.Listing), Observatory.Sort -> List(Capture.Listing)
+## Each capture with its place in the folder's name-ordered list, which keys
+## its row whichever column the table is sorted by.
+sorted_captures : List(Capture.Listing), Observatory.Sort -> List({ at : U64, listing : Capture.Listing })
 sorted_captures = |captures, sort| List.sort_with(
-	captures,
+	captures.map_with_index(|listing, at| { at, listing }),
 	|left, right| {
-		order = compare_keys(capture_key(left, sort.column), capture_key(right, sort.column))
+		order = compare_keys(capture_key(left.listing, sort.column), capture_key(right.listing, sort.column))
 		if sort.descending reverse_order(order) else order
 	},
 )
 
 ## Only the rows near the viewport are built, so a folder of a thousand
 ## captures costs what a screenful does.
-captures_rows : List(Capture.Listing) -> Gui.Elem(Observatory.State)
+captures_rows : List({ at : U64, listing : Capture.Listing }) -> Gui.Elem(Observatory.State)
 captures_rows = |sorted| Gui.virtual_rows({
 	label: "Captures",
 	row_height: Theme.row_height,
 	count: sorted.len(),
 	render_row: |index| match sorted.get(index) {
-		Ok(listing) => capture_row(listing)
+		Ok(found) => capture_row(found.listing)
 		Err(_) => table_row([])
 	},
+	row_key: |index| match sorted.get(index) {
+		Ok(found) => found.at
+		Err(_) => index
+	},
 })
+
 
 ## The recent list (US-3)
 
@@ -549,19 +547,50 @@ captures_rows = |sorted| Gui.virtual_rows({
 recent_shown : U64
 recent_shown = 8
 
-recent_row : Gui.Files.Recent -> Gui.Elem(Observatory.State)
-recent_row = |entry| {
+## What a recent entry holds, once it has been read: a capture's
+## application, specification, backend, and verdict, or a folder's count of
+## captures. A capture Observatory cannot read says why, as the capture list
+## does.
+glimpse_detail : Observatory.Glimpse -> { text : Str, verdict : [None, Some(Capture.Verdict)] }
+glimpse_detail = |glimpse| match glimpse {
+	Capture(listing) => match listing.verdict {
+		Unsupported(reason) => { text: reason, verdict: Some(listing.verdict) }
+		_ => {
+			named = [listing.application, listing.spec, listing.backend].keep_if(|part| !part.is_empty())
+			{ text: Str.join_with(named, " · "), verdict: Some(listing.verdict) }
+		}
+	}
+	Folder(count) => { text: if count == 1 "1 capture" else "${count.to_str()} captures", verdict: None }
+}
+
+recent_row : Gui.Files.Recent, [None, Some(Observatory.Glimpse)] -> Gui.Elem(Observatory.State)
+recent_row = |entry, glimpse| {
 	key_value = entry.key
+	refused = match glimpse {
+		Some(Capture(listing)) => match listing.verdict {
+			Unsupported(_) => True
+			_ => False
+		}
+		_ => False
+	}
 	available = entry.status == Available
 	glyph = match (entry.status, entry.kind) {
-		(Available, File) => "●"
+		(Available, File) => if refused "⚠" else "●"
 		(Available, Directory) => "○"
 		(Unavailable(_), _) => "⚠"
 	}
-	detail = match (entry.status, entry.kind) {
-		(Available, File) => { text: "capture", ink: Theme.dim }
-		(Available, Directory) => { text: "folder", ink: Theme.dim }
-		(Unavailable(reason), _) => { text: Observatory.unavailable_reason(reason), ink: Theme.alarm_ink }
+	detail = match (entry.status, entry.kind, glimpse) {
+		(Available, _, Some(read)) => {
+			shown = glimpse_detail(read)
+			{ text: shown.text, ink: if refused Theme.alarm_ink else Theme.dim, verdict: if refused None else shown.verdict }
+		}
+		(Available, File, None) => { text: "capture", ink: Theme.dim, verdict: None }
+		(Available, Directory, None) => { text: "folder", ink: Theme.dim, verdict: None }
+		(Unavailable(reason), _, _) => { text: Observatory.unavailable_reason(reason), ink: Theme.alarm_ink, verdict: None }
+	}
+	badge = match detail.verdict {
+		Some(verdict) => [Gui.row({ padding: 0, gap: 0, fg: verdict_ink(verdict), font_size: Theme.meta }, [Gui.text(verdict_badge(verdict))])]
+		None => []
 	}
 	reopen = match entry.kind {
 		File => Reopen(key_value)
@@ -600,7 +629,10 @@ recent_row = |entry| {
 					}),
 				],
 			),
-			Gui.row({ grow: True, min_width: Px(0), padding: 0, gap: 0, fg: detail.ink, font_size: Theme.meta, text_overflow: Ellipsis }, [Gui.text(detail.text)]),
+			Gui.row({ label: "Recent detail ${entry.name}", grow: True, min_width: Px(0), padding: 0, gap: 0, fg: detail.ink, font_size: Theme.meta, text_overflow: Ellipsis }, [Gui.text(detail.text)]),
+		]
+		.concat(badge)
+		.append(
 			Gui.button({
 				caption: "Forget",
 				label: "Forget ${entry.name}",
@@ -617,14 +649,20 @@ recent_row = |entry| {
 				border_color: Theme.line,
 				border_width: 1,
 			}),
-		],
+		),
 	)
 }
 
 ## The captures and folders opened before, most recent first. Only the rows
 ## near the list's viewport are built, however many are remembered.
-recent_list : List(Gui.Files.Recent) -> List(Gui.Elem(Observatory.State))
-recent_list = |recent| if recent.is_empty() {
+recent_list : Observatory.State -> List(Gui.Elem(Observatory.State))
+recent_list = |state| {
+	recent = state.recent
+	recent_table(recent, |entry| recent_row(entry, Observatory.glance_of(state, entry.key)))
+}
+
+recent_table : List(Gui.Files.Recent), (Gui.Files.Recent -> Gui.Elem(Observatory.State)) -> List(Gui.Elem(Observatory.State))
+recent_table = |recent, row| if recent.is_empty() {
 	[]
 } else {
 	shown = if recent.len() < recent_shown recent.len() else recent_shown
@@ -638,7 +676,7 @@ recent_list = |recent| if recent.is_empty() {
 					row_height: Theme.row_height,
 					count: recent.len(),
 					render_row: |index| match recent.get(index) {
-						Ok(entry) => recent_row(entry)
+						Ok(entry) => row(entry)
 						Err(_) => table_row([])
 					},
 					row_key: |index| match recent.get(index) {
@@ -651,6 +689,13 @@ recent_list = |recent| if recent.is_empty() {
 	]
 }
 
+## How far a large folder's summaries have been read, while they are.
+reading_caption : List(Capture.Listing) -> Str
+reading_caption = |captures| {
+	unread = captures.count_if(|listing| listing.verdict == Unread)
+	if unread == 0 "" else " · read ${(captures.len() - unread).to_str()} of ${captures.len().to_str()}"
+}
+
 capture_list : Observatory.State -> Gui.Elem(Observatory.State)
 capture_list = |state| {
 	body = match state.folder {
@@ -659,7 +704,7 @@ capture_list = |state| {
 			[note("The folder holds no .rgstats captures.")]
 		} else {
 			[
-				meta("CAPTURES IN ${folder.name} · ${folder.captures.len().to_str()}"),
+				meta("CAPTURES IN ${folder.name} · ${folder.captures.len().to_str()}${reading_caption(folder.captures)}"),
 				Gui.col(
 					{ label: "Capture table", width: Fill, height: Fill, grow: True, padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 					[
@@ -672,7 +717,7 @@ capture_list = |state| {
 	}
 	Gui.col(
 		{ label: "Start", width: Fill, height: Fill, grow: True, padding: Theme.inset, gap: Theme.inset, bg: Theme.paper },
-		[meta("Drop .rgstats files anywhere to open them.")].concat(recent_list(state.recent)).concat(body),
+		[meta("Drop .rgstats files anywhere to open them.")].concat(recent_list(state)).concat(body),
 	)
 }
 
@@ -2580,28 +2625,71 @@ list_flag = |found| if found.visible > 0 and found.materialized > 3 * found.visi
 	{ text: "✓", ink: Theme.good }
 }
 
-## US-25: every virtual list's last pass, and its passes over time.
-virtual_lists : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
-virtual_lists = |state, opened| {
-	present = Capture.complete(opened, "virtual_list_materialization")
-	rows = opened.lists.map(
-		|found| {
-			marked = list_flag(found)
-			labelled_row(
-				"List ${found.list_id.to_str()}",
-				[
-					cell("#${found.list_id.to_str()}", 90, Theme.ink),
-					figure_cell(found.passes.to_str(), 70),
-					figure_cell(found.visible.to_str(), 70),
-					figure_cell(found.materialized.to_str(), 100),
-					figure_cell(found.recycled.to_str(), 80),
-					figure_cell(found.live.to_str(), 70),
-					figure_cell(found.most.to_str(), 90),
-					rest_cell(marked.text, marked.ink),
-				],
-			)
-		},
+## How many virtual lists the table shows before it scrolls.
+lists_shown : U64
+lists_shown = 8
+
+list_row : Capture.ListRow -> Gui.Elem(Observatory.State)
+list_row = |found| {
+	marked = list_flag(found)
+	labelled_row(
+		"List ${found.list_id.to_str()}",
+		[
+			cell("#${found.list_id.to_str()}", 90, Theme.ink),
+			figure_cell(found.passes.to_str(), 70),
+			figure_cell(found.visible.to_str(), 70),
+			figure_cell(found.materialized.to_str(), 100),
+			figure_cell(found.recycled.to_str(), 80),
+			figure_cell(found.live.to_str(), 70),
+			figure_cell(found.most.to_str(), 90),
+			rest_cell(marked.text, marked.ink),
+		],
 	)
+}
+
+## US-25: every virtual list's last pass. A window session can mount a list
+## hundreds of times, so only the rows near the table's viewport are built,
+## and the table does not depend on the charts' width.
+virtual_lists : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+virtual_lists = |_state, opened| if !Capture.complete(opened, "virtual_list_materialization") {
+	[heading("VIRTUAL LISTS · last pass · most materialised in any pass"), absence_note(opened, "virtual_list_materialization")]
+} else {
+	lists = opened.lists
+	shown = if lists.len() < lists_shown lists.len() else lists_shown
+	[
+		heading("VIRTUAL LISTS · ${lists.len().to_str()} · last pass · most materialised in any pass"),
+		table(
+			"Virtual lists",
+			[
+				table_head("Virtual list columns", [head_cell("list", 90), head_figure("passes", 70), head_figure("visible", 70), head_figure("materialised", 100), head_figure("recycled", 80), head_figure("live", 70), head_figure("most", 90), head_rest("")]),
+				Gui.col(
+					{ label: "Virtual list rows", width: Fill, height: Px(shown.to_u32_wrap() * Theme.row_height), padding: 0, gap: 0, overflow_y: Clip },
+					[
+						Gui.virtual_rows({
+							label: "Virtual list table",
+							row_height: Theme.row_height,
+							count: lists.len(),
+							render_row: |index| match lists.get(index) {
+								Ok(found) => list_row(found)
+								Err(_) => table_row([])
+							},
+							row_key: |index| match lists.get(index) {
+								Ok(found) => found.list_id.to_u64_wrap()
+								Err(_) => index
+							},
+						}),
+					],
+				),
+			],
+		),
+	]
+}
+
+## Every list pass over time, drawn at the charts' width.
+list_passes : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
+list_passes = |state, opened| if !Capture.complete(opened, "virtual_list_materialization") {
+	[]
+} else {
 	tallest = opened.passes.fold(0, |most, found| if found.materialized > most found.materialized else most)
 	plot = chart_plot(state)
 	top = 8
@@ -2622,31 +2710,22 @@ virtual_lists = |state, opened| {
 		caption({ key: painted(3, 1), label: "Pass scale", x: 0, y: top - 4, width: chart_gutter - 6, value: tallest.to_str(), color: Theme.dim, align: End }),
 		caption({ key: painted(3, 2), label: "Pass legend", x: chart_gutter, y: bottom + 4, width: plot, value: "materialised entities per pass, oldest first; the dark tick is the rows visible", color: Theme.dim, align: Start }),
 	]
-	body = if !present {
-		[absence_note(opened, "virtual_list_materialization")]
-	} else {
-		[
-			table(
-				"Virtual lists",
-				[table_head("Virtual list columns", [head_cell("list", 90), head_figure("passes", 70), head_figure("visible", 70), head_figure("materialised", 100), head_figure("recycled", 80), head_figure("live", 70), head_figure("most", 90), head_rest("")])].concat(rows),
-			),
-			Gui.canvas({
-				label: "List passes",
-				primitives: pass_bars.concat(visible_marks).concat(chart_captions),
-				on_pointer: |_, _| Gui.Action.none,
-				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
-				width: chart_width,
-				height: Px(110),
-				min_width: chart_min_width,
-				min_height: Px(110),
-				bg: Theme.card,
-				border_color: Theme.line,
-				border_width: 1,
-				radius: Theme.radius,
-			}),
-		]
-	}
-	[heading("VIRTUAL LISTS · last pass · most materialised in any pass")].concat(body)
+	[
+		Gui.canvas({
+			label: "List passes",
+			primitives: pass_bars.concat(visible_marks).concat(chart_captions),
+			on_pointer: |_, _| Gui.Action.none,
+			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
+			width: chart_width,
+			height: Px(110),
+			min_width: chart_min_width,
+			min_height: Px(110),
+			bg: Theme.card,
+			border_color: Theme.line,
+			border_width: 1,
+			radius: Theme.radius,
+		}),
+	]
 }
 
 same_frame : Observatory.State, Observatory.State -> Bool
@@ -2692,7 +2771,8 @@ frames_view = |_state, opened| if !Capture.complete(opened, "gpui_frame_spans") 
 			),
 			part_boundary("Native work", |a, b| same_capture(a, b) and same_frame(a, b), section(native_work)),
 			part_boundary("Frame work", |a, b| same_capture(a, b) and same_frame(a, b), section(frame_work)),
-			part_boundary("Virtual lists", |a, b| same_capture(a, b) and a.chart_width == b.chart_width, section(virtual_lists)),
+			part_boundary("Virtual lists", |a, b| same_capture(a, b), section(virtual_lists)),
+			part_boundary("List passes", |a, b| same_capture(a, b) and a.chart_width == b.chart_width, section(list_passes)),
 		],
 	)
 }
@@ -2906,7 +2986,7 @@ render = |state| {
 			.concat([
 			match state.capture {
 				Some(_) => workspace(state)
-				None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort and a.recent == b.recent, capture_list)
+				None => view_boundary("Capture list", |a, b| folder_revision(a.folder) == folder_revision(b.folder) and a.capture_sort == b.capture_sort and a.recent == b.recent and a.glances == b.glances, capture_list)
 			},
 		])
 			.concat(palette)

@@ -134,7 +134,9 @@ extension is `EXT`, or `(copied "NAME")` for a direct child of
 the `(directory copy ...)` grant, which a `remove-file` or `replace-file` step
 can then take away or replace. Each entry is recorded as provisioned, and a
 provisioned list is never written anywhere the next run would read. A case
-without this grant starts with an empty list.
+without this grant starts with an empty list. Every lifecycle of a case starts
+from the same list, so a benchmark sample never opens on what the sample before
+it remembered.
 `(server "PATH" PORT)`:: A loopback service the runner starts before the case
 and stops after it. `PATH` names a script beside the application, and `PORT` is
 the port it reports readiness on. This grants the harness, not the application:
@@ -193,6 +195,11 @@ anything in its content matches.
 `(shortcut "CHORD")`:: Every presented element that declares a shortcut for
 `CHORD`, which is compared in the host's canonical spelling, so
 `"shift-ctrl-k"` finds a shortcut declared as `"ctrl-shift-k"`.
+`(chord "CHORD")`:: Text the host spelled from `Gui.chord`, found by the chord
+it shows in the host's canonical spelling rather than by its rendering, so one
+specification locates `(chord "secondary-k")` on every platform while a person
+reads `⌘K` on macOS and `ctrl-K` elsewhere. The rendering is also text, and a
+text locator finds it.
 `(role textarea :name "name")`:: A multiline editor identified by its semantic
 name. Locator matching never records its value.
 `(role textbox :name "label")`:: A controlled text input identified by its
@@ -202,7 +209,10 @@ semantic name. A list of rows produced on demand mounts only the rows near its
 viewport, so only those rows can be located.
 
 An interaction locator must resolve to exactly one live node. Ambiguous and
-missing targets fail instead of choosing one by traversal order. Use unique
+missing targets fail instead of choosing one by traversal order. When a text
+locator matches nothing, the run names on standard error the texts nearest to
+it under the locator's scope, or says that the scope itself matched nothing.
+The capture records only the failure; application text never enters it. Use unique
 semantic names or scope repeated component-local names through a named
 container:
 
@@ -262,6 +272,12 @@ same worker and latest-state route. `N` must be positive.
 `(click LOCATOR)`:: Press exactly one matching enabled control through the
 application's normal Roc event route. A disabled control consumes no event and
 does not call Roc, matching the interactive host.
++
+A canvas-item locator presses the one primitive it names: the pointer goes down
+and up at the primitive's centre, through its canvas's pointer route, as a
+`drag` that does not move. A mark is therefore pressed by what it means rather
+than by where the capture's data put it. The step fails when the canvas's own
+hit test would give that point to another primitive drawn over it.
 `(hover-enter LOCATOR)` and `(hover-exit LOCATOR)`:: Rest the pointer on, or
 take it off, the located node. The transition goes through the canonical
 mounted graph to every hover target the pointer then rests on: each popover or
@@ -311,6 +327,11 @@ in canvas coordinates. The window runner moves the window's own pointer to that
 point of the painted surface; the semantic runner delivers the event that
 movement produces. A move to the point already delivered delivers nothing. The
 canvas must handle `on_hover`.
+`(pointer-move ITEM)`:: Rest an unpressed pointer on the centre of the one canvas
+primitive a canvas-item locator names, through the same route, so a mark is
+hovered by what it means rather than where the data put it. As with `click`,
+the step fails when the canvas's hit test would give that point to a
+primitive drawn over it.
 `(pointer-leave LOCATOR)`:: Take a hovering pointer off a canvas. The canvas
 receives `Leave` at the last point delivered, and nothing when it was not
 hovered.
@@ -696,6 +717,12 @@ the coordinates the owner drew at — the mapping `canvas_target` inverts to
 decide what a press landed on — clipped to that surface. A line is expanded by
 half its stroke, since its coordinates describe its centre. Give it `:pad`: a
 marker a few points across is unreadable cropped to itself.
+`(expect-ink LOCATOR)`:: Photograph a located element, keep the photograph
+beside the shots, and fail unless it drew ink: at least eight pixels that differ
+from the region's commonest colour by more than 48 in some channel. Laid-out text
+that draws no glyphs passes every semantic assertion; this is the check that
+does not. A capture the platform cannot take is reported as unavailable, as a
+screenshot's is, never as a pass.
 `(screenshot NAME :region (rect X Y WIDTH HEIGHT))`:: Crop to an explicit
 content-relative rectangle.
 `:pad N`:: Expand the region by `N` points on every side, then clamp to the

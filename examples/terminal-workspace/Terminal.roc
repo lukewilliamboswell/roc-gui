@@ -87,6 +87,7 @@ append_bytes = |state, bytes| match Str.from_utf8(plain_text(bytes)) {
 	Ok(text) => { ..state, lines: state.lines.concat(Str.split_on(text, "\n")), status: "Session active", tone: Attached }
 }
 
+read_next : State, Gui.Process.Pty, U64 -> Gui.Action(State)
 read_next = |state, pty, generation| Gui.Action.task({
 	pending: { ..state, phase: Live({ pty, reading: True }) },
 	run: || pty.read!({ max_bytes: 65536 }),

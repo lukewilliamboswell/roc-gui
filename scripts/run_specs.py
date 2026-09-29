@@ -192,8 +192,6 @@ SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
 # skipped and named on every run; each is tracked in wip/issues-backlog.md
 # under "Compiler and toolchain defects" and removed when its fix lands.
 COMPILER_BLOCKED = {
-    "examples/observatory": "roc-lang/roc#11641 compiler stack overflow",
-    "examples/redis-explorer": "roc build does not terminate",
 }
 
 
@@ -226,7 +224,10 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
             [roc, "build", "--no-cache", f"--opt={roc_opt}", f"--output={executable}", str(app)],
             cwd=ROOT,
             capture_output=True,
-            text=True,
+            # The compiler writes UTF-8 whatever the console's code page; a
+            # diagnostic that quotes source must not end the run on Windows.
+            encoding="utf-8",
+            errors="replace",
         )
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)

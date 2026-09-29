@@ -2,33 +2,33 @@
   "schema_version": 1,
   "kind": "roc-gui-link-inputs",
   "repository": "lukewilliamboswell/roc-gui",
-  "release": "link-inputs-sha256-23954f82a6e01632d1cdcda33a1aa21ef2a000f93cdbe2ed05dd6bd45734a507",
+  "release": "link-inputs-sha256-6e58e922f1b3d75a73837725021b10a241fb1b32044adef8daecc296631154c0",
   "manifest": {
     "asset": "build-input-release.json",
-    "sha256": "23954f82a6e01632d1cdcda33a1aa21ef2a000f93cdbe2ed05dd6bd45734a507"
+    "sha256": "6e58e922f1b3d75a73837725021b10a241fb1b32044adef8daecc296631154c0"
   },
   "source": {
-    "input_fingerprint": "71e686f1f3d032cccf617870d55b6f8dc430c225a1f75e45d1db5d74c4f3bb84",
-    "ref": "refs/heads/feature/observatory-requirements",
+    "input_fingerprint": "1643000d493030ba02c96dc4a947c4ffcee9eec196c01a2947b58a309461c780",
+    "ref": "refs/heads/observatory/macos-parity",
     "repository": "lukewilliamboswell/roc-gui",
-    "sha": "6054ea9f003f7e6ad4ab3775ed8a312dafffc89a",
+    "sha": "029320752bba9339398dccce491b417728bfa26c",
     "workflow": "lukewilliamboswell/roc-gui/.github/workflows/link-inputs.yml"
   },
   "targets": {
     "arm64mac": {
       "asset": "link-inputs-arm64mac.tar",
-      "sha256": "5bc03fcbc41331affddea0d51dacecc095f5c26cf71dc5282d60234393898c4e",
-      "size": 563200
+      "sha256": "7e53ea2159cff1715e9cfdb8b65833a60162cc7045402b54121ae3fc4bb18ac0",
+      "size": 573440
     },
     "x64glibc": {
       "asset": "link-inputs-x64glibc.tar",
-      "sha256": "cc4bacf3660e9de7dd2953d9e1730df3063cb82288d71827b9e0d35bcc7811a6",
-      "size": 13137920
+      "sha256": "6c623f33477072216307f1f05e8e0b91a2bc14702d8e56d158094daac70131d7",
+      "size": 13158400
     },
     "x64mingw": {
       "asset": "link-inputs-x64mingw.tar",
-      "sha256": "4b7b7a515f2b175980bc1a2ef51480beb7c5e1f45f40ece4cffc7f96faee86ea",
-      "size": 15605760
+      "sha256": "072f6f59cd0e9ba1cbd97684ee2b654ffda57be6bbc7a34d5ba33baf4a89918c",
+      "size": 15616000
     }
   }
 }

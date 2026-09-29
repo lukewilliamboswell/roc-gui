@@ -17,7 +17,7 @@
     ; inspector, the tabs, and the capture, trust, and baseline bars, are
     ; retained
     (expect-component-work :rendered 1 :skipped 7 :mounted 0 :retired 0)
-    (expect-patch :kind replace :staged 25 :removed 25)
+    (expect-patch :kind replace :staged 26 :removed 26)
     (await-task)
     ; the answer renders the view, the cycle list, the two rows whose selection
     ; changed, and the inspector; the triggers table, the tabs, and the other

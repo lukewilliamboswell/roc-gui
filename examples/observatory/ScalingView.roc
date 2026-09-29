@@ -96,8 +96,8 @@ chooser = |state| match state.folder {
 					),
 				],
 			),
-			Gui.col(
-				{ label: "Scaling choices", width: Fill, height: Px(Theme.row_height * 8), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+			Widgets.sideways("Scaling choices", Gui.col(
+				{ label: "Scaling choices", width: Auto, min_width: Fill, height: Px(Theme.row_height * 8), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 				[
 					Widgets.table_head("Scaling choice columns", [Widgets.head_cell("file", 240), Widgets.head_cell("app", 150), Widgets.head_cell("spec", 220), Widgets.head_figure("scale", 70), Widgets.head_cell("set", 110), Widgets.head_cell("A/A", 110), Widgets.head_rest("")]),
 					Gui.virtual_rows({
@@ -110,7 +110,7 @@ chooser = |state| match state.folder {
 						},
 					}),
 				],
-			),
+			)),
 		]
 	}
 }
@@ -239,16 +239,72 @@ ratios_table = |members, rows| {
 	]
 }
 
-## The chart: for each trigger and metric, a log-log canvas of the member's
-## mean against its scale, one point per scale joined in scale order, with a
-## dashed reference line of slope one through the smallest scale's point, so
-## linear growth runs along the reference and anything steeper rises above it.
-chart : Observatory.State, List(Scaling.Member), List(Scaling.Row) -> List(Elem)
-chart = |state, members, rows| {
+## The charts (W7): one log-log canvas per trigger for the chosen metric, of
+## each member's mean against its scale, one point per scale joined in scale
+## order, with a dashed reference line of slope one through the smallest
+## scale's point, so linear growth runs along the reference and anything
+## steeper rises above it. Hovering a point reads out its value and the ratio
+## of the step that reached it. The charts are a boundary of their own, so
+## choosing a metric or moving the pointer draws them and nothing else.
+chart : Observatory.State -> List(Elem)
+chart = |_| [
+	Gui.translate_with(
+		charts,
+		{
+			key: Gui.Key.from_str("Scaling charts"),
+			get: |state| state,
+			set: |_, next| next,
+			on_delegate: Observatory.forward,
+			memo: Some(|a, b| inputs(a) == inputs(b) and a.chart_width == b.chart_width and a.scaling_metric == b.scaling_metric and a.scaling_hover == b.scaling_hover),
+		},
+	),
+]
+
+charts : Observatory.State -> Elem
+charts = |state| {
+	members = state.scaling.members
+	noise = noise_for(state, members)
+	rows = Scaling.rows(members, noise.applied).keep_if(|row| row.metric == state.scaling_metric)
 	sorted = Scaling.ordered(members)
 	plot_width = plot_width_of(state)
-	plotted = rows.map(|row| plot(sorted, row, plot_width))
-	[Widgets.heading("SCALING CHART · mean per measured sample cycle against scale, log-log · dashed: linear growth from the smallest scale")].concat(plotted)
+	selector = Scaling.metrics.map(
+		|metric| Widgets.key({
+			caption: Scaling.metric_name(metric),
+			label: "Scaling metric ${Scaling.metric_name(metric)}",
+			selected: state.scaling_metric == metric,
+			on_press: |current, _| Gui.Action.update({ ..current, scaling_metric: metric, scaling_hover: None }),
+		}),
+	)
+	hovered = |row| match state.scaling_hover {
+		Some(held) if held.trigger == row.trigger => Some(held.index)
+		_ => None
+	}
+	Gui.col(
+		{ label: "Scaling charts", width: Fill, padding: 0, gap: 6 },
+		[
+			Widgets.heading("SCALING CHART · mean per measured sample cycle against scale, log-log · dashed: linear growth from the smallest scale"),
+			Gui.row({ label: "Scaling metrics", padding: 0, gap: 6, align: Center }, [Widgets.meta("METRIC")].concat(selector)),
+		]
+			.concat(rows.map(|row| plot(sorted, row, plot_width, hovered(row)))),
+	)
+}
+
+## What a hovered point reads out: its value, and how far the step that
+## reached it grew against how far the scale grew.
+readout : Scaling.Row, List({ scale : I64, value : I64 }), U64 -> Str
+readout = |row, points, index| match points.get(index) {
+	Err(_) => ""
+	Ok(found) => {
+		at = "${row.trigger} ${Scaling.metric_name(row.metric)} at ${found.scale.to_str()}: ${shape(row.metric, found.value)}"
+		if index == 0 {
+			"${at} · the smallest scale"
+		} else {
+			match (points.get(index - 1), row.steps.get(index - 1)) {
+				(Ok(before), Ok(step)) => "${at} · ${step_text(step)} from ${before.scale.to_str()}, for ${Scaling.ratio_text({ num: found.scale, den: before.scale })} the scale"
+				_ => at
+			}
+		}
+	}
 }
 
 ## Hundredths of a base-two logarithm, exact at powers of two and linear
@@ -297,8 +353,8 @@ plot_height = 100
 along : I64, I64, I64, I64 -> I64
 along = |value, low, high, span| if high <= low span / 2 else (value - low) * span / (high - low)
 
-plot : List(Scaling.Member), Scaling.Row, I64 -> Elem
-plot = |sorted, row, plot_width| {
+plot : List(Scaling.Member), Scaling.Row, I64, [None, Some(U64)] -> Elem
+plot = |sorted, row, plot_width, hovered| {
 	name = "${row.trigger} ${Scaling.metric_name(row.metric)}"
 	points = sorted.keep_oks(
 		|member| match (Scaling.scale(member), Scaling.value(member, row.trigger, row.metric)) {
@@ -347,16 +403,44 @@ plot = |sorted, row, plot_width| {
 	value_captions = points.map_with_index(
 		|found, index| Gui.canvas_text({ key: (400 + index).to_u64_wrap(), label: "Value ${name} ${found.scale.to_str()}", x: (px_x(found.x) + 6).to_i32_wrap(), y: value_y(found).to_i32_wrap(), width: 90, value: shape(row.metric, found.value), color: Theme.ink, size: 10, align: Start }),
 	)
-	title = Gui.canvas_text({ key: 500, label: "Title ${name}", x: 0, y: 0, width: (plot_left + plot_width).to_i32_wrap().to_u32_wrap(), value: name, color: Theme.dim, size: 11, align: Start })
+	heading = match hovered {
+		Some(index) => { value: readout(row, points.map(|found| { scale: found.scale, value: found.value }), index), color: Theme.ink }
+		None => { value: "${name} · hover a point for its step's ratio", color: Theme.dim }
+	}
+	title = Gui.canvas_text({ key: 500, label: "Title ${name}", x: 0, y: 0, width: (plot_left + plot_width + 100).to_i32_wrap().to_u32_wrap(), value: heading.value, color: heading.color, size: 11, align: Start })
+	ring = match hovered {
+		Some(index) => match points.get(index) {
+			Ok(found) => [Gui.ellipse({ key: 600, label: "Hovered point ${name}", x: (px_x(found.x) - 6).to_i32_wrap(), y: (px_y(found.y) - 6).to_i32_wrap(), width: 13, height: 13, fill: Theme.selected })]
+			Err(_) => []
+		}
+		None => []
+	}
 	primitives = if points.len() < 2 {
 		[title, Gui.canvas_text({ key: 501, label: "Absent ${name}", x: plot_left.to_i32_wrap(), y: 50, width: plot_width.to_u32_wrap(), value: "fewer than two scales have this value", color: Theme.dim, size: 11, align: Start })]
 	} else {
-		[title].concat(dashes).concat(joins).concat(dots).concat(scale_captions).concat(value_captions)
+		[title].concat(ring).concat(dashes).concat(joins).concat(dots).concat(scale_captions).concat(value_captions)
 	}
 	Gui.canvas({
 		label: "Scaling chart ${name}",
 		primitives,
 		on_pointer: |_, _| Gui.Action.none,
+		on_hover: Some(
+			|current, event| {
+				index = match event.phase {
+					Move => match event.target {
+						Some(key) if key >= 1 and key.to_i64_wrap() <= points.len().to_i64_wrap() => Some({ trigger: row.trigger, index: key - 1 })
+						_ => None
+					}
+					Leave => None
+				}
+				# Leaving one chart clears only its own point.
+				next = match (index, current.scaling_hover) {
+					(None, Some(held)) if held.trigger != row.trigger => current.scaling_hover
+					_ => index
+				}
+				if next == current.scaling_hover Gui.Action.none else Gui.Action.update({ ..current, scaling_hover: next })
+			},
+		),
 		on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
 		width: Fill,
 		height: Px((plot_top + plot_height + 36).to_u32_wrap()),
@@ -398,7 +482,7 @@ result = |state| {
 					.concat(checks_table(Scaling.ordered(members)))
 					.concat([Widgets.heading("A/A NOISE BAND"), Widgets.note(Scaling.noise_rule), Widgets.labelled_note("Scaling A/A verdict", noise.text, noise.ink)])
 					.concat(ratios_table(members, rows))
-					.concat(chart(state, members, rows))
+					.concat(chart(state))
 			}
 		}
 	}

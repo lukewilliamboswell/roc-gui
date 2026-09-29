@@ -224,21 +224,10 @@ independent of any one application.
   `window-provide-1m.scm` have run only on Linux. Run them on macOS and
   Windows.
 
-- [ ] **A directory cannot be watched on macOS.** `directory.watch!()` and
-  `database.watch!()` answer `Unsupported` there. Implement the `sys` seam in
-  `crates/host/src/watch.rs` with FSEvents or kqueue, as Linux does with
-  inotify and Windows with `ReadDirectoryChangesW`, keeping the same coalesced
-  names, settle interval, and derived grant.
-
 ## Element appearance
 
-- [ ] **Windows draw no text on macOS.** Layout, borders and fills draw, but
-  no glyphs do, in every example. Specifications still pass because they read
-  semantic state, not pixels; counter's `screenshots.scm` shows empty buttons
-  and cards. `d6501f5` draws text, and the host after "Migrate host to
-  upstream GPUI HEAD" does not, with either Roc pin. Bisect 6ee3fd6, 874bd2f
-  and e0e8db9, then fix it, and add a screenshot check that fails when a
-  labelled element renders no glyphs.
+- [ ] **Run `expect-ink` in a window on Linux and Windows.** It passes on
+  arm64 macOS for Counter's numeral and Observatory's palette chord.
 
 - [ ] **Three macOS window specifications fail on the migrated GPUI host.**
   `clipboard-history/specs/window-history.scm` reports "Cancel private next"
@@ -528,15 +517,12 @@ built on top of them; none is a defect in what is there.
   window and restores it after a resize rather than taking the system
   cursor's position. Run the full suite on Linux and macOS.
 
-- [ ] **Captures from Apple silicon record no CPU model.** `cpu_model` is read
-  from `/proc/cpuinfo` on Linux and from the processor's brand string on other
-  x86-64 hosts; on macOS arm64 it is `unavailable`, so the comparability gate
-  refuses every pair of macOS captures. Read `machdep.cpu.brand_string`.
-
-`examples/observatory/requirements.md` describes a roc-gui application that
-opens `.rgstats` captures and queries their tables directly. It is also the
-pilot for the Roc Observatory `.rocobs` viewer. These are the gaps between that
-ideal and the repository. P- and E-numbers refer to that document.
+- [ ] **Publish link inputs that declare CoreServices.** macOS watching uses
+  File System Events, so `dependencies/macos-interfaces/interfaces.json` now
+  catalogues CoreServices, and `platform/main.roc` links its interface.
+  `build.py --source-inputs` generates it; the locked link-input release in
+  `link-inputs.lock.json` predates it, so a default build lacks
+  `CoreServices.tbd`. Produce and lock a new release.
 
 - [ ] **A flat scaling result reads as "sub-linear".** When every step ratio of
   a trigger and metric lies within the A/A noise band of 1, Scaling reports
@@ -565,15 +551,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   `Capture.work_count`, not by a specification. A real application path that
   produces such a cycle (a rejected turn, or a callback whose span stack does
   not close) should become a fixture.
-
-- [ ] **A recent capture is listed without its summary (US-3, W0).** The start
-  page lists each remembered capture and folder with whether it can be
-  reopened and why not, from the host's check of what is at its place. W0 also
-  shows each capture's application, specification, backend, and verdict, and a
-  capture of an unsupported schema as unavailable with that reason. That needs
-  each entry reopened and its metadata read, which `on_open` must not do for
-  128 entries on the window thread: read the summaries in a task after the
-  list is shown, as the folder list is read.
 
 - [ ] **A folder cannot be dropped (US-4).** A dropped folder is refused as
   `NotFile`. W0's "drop .rgstats files anywhere" covers files; dropping a
@@ -643,12 +620,6 @@ ideal and the repository. P- and E-numbers refer to that document.
   `—` cells come from `Widgets.roc` and carry their reason in a neighbouring
   column, but neither shows it on hover nor opens Health at the family. Draw
   them with the same pressable, hoverable dash the other views use.
-
-- [ ] **The scaling charts have no metric selector (US-29).**
-  `ScalingView.chart` draws a log-log canvas for every trigger and metric,
-  with a dashed line of linear growth through the smallest scale. W7 asks for
-  one chart per trigger with a metric selector, and for hovering a point to
-  read out its ratio; the charts have neither.
 
 - [ ] **A baseline applies to three views, and no chart overlays it (US-32).**
   The triggers table, the cycle inspector, and Memory's allocations by trigger
@@ -732,19 +703,13 @@ ideal and the repository. P- and E-numbers refer to that document.
   until the window closes. Remember it in application data and choose it again
   at startup.
 
-- [ ] **A timeline mark cannot be followed to what it links.** Pressing a
-  list pass on the Timeline does nothing: the pass names its frame or cycle by
-  ordinal, but the view reads only frames and cycles as marks, so it cannot
-  select the linked frame or open the linked cycle. Read the linked row's key
-  with the pass and route it through `SelectFrame` or `InspectCycle`.
-
-- [ ] **No specification presses a frame on the Timeline itself.** A frame's
-  place on the Timeline follows the capture's own timing, which changes each
-  time the fixture is regenerated, so `timeline-cause.scm` presses the frame in
-  the Frames strip, whose columns are ordinal, and then follows its cause from
-  the Timeline. Only the init cycle, which starts the clock, has a stable place.
-  A specification step that presses a canvas primitive by its semantic label
-  would let a specification press any mark.
+- [ ] **No specification presses a frame on the Timeline itself.** A
+  `click` on a canvas-item now presses a mark by its label, and list passes are
+  named by their order on the clock, but a frame mark is the costliest frame of
+  its column, and which frame that is follows the capture's timing, which
+  changes each time the fixture is regenerated. `timeline-cause.scm` therefore
+  still presses the frame in the Frames strip. Name the frame marks, or choose
+  the fixture's frames, so a known frame is a mark of its own.
 
 - [ ] **Component work is not attributed to components (E5).** Component work
   is a per-cycle total. Define a stable, non-textual component identity that
@@ -1082,47 +1047,89 @@ names the evidence so a fix can be verified against the same case.
   byte-identical. The Roc compiler's COFF link needs a deterministic
   timestamp (`/Brepro` or a fixed `/timestamp`).
 
-- [ ] **Observatory's arm64 dev build overruns ld64.lld's thunk range.** On
-  macOS 15 (arm64), `roc build --opt=dev examples/observatory/main.roc` fails in
-  the final link with `ld64.lld: error: finalize: FIXME: thunk range overrun`
-  (linker-input producer run 35925205033). The Linux dev build shows why: its
-  `.text` is 201 MB, against about 80 MB for a whole Database Browser binary,
-  and arm64 branches reach only ±128 MB. The LLVM backend cannot be used
-  instead on the pinned nightly (see the speed-backend entry), so until this is
-  fixed the arm64 producer and CI cannot run Observatory.
+- [ ] **Relock Blueprint once roc-overlay carries `nightly-2026-09-27-a3ce7f1`.**
+  The Blueprint `dev` environment installs `rocpkgs.<.roc-version>` from
+  roc-overlay, and the locked overlay (`06198bd`) stops at the 2026-09-23
+  nightly, so the linker-input producer's Linux final link fails with
+  "attribute 'nightly-2026-09-27-a3ce7f1' missing". roc-lang/roc-overlay#34
+  adds it. When it merges, relock `Blueprint.lock` with
+  `blueprint run check`, then run the producer and publisher for the
+  CoreServices interface.
 
-  Root cause, reported as roc-lang/roc#11642: the dev backend copies aggregates
-  one 8-byte word at a time, fully unrolled, and on arm64 each word costs eight
-  instructions once the frame offset exceeds the `ldur`/`stur` immediate range.
-  It also reuses no stack slots, so the largest procs have frames of about
-  1.1 MB. Observatory's `State` is one wide record that holds its optional
-  fields inline, and every lens, update and handler copies all of it. In the
-  pinned app object, the ten largest procs are about 4.5 MB each and make up
-  21% of its 217 MB of `__text`. A counter app with 8 `Gui.translate` lenses
-  and an 8 KB `State` reproduces the overrun: 173 MB with `--opt=dev` against
-  13 MB with `--opt=speed`. `origin/main` (c7de7cf9b1) reduces the growth from
-  about 13 KB to about 5 KB of code per byte of `State`, but code size still
-  grows linearly with it.
+- [ ] **An unannotated self-recursive task overflows the compiler's stack.**
+  Terminal Workspace's `read_next` resolved each read by calling itself inside
+  the `resolve` of the `Gui.Action.task` it returns. Without a type annotation,
+  `roc check` overflows the compiler's stack on `nightly-2026-09-27-a3ce7f1`
+  (it passes on `nightly-2026-09-24-f45bfbe`), and `roc build --opt=dev`
+  overflows on both. Annotating `read_next : State, Gui.Process.Pty, U64 ->
+  Gui.Action(State)` builds, and the application now carries it. A 35-line
+  module on this platform reproduces it: an unannotated `read_next` that calls
+  itself in its task's `resolve`, reached from another task's `resolve`.
+  Annotate self-recursive functions that return a `Gui.Action`. Not filed
+  upstream by choice.
 
-  - [ ] TODO roc-lang/roc#11642: once a nightly bounds the dev backend's
-    aggregate copies, rebuild Observatory for arm64 and restore it to the
-    producer and CI.
-  - [ ] TODO roc-lang/roc#11641: `origin/main` overflows the compiler's stack
-    in `lambda_mono` `Store.writeTypeDigest` on Observatory, with both
-    backends, apparently on a cyclic closure capture type. This also blocks
-    the nightly upgrade (PR #30). Bisect `220fd47..c7de7cf9b1` and add the
-    result to the issue.
-    On `nightly-2026-09-23-c7852fd` `roc build --opt=dev` overflows the stack
-    on Observatory on arm64 macOS, so `scripts/run_specs.py` lists it in
-    `COMPILER_BLOCKED` and skips its specifications on every target. Remove
-    the entry once a nightly builds it.
+- [ ] **The default backend builds Observatory with a use-after-free.**
+  Built with `--opt=speed`, Observatory segfaults as a capture opens, on
+  `nightly-2026-09-27-a3ce7f1` and `nightly-2026-09-28-9927ba8` alike; built
+  with `--opt=dev` it passes every specification. A Debug compiler at
+  `a3ce7f1` names the cause at compile time, `ARC: borrowed local crossed a
+  join without a live owner local`, and a ReleaseSafe one stops at
+  `reached unreachable code`. Reported upstream as
+  https://github.com/roc-lang/roc/issues/11830. Build Observatory with
+  `--opt=dev` until a pinned compiler certifies it; reduce the repro and add
+  it to the issue. The 09-28 nightly also takes 21 min 45 s to build it,
+  against 16 s on the pin, which blocks moving the pin on its own.
 
-- [ ] **Redis Explorer does not compile on `nightly-2026-09-23-c7852fd`.**
-  Both `roc check` and `roc build --opt=dev examples/redis-explorer/main.roc`
-  run at 100% CPU with no output for over five minutes. `scripts/run_specs.py`
-  lists it in `COMPILER_BLOCKED`, which skips its specifications and its
-  README gallery GIF. Reduce it with a local compiler build, file the
-  upstream issue, and remove the entry once a nightly compiles it.
+- [ ] **Every application fails ARC certification on Roc `origin/main`.** A
+  Debug build of `origin/main` (`c80043e3`), and of the 2026-09-27 nightly's
+  own commit `a3ce7f1`, panics building any roc-gui application:
+  `ARC: released struct representation is missing exact residual-shell
+  metadata` in `Internal.lower_work!`. The certifier runs only in Debug
+  compilers, so release nightlies build the same code unchecked; no wrong
+  behaviour was observed in them. The platform construct is reading a field of
+  a boxed record in a `while` loop, reassigning the box's record in one branch
+  of a `match`, then using the field:
+
+  ```roc
+  Owner : { key : U64, revision : U64, name : Str }
+
+  lower : List(Bool), { active : Box(Owner) } -> { active : Box(Owner) }
+  lower = |flags, boundaries| {
+  	var $i = 0
+  	var $boundaries = boundaries
+  	while $i < flags.len() {
+  		match flags.get($i) {
+  			Ok(flag) => {
+  				revision = (Box.unbox($boundaries.active)).revision
+  				match flag {
+  					Bool.False => {}
+  					Bool.True => {
+  						$boundaries = { active: Box.box({ ..Box.unbox($boundaries.active), key: $i }) }
+  					}
+  				}
+  				$i = $i + revision
+  			}
+  			Err(_) => crash "unreachable"
+  		}
+  	}
+  	$boundaries
+  }
+  ```
+
+  It needs the loop, both matches, the record wrapping the box, and a
+  refcounted field in `Owner`. Only a Debug compiler checks this, so release
+  nightlies are unaffected; build roc-gui with a release compiler. Not filed
+  upstream by choice; a reproduction is drafted if that changes.
+
+- [ ] **`roc check` warns that runtime conditions are known at compile time.**
+  `nightly-2026-09-27-a3ce7f1` reports eight `unconditional condition`
+  warnings in Observatory on values read from a capture, where the 2026-09-24
+  nightly reports none. `if a == 0 0 else 1` after `a = count(6)`, where
+  `count` is a local closure over `List.find_first`, is enough; `roc test`
+  takes both branches. The same nightly's `roc check` takes 16 s on
+  Observatory against 7 s for the 2026-09-24 one. The warnings are harmless;
+  the specification runner reads compiler output as UTF-8, so their quoted
+  source no longer breaks Windows runs. Not filed upstream by choice.
 
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.
