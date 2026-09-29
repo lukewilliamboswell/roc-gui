@@ -13,11 +13,12 @@
     ; the first page is summarized with the listing, the rest a page at a time
     (await-count (text "CAPTURES IN scale-1000 · 1000") 1)
     (click (role button :name "Capture run-0003.rgstats"))
-    (await-task)
+    ; the folder's watch may deliver a change too, so wait for the capture
+    (await-count (within (role row :name "Capture bar") (text "schema 25")) 1)
     (click (role button :name "Set as baseline"))
     (click (role button :name "Back to captures"))
     (click (role button :name "Capture run-0007.rgstats"))
-    (await-task)
+    (await-count (within (role row :name "Capture bar") (text "schema 25")) 1)
     (click (role button :name "Compare"))
     (expect-visible (within (role row :name "Comparability verdict") (text-prefix "⇒ comparable")))
     (expect-rows (role virtual-list :name "A/A captures") :count 1000 :first 0 :mounted 70)
