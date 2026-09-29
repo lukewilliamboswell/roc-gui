@@ -241,7 +241,7 @@ is being read holds the places of its unread rows.
 ```sh
 python3 build.py
 python3 examples/observatory/generate_fixture.py
-roc build --output=observatory examples/observatory/main.roc
+roc build --opt=dev --output=observatory examples/observatory/main.roc
 ./observatory -- --host-cap-dir examples/observatory/fixture/captures
 ./observatory -- --host-cap-dir examples/observatory/fixture/compare
 ./observatory -- --host-cap-file examples/observatory/fixture/captures/counter-counting.rgstats

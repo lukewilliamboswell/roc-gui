@@ -1068,6 +1068,18 @@ names the evidence so a fix can be verified against the same case.
   Annotate self-recursive functions that return a `Gui.Action`. Not filed
   upstream by choice.
 
+- [ ] **The default backend builds Observatory with a use-after-free.**
+  Built with `--opt=speed`, Observatory segfaults as a capture opens, on
+  `nightly-2026-09-27-a3ce7f1` and `nightly-2026-09-28-9927ba8` alike; built
+  with `--opt=dev` it passes every specification. A Debug compiler at
+  `a3ce7f1` names the cause at compile time, `ARC: borrowed local crossed a
+  join without a live owner local`, and a ReleaseSafe one stops at
+  `reached unreachable code`. Reported upstream as
+  https://github.com/roc-lang/roc/issues/11830. Build Observatory with
+  `--opt=dev` until a pinned compiler certifies it; reduce the repro and add
+  it to the issue. The 09-28 nightly also takes 21 min 45 s to build it,
+  against 16 s on the pin, which blocks moving the pin on its own.
+
 - [ ] **Every application fails ARC certification on Roc `origin/main`.** A
   Debug build of `origin/main` (`c80043e3`), and of the 2026-09-27 nightly's
   own commit `a3ce7f1`, panics building any roc-gui application:
