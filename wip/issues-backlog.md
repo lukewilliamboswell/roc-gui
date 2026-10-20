@@ -1423,6 +1423,16 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Continuous integration
 
+- [ ] **Read the linker inputs' nixpkgs pin from Blueprint once it can be
+  read.** `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash`
+  that `Blueprint.lock` locks, and `scripts/check_all.roc` compares only the
+  revision `Blueprint.roc` declares, so a disagreement in `narHash` goes
+  unnoticed. https://github.com/lukewilliamboswell/roc-blueprint/issues/51
+  asks for `blueprint lock show --json` with a per-entry identity. When it
+  ships, derive the pin from it, fingerprint that entry alone, and delete the
+  duplicate. Moving the producers onto Blueprint `Build` waits on
+  https://github.com/lukewilliamboswell/roc-blueprint/issues/52.
+
 - [ ] **Port the remaining automation to Roc scripts.** roc-automation keeps
   repository automation in `scripts/*.roc` run by `roc-stable`. The checks,
   host-bindings regeneration and release notes are Roc scripts; the

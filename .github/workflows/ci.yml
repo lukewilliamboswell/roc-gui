@@ -113,6 +113,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig sway grim libvulkan1 mesa-vulkan-drivers
+      # The macOS environment must evaluate; nothing is built for it here.
+      - name: Evaluate the aarch64-darwin environment
+        run: |
+          blueprint gen
+          nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
       - run: blueprint run lint
       - run: blueprint run build
       - run: python3 scripts/headless_wayland.py -- blueprint run test -- --only semantic --jobs 2 --timeout 300
