@@ -1423,6 +1423,21 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Continuous integration
 
+- [ ] **Drop the hand-passed Blueprint checksums.** `ci.yml`, `release.yml` and
+  `link-inputs.yml` pass the 0.6.0 `sha256-*` inputs to `setup-blueprint`
+  because its recorded releases stop at 0.6.0-rc1.
+  https://github.com/lukewilliamboswell/roc-automation/pull/58 records them;
+  once it merges, move the action pin and delete the inputs.
+
+- [ ] **Take the host toolchain from Blueprint on every runner.** The host and
+  linker-input jobs install Zig 0.16 and Rust 1.95.0 through
+  `.github/actions/setup-toolchain`, repeating versions `Blueprint.roc` and
+  `rust-toolchain.toml` declare, with nothing checking they agree. Blueprint
+  runs no Windows CI tasks through `setup-blueprint`:
+  https://github.com/lukewilliamboswell/roc-automation/issues/59. When it
+  does, add `x86_64-windows` to `Systems`, fetch Zig with a recipe there, and
+  delete `setup-toolchain`.
+
 - [ ] **Read the linker inputs' nixpkgs pin from Blueprint once it can be
   read.** `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash`
   that `Blueprint.lock` locks, and `scripts/check_all.roc` compares only the
@@ -1448,7 +1463,9 @@ names the reproduction so the workaround can be removed when the fix lands.
   roc-automation renders manuals with the precompiled `roc-docs` through
   `actions/build-docs`, which needs each Mermaid diagram prepared as a PNG
   whose hash matches its source. Prepare the diagrams, move the theme to the
-  shared renderer, and replace the Docker build.
+  shared renderer, and replace the Docker build. roc-automation has no tool
+  to prepare the diagrams yet:
+  https://github.com/lukewilliamboswell/roc-automation/issues/60.
 
 - [ ] **Run the archived examples' specifications in `nightly.yml`.** The
   nightly compatibility workflow builds every application of the latest
