@@ -4,12 +4,13 @@ Roc GUI runs on Linux x86-64, macOS on Apple silicon, and Windows x86-64.
 
 == Use a published platform
 
-An application names a released platform by its URL and needs nothing else. The
-release page carries that URL and the exact Roc nightly it was built with:
+An application names a released platform by its URL and needs nothing else.
+Build it with a current Roc nightly. The release page carries the URL and
+names the nightly the release was built and tested with:
 
 [source,roc]
 ----
-app [State, main] { pf: platform "https://github.com/lukewilliamboswell/roc-gui/releases/download/v0.0.1/<bundle>.tar.zst", roc: "nightly-2026-09-27-a3ce7f1" }
+app [State, main] { pf: platform "https://github.com/lukewilliamboswell/roc-gui/releases/download/<version>/<bundle>.tar.zst" }
 ----
 
 [source,sh]
@@ -23,21 +24,21 @@ already pointing at that platform, so they build without a checkout.
 
 == Work from a checkout instead
 
-Contributors build the platform locally. On Linux x86-64 or Apple silicon
-macOS, install Nix with flakes enabled, then enter the development shell from
-the repository root:
+Contributors build the platform locally. Install a current Roc nightly as
+`roc` and the `blueprint` binary from the
+https://github.com/lukewilliamboswell/roc-blueprint/releases/tag/0.6.0[roc-blueprint 0.6.0 release].
+On Linux x86-64 or Apple silicon macOS, install Nix with flakes enabled for the
+native toolchain, then enter the development shell from the repository root:
 
 [source,sh]
 ----
-nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9
 blueprint shell
 ----
 
-`Blueprint.roc` selects Roc from `roc-overlay` using `.roc-version`.
-`Blueprint.lock` pins the package sets and overlay. Rustup selects the toolchain
-in `rust-toolchain.toml`. On macOS and Windows, install the same Roc tag from
-`.roc-version` and the Rust toolchain directly. Branch application headers use
-the environment's compiler; release example headers contain the tested tag.
+`Blueprint.lock` pins the Nix package set and the tooling compiler. Rustup
+selects the toolchain in `rust-toolchain.toml`. On Windows, install the Rust
+toolchain directly. No application names a compiler: each builds with the
+`roc` on the machine.
 
 The host archive is part of every Roc GUI executable. Build it first:
 
@@ -63,12 +64,12 @@ state, and only that counter's render boundary is rendered again.
 
 == Start an application
 
-Create a directory with a `main.roc` file. Point its platform path at this
-repository's `platform/main.roc` and use the same Roc nightly as the platform:
+Create a directory with a `main.roc` file and point its platform path at this
+repository's `platform/main.roc`:
 
 [source,roc]
 ----
-app [State, main] { pf: platform "../../platform/main.roc", roc: "nightly-2026-09-27-a3ce7f1" }
+app [State, main] { pf: platform "../../platform/main.roc" }
 
 import pf.Gui
 

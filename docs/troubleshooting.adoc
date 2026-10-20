@@ -18,11 +18,13 @@ and records the identities it loaded; it says so as it builds. Set
 Either way an unsigned or altered pair is refused, and a refusal names the SDK
 directory it examined.
 
-== The Roc compiler version does not match
+== An application stops building after a Roc update
 
-Use `blueprint shell` for a checkout: `.roc-version` selects its compiler.
-For archived release examples, use the tag in the `app` header. A different
-compiler may fail before it checks application code.
+The platform follows the latest Roc nightly. A checkout builds with a current
+nightly; `roc version` names the one on the machine. A released platform names
+the nightly it was built and tested with in its release notes, and a newer
+nightly can reject code that an older one accepted. Update the platform to its
+latest release, or build with the nightly its notes name.
 
 == The executable rejects an argument
 

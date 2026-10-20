@@ -4,23 +4,64 @@ Read `AGENTS.md` before changing the platform. The central constraint is “test
 what we fly”: tests and measurements drive the production implementation and
 never reproduce it.
 
-== Pinned development environment
+== Development environment
 
-`blueprint run build` builds the native host. `blueprint run test` builds and
-runs the application specifications through the production host.
-`blueprint run lint` runs Clippy with warnings treated as errors.
-`blueprint run check` verifies the installed compiler against `.roc-version`.
-`blueprint run check-roc` checks Blueprint and every maintained application and benchmark
-with that compiler and rejects errors and warnings, including dependency warnings.
-Run these commands inside the Blueprint bootstrap environment described in
-Getting started. Commit `Blueprint.roc`, `Blueprint.lock`, and `.roc-version`;
-`.blueprint/` contains generated files.
+`Blueprint.roc` declares the environment and `Blueprint.lock` fixes it. Commit
+both; `.blueprint/` holds generated files. Install the released `blueprint`
+binary and a current Roc nightly as `roc`, then run tasks from the repository
+root:
 
-Install the repository hooks with `pre-commit install`. The Roc hook runs
-`python3 scripts/check_roc.py` when Roc sources or the compiler pin change;
-set `ROC` to the pinned compiler executable when it is outside `PATH`.
-CI runs the same check independently of the host build. Specification builds
-also reject a warning exit even when the compiler produced an executable.
+[cols="1,3",options="header"]
+|===
+| Task | What it does
+
+| `blueprint run check`
+| Runs `scripts/check_all.roc`: the compiler pins, the bindings root, tracked
+machine code, the scripts and their tests, and `roc check` and `roc test` on
+every application and benchmark. Errors, warnings and failed expectations all
+fail it.
+
+| `blueprint run build`
+| Builds the native host.
+
+| `blueprint run test`
+| Builds every application and runs its specifications through the production
+host.
+
+| `blueprint run lint`
+| Runs Clippy over the host with warnings treated as errors.
+
+| `blueprint run regenerate-glue -- <roc source>`
+| Regenerates the host bindings from a nightly's source; see
+<<generated-bindings,Generated bindings>>.
+
+| `blueprint shell`
+| Starts a shell in the development environment.
+|===
+
+The `check` task needs no Nix: it fetches `roc-stable` and expects `roc` and
+`git` on the machine. The native tasks take their toolchain and libraries from
+the pinned Nix package set.
+
+=== Two compilers
+
+The platform, its applications and its benchmarks name no compiler. They are
+written for the latest Roc nightly, which is bare `roc`, and CI resolves that
+nightly once per run. A nightly that breaks them fails the scheduled
+compatibility workflow, and the fix is a change to the platform.
+
+`roc-stable` is the one pinned compiler. `Blueprint.roc` fetches it with
+`Recipes.roc_nightly`, and every script under `scripts/` names the same tag in
+its `roc` header field, which `check` enforces. It runs the repository's Roc
+scripts only. To move it, change the tag in `Blueprint.roc` and in every
+script header, run `blueprint update`, format the scripts with
+`roc-stable fmt scripts`, and merge once CI passes.
+
+Install the repository hooks with `pre-commit install` and run them inside
+`blueprint shell`. The Roc hooks run `scripts/check_all.roc`; with `--staged`
+it checks only what the next commit records for machine code. Specification
+builds also reject a warning exit even when the compiler produced an
+executable.
 
 The development environment scopes native build dependencies, including
 Fontconfig and Wayland, to Linux. The build helper prepends its verified ALSA
@@ -36,16 +77,14 @@ CI runs the same Clippy command as the local pre-commit hook, including test
 targets, with `-D warnings`. Install the `clippy` component from the repository
 Rust toolchain when running the hook outside the Blueprint environment.
 
-Change `.roc-version` to select another compiler. Run `blueprint update` when
-the locked overlay needs a newer release, and review the lock changes. CI checks
-that every maintained example and benchmark has adjacent specifications and
-runs the semantic suites. A build or semantic failure fails the gate; it is not
-silently skipped. Record unresolved defects in `wip/issues-backlog.md`.
+CI checks that every maintained example and benchmark has adjacent
+specifications and runs the semantic suites. A build or semantic failure fails
+the gate; it is not silently skipped. Record unresolved defects in
+`wip/issues-backlog.md`.
 
-Release packaging verifies the compiler identity and records its exact tag in
-the release manifest. Release validation and example archiving insert that tag
-into app headers alongside the released platform reference. The branch sources
-remain unpinned so the repository has one compiler authority.
+Release packaging records the compiler that bundled the release in its
+manifest, and the release notes name it with `roc-stable`. Archived examples
+name only the released platform, like the branch sources.
 
 == Validate a change
 
@@ -139,6 +178,7 @@ ordinary controlled editing followed by the same worker-backed atomic save the
 application uses. `expect-value-bytes` supplies deterministic, content-free
 scale evidence; task and patch counters remain owned by their production paths.
 
+[#generated-bindings]
 == Generated bindings
 
 Regenerate checked-in Roc ABI bindings whenever hosted functions or
@@ -146,8 +186,13 @@ Regenerate checked-in Roc ABI bindings whenever hosted functions or
 
 [source,sh]
 ----
-python3 scripts/regenerate_glue.py /path/to/roc
+blueprint run regenerate-glue -- /path/to/roc-source
 ----
+
+The source is that of the nightly `roc` is, such as the nightly release's
+source archive unpacked. CI regenerates the bindings from the resolved
+nightly's verified source archive and fails when they differ from the
+committed files.
 
 `platform/main-glue.roc` is an ABI-generation root. Applications build against
 `platform/main.roc`.
