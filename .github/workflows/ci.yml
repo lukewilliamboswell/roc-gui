@@ -31,6 +31,7 @@ jobs:
         run: |
           nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
             blueprint run check
+            blueprint run check-roc
             git diff --exit-code -- Blueprint.lock
             # The macOS shell must evaluate; nothing is built for it here.
             nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
@@ -38,6 +39,17 @@ jobs:
             blueprint run build
             python3 scripts/headless_wayland.py -- blueprint run test -- --only semantic --jobs 2 --timeout 300
           '
+
+  roc-check:
+    name: Roc errors and warnings
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-roc
+      - run: python3 scripts/check_roc.py
 
   # Each target's host is produced once; its tests wait only for that host.
   host-x64glibc:

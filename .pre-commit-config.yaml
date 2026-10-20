@@ -12,6 +12,12 @@ repos:
         language: system
         files: \.rs$
         pass_filenames: false
+      - id: roc-check
+        name: Check Roc without warnings
+        entry: python3 scripts/check_roc.py
+        language: system
+        files: (\.roc$|^\.roc-version$|^scripts/(check_roc|toolchain)\.py$)
+        pass_filenames: false
       # Clippy runs through run_cargo.py so the host links against its verified
       # build-time inputs, the same way CI builds it. Vendored GPUI retains its
       # upstream lint baseline; its local patches have focused CI regressions.

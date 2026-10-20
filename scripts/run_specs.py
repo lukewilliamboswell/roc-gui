@@ -231,17 +231,9 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
         )
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
-        # Roc currently exits with code 2 for warnings even when it writes a
-        # successful executable. Keep the diagnostic visible and require both
-        # the explicit success report and the new artifact before running it.
-        report = result.stdout + result.stderr
-        warnings_only = (
-            result.returncode == 2
-            and executable.is_file()
-            and "0 errors and" in report
-            and "while successfully building:" in report
-        )
-        if result.returncode != 0 and not warnings_only:
+        # Roc exits with code 2 for warnings even if it writes an executable.
+        # A produced executable does not exempt its source from the warning gate.
+        if result.returncode != 0:
             raise subprocess.CalledProcessError(result.returncode, result.args)
 
 

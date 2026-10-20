@@ -10,9 +10,17 @@ never reproduce it.
 runs the application specifications through the production host.
 `blueprint run lint` runs Clippy with warnings treated as errors.
 `blueprint run check` verifies the installed compiler against `.roc-version`.
+`blueprint run check-roc` checks Blueprint and every maintained application and benchmark
+with that compiler and rejects errors and warnings, including dependency warnings.
 Run these commands inside the Blueprint bootstrap environment described in
 Getting started. Commit `Blueprint.roc`, `Blueprint.lock`, and `.roc-version`;
 `.blueprint/` contains generated files.
+
+Install the repository hooks with `pre-commit install`. The Roc hook runs
+`python3 scripts/check_roc.py` when Roc sources or the compiler pin change;
+set `ROC` to the pinned compiler executable when it is outside `PATH`.
+CI runs the same check independently of the host build. Specification builds
+also reject a warning exit even when the compiler produced an executable.
 
 The development environment scopes native build dependencies, including
 Fontconfig and Wayland, to Linux. The build helper prepends its verified ALSA

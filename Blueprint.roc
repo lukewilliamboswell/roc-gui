@@ -19,6 +19,7 @@ config = [
 				"rustup",
 				"zig_0_16",
 				"python3",
+				"pre-commit",
 				"git",
 				"pkg-config",
 				"clang",
@@ -45,4 +46,5 @@ config = [
 	Task("test", [Use("dev"), Run(["python3", "scripts/run_specs.py", "--roc", "roc"])]),
 	Task("lint", [Use("dev"), Run(["python3", "scripts/run_cargo.py", "clippy", "--locked", "--package", "roc-gui-host", "--all-targets", "--no-deps", "--", "-D", "warnings"])]),
 	Task("check", [Use("dev"), Run(["python3", "scripts/toolchain.py", "--check", "--roc-bin", "roc"])]),
+	Task("check-roc", [Use("dev"), Run(["python3", "scripts/check_roc.py", "--roc", "roc"])]),
 ]

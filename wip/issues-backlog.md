@@ -1131,9 +1131,12 @@ names the evidence so a fix can be verified against the same case.
   nightly reports none. `if a == 0 0 else 1` after `a = count(6)`, where
   `count` is a local closure over `List.find_first`, is enough; `roc test`
   takes both branches. The same nightly's `roc check` takes 16 s on
-  Observatory against 7 s for the 2026-09-24 one. The warnings are harmless;
-  the specification runner reads compiler output as UTF-8, so their quoted
-  source no longer breaks Windows runs. Not filed upstream by choice.
+  Observatory against 7 s for the 2026-09-24 one. Observatory avoids the
+  diagnostic by giving these helpers explicit arguments instead of capturing
+  runtime inputs in local closures. Its runtime branches and calculations are
+  unchanged, and both checks and specification builds reject warning exits.
+  Remove the workaround when the compiler regression is fixed. Not filed
+  upstream by choice.
 
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.

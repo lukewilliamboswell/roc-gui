@@ -20,6 +20,25 @@ from run_specs import ROOT, Case, discover, report_window_failure, window_artifa
 
 
 class ApplicationBuildTests(unittest.TestCase):
+    def test_warning_exit_fails_even_when_compiler_produces_an_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            cases = discover(["examples/counter/specs/counting.scm"], Path(temporary))
+
+            def compile_with_warning(command, **kwargs):
+                if command[0] == "selected-roc":
+                    cases[0].executable.write_bytes(b"built with a warning")
+                    return subprocess.CompletedProcess(
+                        command, 2, "0 errors and 1 warning found while successfully building:\n", ""
+                    )
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch("toolchain.verify_compiler"), patch.object(
+                run_specs.subprocess, "run", side_effect=compile_with_warning
+            ), contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(subprocess.CalledProcessError) as raised:
+                    run_specs.build(cases, "selected-roc", True)
+            self.assertEqual(raised.exception.returncode, 2)
+
     def test_wrong_compiler_fails_before_building(self) -> None:
         with patch("toolchain.verify_compiler", side_effect=ValueError("wrong compiler")), patch.object(run_specs.subprocess, "run") as run:
             with self.assertRaisesRegex(ValueError, "wrong compiler"):
