@@ -1,13 +1,13 @@
-# Windows target, Linux build host; use the same package authority as Blueprint.
+# Windows target, Linux build host; the same nixpkgs revision as the Linux inputs.
 let
   root = ../..;
-  pin = import (root + /dependencies/nixpkgs-pin.nix) (root + /Blueprint.lock);
+  pin = import (root + /dependencies/nixpkgs-pin.nix);
   pkgs = import (builtins.fetchTree pin) { system = "x86_64-linux"; };
   recipe = builtins.fromJSON (builtins.readFile ../windows-gnu-runtime.json);
   source = pkgs.lib.fileset.toSource {
     inherit root;
     fileset = pkgs.lib.fileset.unions [
-      ../../Blueprint.lock ../nixpkgs-pin.nix ./default.nix ../windows-gnu-runtime.json
+      ../nixpkgs-pin.nix ./default.nix ../windows-gnu-runtime.json
       ./DISCLAIMER.PD ./ucrt-inventory.json
       ../../scripts/build_windows_gnu_runtime.py ../../scripts/windows_runtime_validation.py
       ../../scripts/audit_windows_archive.py ../../scripts/build_glibc.py

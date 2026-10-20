@@ -14,11 +14,11 @@ an entry below or is a maintainer action.
 - [ ] Pass Observatory's window Timeline on macOS and Windows; see "RELEASE
   BLOCKER: Observatory's window Timeline fails on hosted macOS and Windows
   runners".
-- [ ] Publish linker inputs for this checkout. `Blueprint.lock`,
-  `scripts/test_linux_link_inputs.py` and `.github/workflows/link-inputs.yml`
-  are producer inputs, so the released linker inputs no longer match: run the
-  producer on the pull request and the trusted publisher from the default
-  branch, and commit the new `link-inputs.lock.json`.
+- [ ] Publish linker inputs for this checkout. The producers now pin nixpkgs in
+  `dependencies/nixpkgs-pin.nix` instead of reading `Blueprint.lock`, and write
+  schema-4 archives, so the released inputs no longer match: run the producer
+  on the pull request and the trusted publisher from the default branch, and
+  commit the new `link-inputs.lock.json`.
 - [ ] Publish GUI hosts for this checkout. The host source changed with the
   regenerated bindings: dispatch `gui-hosts.yml` from the default branch and
   commit the new `host.lock.json`.

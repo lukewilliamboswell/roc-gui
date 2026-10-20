@@ -334,8 +334,11 @@ platform and host changes reuse the locked release and never invoke a producer.
 === Linux producers with Nix
 
 The five Linux component producers use `dependencies/linux/default.nix` and the
-root nixpkgs input in `Blueprint.lock`. Zig 0.16.0 and the build tools come from
-that package set. Meson uses the recipe's fixed-hash 1.12.0 source with the same
+nixpkgs revision pinned in `dependencies/nixpkgs-pin.nix`. Zig 0.16.0 and the
+build tools come from that package set. `Blueprint.roc` names the same revision
+for the development shell and `blueprint run check` requires the two to agree,
+but the producers never read `Blueprint.lock`: a Blueprint change does not
+change a linker input. Meson uses the recipe's fixed-hash 1.12.0 source with the same
 nixpkgs packaging. Upstream source downloads are fixed-output derivations;
 compilation and native probes run inside the network-isolated Nix sandbox.
 
@@ -350,10 +353,11 @@ cmp /tmp/candidate/freetype-x64glibc.tar /tmp/rebuild/freetype-x64glibc.tar
 
 `--rebuild` executes Nix's reproducibility check, even when the first result is
 cached. CI requires sandboxing and repeats this for every Linux component.
-Schema-2 archives identify the builder tool derivation, nixpkgs revision and
-content hash, Blueprint lock, and Nix recipe. Corresponding source includes the
-upstream source bytes and reproduction inputs. Consumers also accept the
-schema-1 archives used by other targets and existing reviewed releases.
+Schema-4 archives identify the builder tool derivation, the nixpkgs revision
+and content hash, the nixpkgs pin, and the Nix recipe. Corresponding source
+includes the upstream source bytes and reproduction inputs. Consumers also
+accept the schema-1 archives used by other targets and the schema-2 archives
+of existing reviewed releases, which bound the same build to `Blueprint.lock`.
 
 Published shared libraries have no build search paths or store-qualified
 runtime dependencies. Producer probes use the sandbox's private loader and
@@ -364,8 +368,7 @@ those archives can be assembled and attested.
 === Windows inputs from Nix and native Windows
 
 On Linux x86-64, the Windows runtime and resource producers use
-`dependencies/windows-gnu-runtime/default.nix`, with nixpkgs pinned by
-`Blueprint.lock`. The runtime compiles with the recipe's hash-verified official
+`dependencies/windows-gnu-runtime/default.nix`, with the same nixpkgs pin. The runtime compiles with the recipe's hash-verified official
 Zig distribution; the resource compiler comes from pinned nixpkgs. Downloads
 are fixed-output derivations and builds run in the network-isolated sandbox.
 

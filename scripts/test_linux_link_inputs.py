@@ -38,7 +38,7 @@ def validate(components, output, roc):
             expected = {f"targets/{triple}/{file}" for file in policy["files"]}
             expected.update(f"licenses/{name}/{file}" for file in policy["licenses"])
             expected.update(policy.get("extra_files", ()))
-            if manifest["schema_version"] != 2 or set(manifest["files"]) != component_inventory(expected, manifest):
+            if manifest["schema_version"] != 4 or set(manifest["files"]) != component_inventory(expected, manifest):
                 raise ValueError("incomplete Nix candidate: " + name)
             for file in (destination / "targets" / triple).iterdir():
                 if file.suffix == ".so":

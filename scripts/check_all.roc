@@ -74,6 +74,17 @@ main! = |args| {
 	}
 	Stdout.line!("PASS platform/main-glue.roc declares the platform's targets")?
 
+	# The development shell and the linker-input producers build from one
+	# nixpkgs revision, held twice so that a Blueprint change never alters a
+	# linker input's provenance.
+	Stdout.line!("\n== Nix package set")?
+	nixpkgs = match (Pins.blueprint_nixpkgs(read!("Blueprint.roc")?), Pins.pinned_nixpkgs(read!("dependencies/nixpkgs-pin.nix")?)) {
+		(Ok(blueprint), Ok(pinned)) if blueprint == pinned => pinned
+		(Ok(blueprint), Ok(pinned)) => return fail!("Blueprint.roc takes Nix tools from nixpkgs ${blueprint}, but dependencies/nixpkgs-pin.nix pins ${pinned}; move both together")
+		_ => return fail!("Blueprint.roc and dependencies/nixpkgs-pin.nix must each name one nixpkgs revision")
+	}
+	Stdout.line!("PASS Blueprint.roc and the linker inputs build from nixpkgs ${nixpkgs}")?
+
 	machine_code!(Tracked)?
 
 	Stdout.line!("\n== Scripts")?

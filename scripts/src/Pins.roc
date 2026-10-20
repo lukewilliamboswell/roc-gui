@@ -14,6 +14,15 @@ Pins := [].{
 			_ => Err(NoStableCompiler)
 		}
 
+	## The nixpkgs revision `Blueprint.roc` takes its Nix tools from.
+	blueprint_nixpkgs : Str -> Try(Str, [NoNixpkgs])
+	blueprint_nixpkgs = |blueprint| quoted_after(blueprint, "NixPackages(\"github:NixOS/nixpkgs/").map_err(|_| NoNixpkgs)
+
+	## The nixpkgs revision `dependencies/nixpkgs-pin.nix` pins for the linker
+	## inputs.
+	pinned_nixpkgs : Str -> Try(Str, [NoNixpkgs])
+	pinned_nixpkgs = |pin| quoted_after(pin, "rev = \"").map_err(|_| NoNixpkgs)
+
 	## Whether `source` is an application, which has an `app` header.
 	is_app : Str -> Bool
 	is_app = |source| header(Str.split_on(source, "\n")) != ""
@@ -34,6 +43,18 @@ Pins := [].{
 			_ => Err(NoPlatform)
 		}
 }
+
+# The text after the only occurrence of `prefix`, up to the next double quote.
+quoted_after : Str, Str -> Try(Str, [Missing])
+quoted_after = |text, prefix|
+	match Str.split_on(text, prefix) {
+		[_, after] =>
+			match Str.split_first(after, "\"") {
+				Ok({ before, .. }) if before != "" => Ok(before)
+				_ => Err(Missing)
+			}
+		_ => Err(Missing)
+	}
 
 # The one value of a header field named `name`, trimmed.
 header_field : Str, Str -> Try(Str, [Missing])
@@ -87,3 +108,8 @@ expect Pins.roc_pin("app [main!] { roc: \"a\", roc: \"b\" }\n") == Err(NoPin)
 expect Pins.platform_of(example) == Ok("../../platform/main.roc")
 expect Pins.platform_of(script) == Err(NoPlatform)
 expect Pins.platform_of("app [config] { pf: platform \"https://example.com/p.tar.zst\" }\n") == Ok("https://example.com/p.tar.zst")
+expect Pins.blueprint_nixpkgs("\tPackages(\"nix\", From(NixPackages(\"github:NixOS/nixpkgs/6774f7bc\"))),\n") == Ok("6774f7bc")
+expect Pins.blueprint_nixpkgs("Packages(\"nix\", From(NixPackages(\"github:NixOS/nixpkgs/nixos-unstable\")))") == Ok("nixos-unstable")
+expect Pins.blueprint_nixpkgs("Name(\"x\")") == Err(NoNixpkgs)
+expect Pins.pinned_nixpkgs("{\n  type = \"github\";\n  rev = \"6774f7bc\";\n}\n") == Ok("6774f7bc")
+expect Pins.pinned_nixpkgs("{ }") == Err(NoNixpkgs)
