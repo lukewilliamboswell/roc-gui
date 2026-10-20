@@ -144,7 +144,7 @@ def fixture_services(cases: list[Case], described: dict[Path, dict], output: Pat
                 process.wait(timeout=5)
 
 
-def discover(patterns: list[str], output: Path, excludes: list[str] | None = None) -> list[Case]:
+def discover(patterns: list[str], output: Path, excludes: list[str] | None = None, roc_opt: str = "dev") -> list[Case]:
     specs = sorted(
         [*ROOT.glob("examples/*/specs/*.scm"), *ROOT.glob("benchmarks/*/specs/*.scm")]
     )
@@ -160,10 +160,10 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
             for spec in specs
             if not any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in excludes)
         ]
-    blocked = [spec for spec in specs if spec.parent.parent.relative_to(ROOT).as_posix() in COMPILER_BLOCKED]
+    blocked = [spec for spec in specs if (spec.parent.parent.relative_to(ROOT).as_posix(), roc_opt) in COMPILER_BLOCKED]
     for directory in sorted({spec.parent.parent.relative_to(ROOT).as_posix() for spec in blocked}):
         count = sum(spec.parent.parent.relative_to(ROOT).as_posix() == directory for spec in blocked)
-        print(f"SKIP {directory}: {count} specs ({COMPILER_BLOCKED[directory]})", flush=True)
+        print(f"SKIP {directory} --opt={roc_opt}: {count} specs ({COMPILER_BLOCKED[(directory, roc_opt)]})", flush=True)
     specs = [spec for spec in specs if spec not in blocked]
     cases = []
     for spec in specs:
@@ -188,10 +188,17 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # or fallback. The Rust host's build profile is independent of this option.
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
 SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
-# Applications the current nightly cannot build. Their specifications are
-# skipped and named on every run; each is tracked in wip/issues-backlog.md
-# under "Compiler and toolchain defects" and removed when its fix lands.
+# Applications the current nightly cannot build, by build mode. Their
+# specifications are skipped and named on every run; each is tracked in
+# wip/issues-backlog.md under "Compiler and toolchain defects" and removed when
+# its fix lands.
 COMPILER_BLOCKED = {
+    # TODO(release blocker): nightly-2026-10-20-7a8a800 does not finish
+    # building Observatory with --opt=speed: killed after 17 minutes at 6.9 GB,
+    # where nightly-2026-09-27-a3ce7f1 took 16 s. --opt=dev builds it in 11 s
+    # and every specification passes. Reduce, report upstream, and remove this
+    # entry once a nightly builds it.
+    ("examples/observatory", "speed"): "the speed backend does not finish building it; see the backlog",
 }
 
 
@@ -552,7 +559,7 @@ def main() -> int:
     args = parse_args()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output = (args.output or ROOT / ".test-out" / "specs" / stamp).resolve()
-    cases = discover(args.patterns, output, args.exclude)
+    cases = discover(args.patterns, output, args.exclude, args.roc_opt)
     cases = [case for index, case in enumerate(cases) if index % args.shard_count == args.shard_index]
     if not cases:
         print("error: no .scm specs selected", file=sys.stderr)
