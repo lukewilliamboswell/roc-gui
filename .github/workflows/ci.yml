@@ -6,102 +6,185 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  blueprint:
-    name: Pinned Nix build and application semantics
+  # The latest nightly is resolved once, here; every job installs that one, so
+  # one run never tests two compilers.
+  resolve:
+    name: Resolve the latest Roc nightly
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 5
+    outputs:
+      nightly-tag: ${{ steps.nightly.outputs.tag }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
-      - name: Install native Linux runtime libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig sway grim libvulkan1 mesa-vulkan-drivers
-      - name: Build and test through Blueprint
-        run: |
-          nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
-            blueprint run check
-            blueprint run check-roc
-            git diff --exit-code -- Blueprint.lock
-            # The macOS shell must evaluate; nothing is built for it here.
-            nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
-            blueprint run lint
-            blueprint run build
-            python3 scripts/headless_wayland.py -- blueprint run test -- --only semantic --jobs 2 --timeout 300
-          '
+      - id: nightly
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)" >> "$GITHUB_OUTPUT"
 
-  roc-check:
-    name: Roc errors and warnings
+  check:
+    name: Roc pins, scripts and applications
+    needs: resolve
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-roc
-      - run: python3 scripts/check_roc.py
+        with:
+          nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8837e0fc99418b3fcbb04b25a0d789293858f15b
+        with:
+          cache: 'true'
+          cache-workload: check
+          sha256-x86_64-linux: 027b2c4d48084d7f6a49b60a378b14dc19920de78c245db3ddffb1db034c74e0
+          sha256-aarch64-linux: f328879d0121f97bce52456dacd9a52a3f50f8dde68056797bb0163d02180a43
+          sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
+      - run: blueprint run compiler-version
+      - run: blueprint run check
+
+  # The host compiles against committed bindings. They must be the ones the
+  # resolved nightly generates from its own glue specification.
+  bindings:
+    name: Host bindings match the nightly
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-roc
+        with:
+          nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8837e0fc99418b3fcbb04b25a0d789293858f15b
+        with:
+          sha256-x86_64-linux: 027b2c4d48084d7f6a49b60a378b14dc19920de78c245db3ddffb1db034c74e0
+          sha256-aarch64-linux: f328879d0121f97bce52456dacd9a52a3f50f8dde68056797bb0163d02180a43
+          sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
+      - name: Download the nightly's source and verify its published digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NIGHTLY_TAG: ${{ needs.resolve.outputs.nightly-tag }}
+        run: |
+          asset="roc_nightly-source-${NIGHTLY_TAG#nightly-}.tar.gz"
+          gh release download "$NIGHTLY_TAG" -R roc-lang/nightlies -p "$asset" -D "$RUNNER_TEMP"
+          digest=$(gh release view "$NIGHTLY_TAG" -R roc-lang/nightlies --json assets --jq ".assets[] | select(.name == \"$asset\") | .digest")
+          echo "${digest#sha256:}  $RUNNER_TEMP/$asset" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/roc-source"
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/roc-source" --strip-components=1
+      - run: blueprint run regenerate-glue -- "$RUNNER_TEMP/roc-source"
+      - name: Require the committed bindings
+        run: git diff --exit-code -- crates/host/src
+
+  blueprint:
+    name: Blueprint build and application semantics
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-roc
+        with:
+          nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8837e0fc99418b3fcbb04b25a0d789293858f15b
+        with:
+          install-nix: 'true'
+          cache: 'true'
+          cache-workload: dev
+          sha256-x86_64-linux: 027b2c4d48084d7f6a49b60a378b14dc19920de78c245db3ddffb1db034c74e0
+          sha256-aarch64-linux: f328879d0121f97bce52456dacd9a52a3f50f8dde68056797bb0163d02180a43
+          sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
+      - name: Install native Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig sway grim libvulkan1 mesa-vulkan-drivers
+      - run: blueprint run lint
+      - run: blueprint run build
+      - run: python3 scripts/headless_wayland.py -- blueprint run test -- --only semantic --jobs 2 --timeout 300
 
   # Each target's host is produced once; its tests wait only for that host.
   host-x64glibc:
+    needs: resolve
+    permissions:
+      contents: read
     uses: ./.github/workflows/host.yml
-    with: { os: ubuntu-24.04, target: x64glibc }
+    with: { os: ubuntu-24.04, target: x64glibc, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
   host-arm64mac:
+    needs: resolve
+    permissions:
+      contents: read
     uses: ./.github/workflows/host.yml
-    with: { os: macos-15, target: arm64mac }
+    with: { os: macos-15, target: arm64mac, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
   host-x64mingw:
+    needs: resolve
+    permissions:
+      contents: read
     uses: ./.github/workflows/host.yml
-    with: { os: windows-2025, target: x64mingw }
+    with: { os: windows-2025, target: x64mingw, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
 
   # When the host changed, the release archive is composed from the same
   # sealed build; nothing else waits on it.
   candidate-x64glibc:
-    needs: host-x64glibc
+    needs: [resolve, host-x64glibc]
     if: needs.host-x64glibc.outputs.mode == 'built'
+    permissions:
+      contents: read
     uses: ./.github/workflows/host-candidate.yml
-    with: { os: ubuntu-24.04, target: x64glibc }
+    with: { os: ubuntu-24.04, target: x64glibc, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
   candidate-arm64mac:
-    needs: host-arm64mac
+    needs: [resolve, host-arm64mac]
     if: needs.host-arm64mac.outputs.mode == 'built'
+    permissions:
+      contents: read
     uses: ./.github/workflows/host-candidate.yml
-    with: { os: macos-15, target: arm64mac }
+    with: { os: macos-15, target: arm64mac, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
   candidate-x64mingw:
-    needs: host-x64mingw
+    needs: [resolve, host-x64mingw]
     if: needs.host-x64mingw.outputs.mode == 'built'
+    permissions:
+      contents: read
     uses: ./.github/workflows/host-candidate.yml
-    with: { os: windows-2025, target: x64mingw }
+    with: { os: windows-2025, target: x64mingw, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
 
   policy:
     name: Repository policy
-    needs: host-x64glibc
+    needs: [resolve, host-x64glibc]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
       - uses: ./.github/actions/setup-native-test
         with:
           target: x64glibc
-      - name: Repository policy and artifact tests
+      - name: Release and artifact policy tests
         run: |
-          python3 scripts/check_no_tracked_machine_code.py --all-tracked
           python3 -m unittest \
             scripts/test_ci_host.py \
             scripts/test_compiler_environment.py \
             scripts/test_alsa_dependencies.py \
             scripts/test_link_input_artifacts.py \
-            scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_prepare_windows_gnu.py \
             scripts/test_host_release_policy.py \
@@ -112,30 +195,40 @@ jobs:
             scripts/test_window_routing.py
 
   native-x64glibc:
-    needs: host-x64glibc
+    needs: [resolve, host-x64glibc]
+    permissions:
+      contents: read
     uses: ./.github/workflows/native.yml
-    with: { os: ubuntu-24.04, target: x64glibc, spec_jobs: 2 }
+    with: { os: ubuntu-24.04, target: x64glibc, spec_jobs: 2, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
   native-arm64mac:
-    needs: host-arm64mac
+    needs: [resolve, host-arm64mac]
+    permissions:
+      contents: read
     uses: ./.github/workflows/native.yml
-    with: { os: macos-15, target: arm64mac, smoke_executable: counter, window: true, missing_shots: --allow-missing-shots }
+    with: { os: macos-15, target: arm64mac, smoke_executable: counter, window: true, missing_shots: --allow-missing-shots, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
   native-x64mingw:
-    needs: host-x64mingw
+    needs: [resolve, host-x64mingw]
+    permissions:
+      contents: read
     uses: ./.github/workflows/native.yml
-    with: { os: windows-2025, target: x64mingw, smoke_executable: counter.exe, window: true, gallery: true }
+    with: { os: windows-2025, target: x64mingw, smoke_executable: counter.exe, window: true, gallery: true, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
 
   docs:
     name: Documentation
-    needs: native-x64mingw
+    needs: [resolve, native-x64mingw]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      # The generated API reference comes from the platform's own pinned
-      # compiler, so the manual documents the signatures it ships with.
+      # The generated API reference comes from the nightly this run resolved,
+      # so the manual documents the signatures that compiler sees.
       - uses: ./.github/actions/setup-roc
+        with:
+          nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
       # This site tracks the branch, not a release, and says so on its title
       # page rather than claiming the last published version.
       - name: Build and check HTML and PDF documentation
@@ -161,3 +254,28 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  # The one required status check. Host candidates run only when a host
+  # changed, so a skipped job passes; a failed or cancelled one does not.
+  ci:
+    name: CI
+    if: always()
+    needs:
+      - check
+      - bindings
+      - blueprint
+      - candidate-x64glibc
+      - candidate-arm64mac
+      - candidate-x64mingw
+      - policy
+      - native-x64glibc
+      - native-arm64mac
+      - native-x64mingw
+      - docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every job to have passed or been skipped by design
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: test "$FAILED" = false

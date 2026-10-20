@@ -31,6 +31,9 @@ config = [
 			Expect(["roc", "git"]),
 		],
 	),
+	# Regenerating the host bindings formats them with the repository's Rust
+	# toolchain, which rustup selects from rust-toolchain.toml.
+	Environment("glue", [Extend("scripts"), Expect(["cargo"])]),
 	Environment(
 		"dev",
 		[
@@ -65,7 +68,9 @@ config = [
 	Task("test", [Use("dev"), Run(["python3", "scripts/run_specs.py", "--roc", "roc"])]),
 	Task("lint", [Use("dev"), Run(["python3", "scripts/run_cargo.py", "clippy", "--locked", "--package", "roc-gui-host", "--all-targets", "--no-deps", "--", "-D", "warnings"])]),
 	# Regenerate the committed host bindings: regenerate-glue -- <roc source>.
-	Task("regenerate-glue", [Use("dev"), Run(["scripts/regenerate_glue.roc"])]),
+	Task("regenerate-glue", [Use("glue"), Run(["scripts/regenerate_glue.roc"])]),
+	# Render a release's notes: release-notes -- <version> <bundle filename> <output>.
+	Task("release-notes", [Use("scripts"), Run(["scripts/release_notes.roc"])]),
 	# The tooling compiler, as release notes record it.
 	Task("compiler-version", [Use("scripts"), Run(["roc-stable", "version"])]),
 ]

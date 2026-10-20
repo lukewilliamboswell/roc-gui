@@ -5,6 +5,10 @@ name: Native specifications
 on:
   workflow_call:
     inputs:
+      nightly-tag:
+        description: The Roc nightly the calling run resolved
+        type: string
+        required: true
       os:
         type: string
         required: true
@@ -44,6 +48,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ inputs.nightly-tag }}
       - uses: ./.github/actions/setup-native-test
         with:
           target: ${{ inputs.target }}
@@ -80,6 +86,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ inputs.nightly-tag }}
       - uses: ./.github/actions/setup-native-test
         with:
           target: ${{ inputs.target }}
@@ -117,6 +125,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ inputs.nightly-tag }}
       - uses: ./.github/actions/setup-native-test
         with:
           target: ${{ inputs.target }}
@@ -146,6 +156,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ inputs.nightly-tag }}
       - uses: ./.github/actions/setup-native-test
         with:
           target: ${{ inputs.target }}
@@ -183,6 +195,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ inputs.nightly-tag }}
       - uses: ./.github/actions/setup-native-test
         with:
           target: ${{ inputs.target }}

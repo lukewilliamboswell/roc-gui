@@ -10,16 +10,31 @@ on:
         type: string
         required: true
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: gui-hosts-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  # The latest nightly is resolved once, here; every job installs that one.
+  resolve:
+    name: Resolve the latest Roc nightly
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      nightly-tag: ${{ steps.nightly.outputs.tag }}
+    steps:
+      - id: nightly
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build and exercise ${{ matrix.target }}
+    needs: resolve
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -35,10 +50,13 @@ jobs:
       os: ${{ matrix.os }}
       target: ${{ matrix.target }}
       release: true
+      nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
 
   candidate:
     name: Compose ${{ matrix.target }}
-    needs: build
+    needs: [resolve, build]
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -53,6 +71,7 @@ jobs:
     with:
       os: ${{ matrix.os }}
       target: ${{ matrix.target }}
+      nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
 
   # The published archives are the candidates composed from the sealed hosts;
   # CI's native specifications exercise the same producer on every change.

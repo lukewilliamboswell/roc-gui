@@ -51,7 +51,7 @@ class CompilerEnvironmentTests(unittest.TestCase):
                 for member in roots:
                     source = packed.extractfile(member).read().decode()
                     self.assertIsNone(header_pin(source))
-                    self.assertIn('/releases/download/v0.1.0/platform.tar.zst', source)
+                    self.assertIn('/releases/download/0.1.0/platform.tar.zst', source)
                 readme = next(m for m in packed.getmembers() if m.name.endswith('/README.md'))
                 self.assertIn(compiler, packed.extractfile(readme).read().decode())
             self.assertEqual(bundle_examples.archive(directory, '0.1.0', manifest).read_bytes(), original)

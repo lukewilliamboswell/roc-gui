@@ -60,7 +60,7 @@ def archive(output: Path, version: str, manifest_path: Path) -> Path:
     manifest = json.loads(manifest_path.read_text())
     if manifest["schema_version"] != 2 or not manifest.get("compiler"):
         raise ValueError("release manifest must name the compiler that bundled it")
-    url = f"https://github.com/{REPOSITORY}/releases/download/v{version}/{manifest['bundle']['name']}"
+    url = f"https://github.com/{REPOSITORY}/releases/download/{version}/{manifest['bundle']['name']}"
     output.mkdir(parents=True, exist_ok=True)
     bundle = output / f"roc-gui-examples-{version}.tar.gz"
     with tempfile.TemporaryDirectory(prefix="roc-gui-examples-") as temporary:

@@ -34,6 +34,8 @@
 				(value (Attrs ((
 					(name "scripts")
 					(value (List ()))) (
+					(name "glue")
+					(value (List ()))) (
 					(name "dev")
 					(value (List ()))))))))))) (
 			(name "graph")
