@@ -656,7 +656,11 @@ built on top of them; none is a defect in what is there.
   the host watchdog with its last milestone `driver-started`, while the same
   session passed in about thirty seconds on other runs. The generator now caps
   the run at ninety seconds and retries once. Find the step that waits: the
-  window report of a stalled run names it.
+  window report is written only after the driver finishes, so the watchdog
+  exits before a stalled step is reported. Both attempts also stalled in the
+  Windows scaling job of CI run `36482945498`. Bound frame waits and preserve
+  the failing step's report before diagnosing the frame scheduling defect;
+  another retry or a larger timeout does not establish its cause.
 
 - [ ] **The frame strip draws one run's frames as one sequence.** Frames number
   in run and ordinal order across every run of a capture, so a capture of
