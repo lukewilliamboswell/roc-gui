@@ -15,7 +15,7 @@ import tempfile
 import threading
 
 from host_build_identity import TARGETS
-from toolchain import replace_platform, pin_release_app, verify_compiler
+from toolchain import replace_platform, verify_compiler
 from run_specs import Case, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,7 +52,7 @@ def check(directory: Path, roc: str) -> None:
                 app = stage / source.parent.parent.name / source.parent.name
                 shutil.copytree(source.parent, app)
                 main = app / "main.roc"
-                main.write_text(pin_release_app(replace_platform(main.read_text(), url), manifest["compiler"]))
+                main.write_text(replace_platform(main.read_text(), url))
                 executable = stage / "bin" / source.parent.parent.name / source.parent.name
                 executable.parent.mkdir(parents=True, exist_ok=True)
                 subprocess.run([roc, "build", "--opt=dev", "--no-cache", f"--target={target}",

@@ -1,50 +1,71 @@
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.4.0-rc1/DWAeBdDr2vi43QDRpaq8t1C8UTvdyKUHR6aSaewNaKRx.tar.zst" }
+# Development environment and tasks for roc-gui, realised by roc-blueprint.
+#
+#     blueprint run check    # the repository's Roc: pins, machine code, scripts, applications
+#     blueprint run build    # the host and every application
+#     blueprint run test     # the application specifications
+#     blueprint run lint     # Clippy over the host
+#     blueprint shell        # the development environment
+#     blueprint update       # refresh Blueprint.lock
+#
+# `roc-stable` is the nightly named below; it runs the scripts under scripts/.
+# Bare `roc` is the latest nightly, which the machine provides: the platform,
+# its applications and its benchmarks name no compiler.
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.6.0/BenWAmrQp3qFLJPgGerHFPzzAn7ouXDew69CCg2LTtQX.tar.zst" }
 
-import pf.Tool
-
-import ".roc-version" as roc_version : Str
-
-roc_tool = Tool.from_quote("rocpkgs.${roc_version.trim()}") ?? crash "Invalid .roc-version package name"
+import pf.Recipes
 
 config = [
 	Name("roc-gui"),
 	Systems(["x86_64-linux", "aarch64-darwin"]),
-	Packages("default", From(NixPackages("github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc"))),
-	Overlay("roc", "github:roc-lang/roc-overlay"),
+	Packages("nix", From(NixPackages("github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc"))),
+	Environment(
+		"scripts",
+		[
+			Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-10-18-1df370f"))]),
+			# Every bundle the scripts depend on, including dependencies of
+			# dependencies: `roc-stable deps scripts/check_all.roc` lists them.
+			RocPackages([
+				"https://github.com/roc-lang/basic-cli/releases/download/0.25.0/CZsY7tYZwR3rj9kYbpaCfxki2yVAaRL8bBwMLvB2xkbA.tar.zst",
+				"https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
+			]),
+			Expect(["roc", "git"]),
+		],
+	),
 	Environment(
 		"dev",
 		[
+			Extend("scripts"),
 			Tools([
-				roc_tool,
-				"rustup",
-				"zig_0_16",
-				"python3",
-				"pre-commit",
-				"git",
-				"pkg-config",
-				"clang",
-				"cmake",
-				"gnumake",
-				"curl",
-				"zstd",
+				"nix#rustup",
+				"nix#zig_0_16",
+				"nix#python3",
+				"nix#pre-commit",
+				"nix#pkg-config",
+				"nix#clang",
+				"nix#cmake",
+				"nix#gnumake",
+				"nix#curl",
+				"nix#zstd",
 			]),
 			ToolsFor("x86_64-linux", [
-				"freetype",
-				"fontconfig",
-				"wayland",
-				"libglvnd",
-				"libxkbcommon",
-				"alsa-lib",
-				"vulkan-loader",
-				"vulkan-headers",
+				"nix#freetype",
+				"nix#fontconfig",
+				"nix#wayland",
+				"nix#libglvnd",
+				"nix#libxkbcommon",
+				"nix#alsa-lib",
+				"nix#vulkan-loader",
+				"nix#vulkan-headers",
 			]),
-			Overlays(["roc"]),
 		],
 	),
 	Shell("default", [Use("dev")]),
+	Task("check", [Use("scripts"), Run(["scripts/check_all.roc"])]),
 	Task("build", [Use("dev"), Run(["python3", "build.py"])]),
 	Task("test", [Use("dev"), Run(["python3", "scripts/run_specs.py", "--roc", "roc"])]),
 	Task("lint", [Use("dev"), Run(["python3", "scripts/run_cargo.py", "clippy", "--locked", "--package", "roc-gui-host", "--all-targets", "--no-deps", "--", "-D", "warnings"])]),
-	Task("check", [Use("dev"), Run(["python3", "scripts/toolchain.py", "--check", "--roc-bin", "roc"])]),
-	Task("check-roc", [Use("dev"), Run(["python3", "scripts/check_roc.py", "--roc", "roc"])]),
+	# Regenerate the committed host bindings: regenerate-glue -- <roc source>.
+	Task("regenerate-glue", [Use("dev"), Run(["scripts/regenerate_glue.roc"])]),
+	# The tooling compiler, as release notes record it.
+	Task("compiler-version", [Use("scripts"), Run(["roc-stable", "version"])]),
 ]

@@ -188,7 +188,7 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # or fallback. The Rust host's build profile is independent of this option.
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
 SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
-# Applications the pinned compiler cannot build. Their specifications are
+# Applications the current nightly cannot build. Their specifications are
 # skipped and named on every run; each is tracked in wip/issues-backlog.md
 # under "Compiler and toolchain defects" and removed when its fix lands.
 COMPILER_BLOCKED = {
@@ -196,8 +196,9 @@ COMPILER_BLOCKED = {
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
-    from toolchain import validate_roots, verify_compiler
-    verify_compiler(roc, validate_roots(ROOT))
+    from toolchain import check_unpinned, compiler_version
+    check_unpinned(ROOT)
+    print(f"Roc compiler: {compiler_version(roc)}", flush=True)
     print(f"Roc application build mode: {roc_opt}", flush=True)
     if not skip_host_build:
         sys.path.insert(0, str(ROOT / "scripts"))
