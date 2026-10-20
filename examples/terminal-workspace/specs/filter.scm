@@ -1,3 +1,4 @@
+;; PTY reads may deliver console echo before the child response; wait for its text.
 (test "the scrollback filter narrows to nothing and is reversible"
   (grants
     (process test-program))
@@ -16,8 +17,8 @@
     (submit (role textbox :name "Terminal command"))
     (await-task)
     (await-task)
-    (expect-visible (text-prefix "echo:alpha"))
-    (expect-visible (text-prefix "terminal-ready"))
+    (await-count (text-prefix "echo:alpha") 1)
+    (await-count (text-prefix "terminal-ready") 1)
     (replace-text (role textbox :name "Search terminal") "no-such-line")
     (expect-not-visible (text-prefix "echo:alpha"))
     (expect-not-visible (text-prefix "terminal-ready"))
