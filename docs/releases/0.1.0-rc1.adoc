@@ -1,0 +1,93 @@
+= roc-gui 0.1.0-rc1
+
+The first published release of Roc GUI, a platform for native desktop
+applications in Roc rendered by GPUI. An application is
+pure `init` and `render`; there is no virtual DOM, no diffing step to manage,
+and no component lifecycle to learn. Every executable also carries a
+specification runner, so behaviour, layout and appearance are tested against
+the same binary a person runs.
+
+This is a release candidate. Try it, report what does not behave as the manual
+says, and expect a `0.1.0-rc2` if anything needs fixing before `0.1.0`.
+
+== Use this release
+
+[source,roc]
+----
+app [State, main] { pf: platform "{package-url}" }
+
+import pf.Gui
+
+State : { clicks : U64 }
+
+render : State -> Gui.Elem(State)
+render = |state| Gui.col(
+	{ label: "Counter", gap: 8, padding: 12 },
+	[
+		Gui.text("Clicked ${state.clicks.to_str()} times"),
+		Gui.button({ caption: "Click me", label: "Click me", on_press: |s, _| Gui.Action.update({ clicks: s.clicks + 1 }) }),
+	],
+)
+
+main : Gui.Program(State)
+main = Gui.run({ init: |_access| { clicks: 0 }, render })
+----
+
+[source,sh]
+----
+roc build --opt=dev --output=counter main.roc
+./counter
+----
+
+== Which Roc to use
+
+The platform names no compiler. Build with a current Roc nightly; the
+"Compilers" section below names the nightly this release was built and tested
+with. A scheduled workflow builds the release's examples on every new nightly
+and opens an issue when one stops building.
+
+== If you built against a checkout
+
+Applications written against the repository before this release need these
+changes:
+
+* `Gui.Action.none`, `Gui.Action.refresh` and `Gui.KeyedSeq.empty` are
+  functions: write `Gui.Action.none()`. Roc now gives an annotated value one
+  type, so a value that every application uses at its own state type has to be
+  a function.
+* `Gui.Audio.Output` and `Gui.Audio.Track` carry their operations as methods,
+  like every other resource: `output.load!(directory, name)` and
+  `track.play!()`, `pause!`, `seek!`, `status!` and `stop!`.
+* Application headers and the examples archive name no compiler.
+
+== Targets
+
+* `x64glibc`: Linux x86-64 (glibc)
+* `arm64mac`: macOS on Apple silicon
+* `x64mingw`: Windows x86-64
+
+Every example and benchmark is rebuilt from the published bundle on each
+target, and every specification runs there, before the release is published.
+Linux needs `libfreetype6`, `libxkbcommon0` and `libxkbcommon-x11-0` at run
+time.
+
+== Examples
+
+The examples archive holds sixteen applications, from a two-counter demo to an
+HTTP client, a read-only SQLite browser, a terminal workspace, a Redis
+explorer, an image library, a music player, a system monitor, an animation
+editor and Observatory, which reads the performance captures the others
+record. Each carries its specifications beside it.
+
+== Verify what you downloaded
+
+Every asset carries a GitHub build-provenance attestation:
+
+[source,sh]
+----
+gh attestation verify <asset> --repo lukewilliamboswell/roc-gui
+----
+
+`release-manifest.json` records the bundle's digest and size, the compiler
+that bundled it, and the release identity of every host archive and linker
+input inside it.
