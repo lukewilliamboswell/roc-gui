@@ -164,7 +164,7 @@ empty_history = |state| {
 entry_row = |entry, run_state| {
 	restore = match run_state {
 		Paused =>
-			chip("Restore", "Restore item ${entry.id.to_str()}", False, Theme.dim, |_, _| Gui.Action.none)
+			chip("Restore", "Restore item ${entry.id.to_str()}", False, Theme.dim, |_, _| Gui.Action.none())
 		Running(_, clipboard) =>
 			chip("Restore", "Restore item ${entry.id.to_str()}", True, Theme.text, |current, _| History.restore(current, entry, clipboard))
 		}
@@ -355,7 +355,7 @@ render = |state| {
 				border_width: 1,
 				radius: Theme.chip_radius,
 				on_change: |current, event| Gui.Action.update(History.set_search(current, event.value)),
-				on_submit: |_, _| Gui.Action.none,
+				on_submit: |_, _| Gui.Action.none(),
 			}),
 
 			## Arming the discard needs a running capture to mean anything, and

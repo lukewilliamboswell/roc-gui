@@ -65,6 +65,7 @@ label_size = 13.U32
 caps_size = 12.U32
 
 Render := [].{
+	render : Studio.State -> Gui.Elem(Studio.State)
 	render = |state| {
 		selected_shape = match state.selected {
 			None => Err(NoSelection)

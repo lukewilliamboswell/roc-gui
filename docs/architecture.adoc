@@ -410,7 +410,7 @@ The platform does not infer dependencies by tracking state reads.
 
 `Gui.Action.delegate(next_child)` constructs a candidate parent and passes it to the
 nearest translation's `on_delegate` callback. Its parent action accepts,
-revises, vetoes, starts parent-owned work, or delegates further. `Gui.Action.none`
+revises, vetoes, starts parent-owned work, or delegates further. `Gui.Action.none()`
 vetoes the entire candidate. Delegation reaching the root becomes a root
 update; the default callback accepts with `Gui.Action.update`.
 
@@ -581,7 +581,7 @@ That write-up proposes a user interface API for Roc in which a renderer is a
 pure function from state to an `Elem` value, event handlers return an `Action`
 rather than a message, and a translation function relates a component's state to
 its parent's state while marking the unit of re-rendering. roc-gui is an
-development of that design. `Gui.Action.update`, `Gui.Action.none`, the shared `state`
+development of that design. `Gui.Action.update`, `Gui.Action.none()`, the shared `state`
 type variable on `Elem` and `Action`, and adapting child renderers through
 getters and setters follow its central idea: state ownership can identify the
 subtree an action needs to update. Pure translations express that boundary;

@@ -82,7 +82,7 @@ Workbench := [].{
 			remedy: "The request is still in flight; its reply will be ignored.",
 		})
 	} else {
-		Gui.Action.none
+		Gui.Action.none()
 	}
 }
 
@@ -136,7 +136,7 @@ send_method = |state, method| {
 			client = state.access.http!()?
 			client.send!({ timeout_ms: 2_000, max_response_bytes: 262_144 }, request)
 		},
-		resolve: |latest, result| if latest.active_id != id Gui.Action.none else match result {
+		resolve: |latest, result| if latest.active_id != id Gui.Action.none() else match result {
 			Ok(response) => {
 				bytes = Response.body(response)
 				headers = Response.headers(response)

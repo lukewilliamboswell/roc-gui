@@ -49,7 +49,7 @@ editable_leaf = |value| Gui.col(
 					}
 					Err(_) => Canceled
 				},
-				resolve: |current, tick| if tick == Fired Gui.Action.update(current + 1) else Gui.Action.none,
+				resolve: |current, tick| if tick == Fired Gui.Action.update(current + 1) else Gui.Action.none(),
 			}),
 		}),
 	],
@@ -100,7 +100,7 @@ heterogeneous_a = |depth, value| {
 					key: "heterogeneous layer",
 					get: |parent| { number: parent.value, label: "kept A", veto: parent.veto },
 					set: |parent, child| if parent.marker != 91 or child.label != "kept A" crash "invalid B/A projection" else { ..parent, value: child.number },
-					on_delegate: |parent| if level == 500 and parent.veto Gui.Action.none else Gui.Action.delegate(parent),
+					on_delegate: |parent| if level == 500 and parent.veto Gui.Action.none() else Gui.Action.delegate(parent),
 				},
 			),
 		}
@@ -134,7 +134,7 @@ render = |state| Gui.col(
 					label: "Toggle middle veto",
 					on_press: |latest, _| match latest.shape {
 						Heterogeneous(count, value, veto) => Gui.Action.update({ shape: Heterogeneous(count, value, !veto) })
-						_ => Gui.Action.none
+						_ => Gui.Action.none()
 					},
 				}),
 				Gui.button({ caption: "Typed 1,000", label: "Build heterogeneous tree of 1,000", on_press: |_, _| Gui.Action.update({ shape: Heterogeneous(1000, 0, False) }) }),

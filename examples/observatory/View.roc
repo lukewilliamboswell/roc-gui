@@ -402,7 +402,7 @@ window_keys = [
 show_view : Observatory.State, Observatory.View -> Gui.Action(Observatory.State)
 show_view = |current, view| match current.capture {
 	Some(_) => Observatory.fulfil({ ..current, request: Some(Show(view)) })
-	None => Gui.Action.none
+	None => Gui.Action.none()
 }
 
 authority_bar : Observatory.State -> Gui.Elem(Observatory.State)
@@ -1229,7 +1229,7 @@ cycles_section = |state, opened| {
 						on_range: Some(
 							|current, visible| match Observatory.cycles_wanted(current, visible) {
 								Some(offset) => Observatory.ask(current, ReadCycles(offset))
-								None => Gui.Action.none
+								None => Gui.Action.none()
 							},
 						),
 					}),
@@ -1859,7 +1859,7 @@ spec = |state, opened| {
 									on_range: Some(
 										|current, visible| match Observatory.steps_wanted(current, visible) {
 											Some(offset) => Observatory.ask(current, ReadSteps(offset))
-											None => Gui.Action.none
+											None => Gui.Action.none()
 										},
 									),
 								}),
@@ -2250,7 +2250,7 @@ distribution = |state, opened| {
 				primitives: hover_mark.concat(bars).concat(edges).concat(axis).concat(markers).append(readout).concat(hits),
 				on_pointer: |current, event| match (event.phase, target_of(event.target, Capture.bucket_count)) {
 					(Begin, Some(bucket)) => Observatory.ask(current, FilterBucket(bucket, count_of(bucket)))
-					_ => Gui.Action.none
+					_ => Gui.Action.none()
 				},
 				on_hover: Some(
 					|current, event| {
@@ -2258,7 +2258,7 @@ distribution = |state, opened| {
 							Move => target_of(event.target, Capture.bucket_count)
 							Leave => None
 						}
-						if hovered == current.bucket_hover Gui.Action.none else Gui.Action.update({ ..current, bucket_hover: hovered })
+						if hovered == current.bucket_hover Gui.Action.none() else Gui.Action.update({ ..current, bucket_hover: hovered })
 					},
 				),
 				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
@@ -2405,9 +2405,9 @@ frame_strip = |state, opened| {
 			on_pointer: |current, event| match (event.phase, target_of(event.target, columns)) {
 				(Begin, Some(column)) => match bar_at(column) {
 					Some(bar) => Observatory.ask(current, SelectFrame(bar))
-					None => Gui.Action.none
+					None => Gui.Action.none()
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 			on_hover: Some(
 				|current, event| {
@@ -2415,13 +2415,13 @@ frame_strip = |state, opened| {
 						Move => target_of(event.target, columns)
 						Leave => None
 					}
-					if column == current.frame_hover Gui.Action.none else Gui.Action.update({ ..current, frame_hover: column })
+					if column == current.frame_hover Gui.Action.none() else Gui.Action.update({ ..current, frame_hover: column })
 				},
 			),
 			on_wheel: Some(
 				|current, wheel| match zoomed(current.strip.strip, chart_plot(current), wheel) {
 					Some(next) => Observatory.ask(current, ShowFrames(next.start, next.span))
-					None => Gui.Action.none
+					None => Gui.Action.none()
 				},
 			),
 			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
@@ -2718,7 +2718,7 @@ list_passes = |state, opened| if !Capture.complete(opened, "virtual_list_materia
 		Gui.canvas({
 			label: "List passes",
 			primitives: pass_bars.concat(visible_marks).concat(chart_captions),
-			on_pointer: |_, _| Gui.Action.none,
+			on_pointer: |_, _| Gui.Action.none(),
 			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
 			width: chart_width,
 			height: Px(110),
@@ -2970,7 +2970,13 @@ tab_key = |text| U64.from_str(text) ?? 0
 same_tabs : Observatory.State, Observatory.State -> Bool
 same_tabs = |a, b| {
 	titles = |state| state.tabs.map(|tab| { key: tab.key, baseline: Observatory.holds_baseline(state, tab) })
-	titles(a) == titles(b) and Observatory.on_screen_tab(a) == Observatory.on_screen_tab(b) and (a.capture == None) == (b.capture == None)
+	titles(a) == titles(b) and Observatory.on_screen_tab(a) == Observatory.on_screen_tab(b) and has_capture(a) == has_capture(b)
+}
+
+has_capture : Observatory.State -> Bool
+has_capture = |state| match state.capture {
+	Some(_) => True
+	None => False
 }
 
 render : Observatory.State -> Gui.Elem(Observatory.State)

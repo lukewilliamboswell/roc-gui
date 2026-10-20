@@ -184,7 +184,7 @@ start_pick = |state| {
 			}
 		},
 		resolve: |latest, result| if !is_current(latest, request.id) {
-			Gui.Action.none
+			Gui.Action.none()
 		} else {
 			match result {
 				PickFailed(failure) => Gui.Action.update({ ..latest, status: Failed({ hint: failure.hint, message: failure.message, retry: PickAgain }) })
@@ -214,7 +214,7 @@ open_child = |state, parent, name| {
 			}
 		},
 		resolve: |latest, result| if !is_current(latest, request.id) {
-			Gui.Action.none
+			Gui.Action.none()
 		} else {
 			match result {
 				OpenFailed(failure) => Gui.Action.update({ ..latest, status: Failed({ hint: failure.hint, message: "${failure.message}: ${name}", retry: OpenAgain({ parent, name }) }) })
@@ -225,11 +225,11 @@ open_child = |state, parent, name| {
 }
 
 go_to = |state, depth| match state.view {
-	Empty => Gui.Action.none
+	Empty => Gui.Action.none()
 	Showing(view) => {
 		trail = view.trail.take_first(depth + 1)
 		if trail.len() == view.trail.len() {
-			Gui.Action.none
+			Gui.Action.none()
 		} else {
 			target = trail.last() ?? crash "non-empty breadcrumb trail"
 			request = begin(state)
@@ -237,7 +237,7 @@ go_to = |state, depth| match state.view {
 				pending: request.pending,
 				run: || target.directory.list!(),
 				resolve: |latest, result| if !is_current(latest, request.id) {
-					Gui.Action.none
+					Gui.Action.none()
 				} else {
 					match result {
 						Err(error) => Gui.Action.update({ ..latest, status: Failed({ hint: hint_for(error), message: "${describe(error)}: ${target.name}", retry: ReturnAgain(depth) }) })

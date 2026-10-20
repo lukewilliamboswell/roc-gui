@@ -10,7 +10,7 @@ State : { rows : Gui.Index(RowState), order : List(U64), selected : U64, compact
 
 create_rows : U64 -> State
 create_rows = |count| {
-	var $rows = Gui.Index.empty
+	var $rows = Gui.Index.empty()
 	var $order = []
 	for _ in List.repeat({}, count) {
 		id = $order.len() + 1
@@ -108,7 +108,7 @@ render = |state| {
 							caption: "Select",
 							label: "Select row ${id.to_str()}",
 							on_press: |current, _| if current.selected == id {
-								Gui.Action.none
+								Gui.Action.none()
 							} else {
 								Gui.Action.update({ ..current, selected: id })
 							},

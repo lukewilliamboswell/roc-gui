@@ -81,13 +81,13 @@ handle_request = |state, key| {
 incident_update : QueueRow, (Incident -> Incident) -> Gui.Action(QueueRow)
 incident_update = |row, change| match row {
 	IncidentRow(value) => Gui.Action.update(IncidentRow(change(value)))
-	_ => Gui.Action.none
+	_ => Gui.Action.none()
 }
 
 incident_delegate : QueueRow, IncidentRequest -> Gui.Action(QueueRow)
 incident_delegate = |row, request| match row {
 	IncidentRow(value) => Gui.Action.delegate(IncidentRow({ ..value, request }))
-	_ => Gui.Action.none
+	_ => Gui.Action.none()
 }
 
 render_incident : QueueRow -> Gui.Elem(QueueRow)
@@ -144,7 +144,7 @@ render_incident = |row| {
 control_delegate : QueueRow, ControlRequest -> Gui.Action(QueueRow)
 control_delegate = |row, request| match row {
 	ControlRow(value) => Gui.Action.delegate(ControlRow({ ..value, request }))
-	_ => Gui.Action.none
+	_ => Gui.Action.none()
 }
 
 render_controls : QueueRow -> Gui.Elem(QueueRow)

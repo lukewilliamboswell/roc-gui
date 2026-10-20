@@ -126,6 +126,12 @@ refused = |status| match status {
 	_ => False
 }
 
+is_connected : Configurator.State -> Bool
+is_connected = |state| match state.connected {
+	Some(_) => True
+	None => False
+}
+
 mark = |bytes, name, size| Gui.image(
 	{ label: name, bytes, format: Svg, width: Px(size), height: Px(size) },
 )
@@ -211,7 +217,7 @@ status_strip = |state| {
 ## both. A Disconnect control for a device nobody connected is not a safeguard,
 ## it is a button whose only possible outcome is an apology.
 device_card = |state, index, device| {
-	open = state.connected != None
+	open = is_connected(state)
 	Gui.col(
 		{
 			label: "Device ${index.to_str()}",
@@ -290,7 +296,7 @@ devices_panel = |state| Theme.panel(
 		Theme.secondary(
 			if state.devices.is_empty() "Discover devices" else "Discover again",
 			"Discover devices",
-			state.connected == None and !refused(state.status),
+			!is_connected(state) and !refused(state.status),
 			|current, _| Configurator.discover(current),
 		),
 	].concat(
@@ -329,7 +335,7 @@ range = |sensitivity| {
 				{ key: 2, label: "Range fill", x: 0, y: 0, width: if filled < 4 4 else filled, height: range_height, fill: Theme.link_deep, radius: 5 },
 			),
 		],
-		on_pointer: |_, _| Gui.Action.none,
+		on_pointer: |_, _| Gui.Action.none(),
 		width: Px(range_width),
 		height: Px(range_height),
 		min_width: Px(range_width),

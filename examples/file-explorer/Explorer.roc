@@ -203,18 +203,18 @@ open_folder = |state, current, name| Gui.Action.task({
 })
 
 go_back = |state, current| match state.back.last() {
-	Err(_) => Gui.Action.none
+	Err(_) => Gui.Action.none()
 	Ok(previous) => Gui.Action.update({ ..state, back: state.back.drop_last(1), forward: state.forward.append(current), read: Unread, selection: NoneSelected, view: Showing(previous) })
 }
 
 go_forward = |state, current| match state.forward.last() {
-	Err(_) => Gui.Action.none
+	Err(_) => Gui.Action.none()
 	Ok(next) => Gui.Action.update({ ..state, back: state.back.append(current), forward: state.forward.drop_last(1), read: Unread, selection: NoneSelected, view: Showing(next) })
 }
 
 go_root = |state, current| match state.root {
-	None => Gui.Action.none
-	Some(root) => if root.trail == current.trail Gui.Action.none else Gui.Action.update({ ..state, back: state.back.append(current), forward: [], read: Unread, selection: NoneSelected, view: Showing(root) })
+	None => Gui.Action.none()
+	Some(root) => if root.trail == current.trail Gui.Action.none() else Gui.Action.update({ ..state, back: state.back.append(current), forward: [], read: Unread, selection: NoneSelected, view: Showing(root) })
 }
 
 ## One text run in a chosen colour and size. `Elem.text` inherits both.

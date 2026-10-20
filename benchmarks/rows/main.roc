@@ -76,7 +76,7 @@ render_row = |row| Gui.row(
 			caption: "Select",
 			label: "Select row ${row.id.to_str()}",
 			on_press: |state, _| if state.selected == row.id {
-				Gui.Action.none
+				Gui.Action.none()
 			} else {
 				Gui.Action.update({ ..state, selected: row.id })
 			},

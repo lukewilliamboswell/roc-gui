@@ -14,11 +14,11 @@ active = 0x66E0FF.Gui.Color
 trailing = 0xD58AFF.Gui.Color
 
 enter : Cell -> Gui.Action(Cell)
-enter = |cell| if cell.inside Gui.Action.none else Gui.Action.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
+enter = |cell| if cell.inside Gui.Action.none() else Gui.Action.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
 
 leave : Cell -> Gui.Action(Cell)
 leave = |cell| if !cell.inside {
-	Gui.Action.none
+	Gui.Action.none()
 } else {
 	generation = cell.generation
 	Gui.Action.task({
@@ -34,7 +34,7 @@ leave = |cell| if !cell.inside {
 		resolve: |latest, tick| if tick == Fired and !latest.inside and latest.generation == generation {
 			Gui.Action.update({ ..latest, lit: False })
 		} else {
-			Gui.Action.none
+			Gui.Action.none()
 		},
 	})
 }
@@ -63,8 +63,8 @@ render_cell = |cell| Gui.button({
 
 make_tree : U64, U64, U64, U64, U64, U64, U64, U64 -> Tree
 make_tree = |width, height, x, y, columns, id, depth, seed| {
-	var $children = Gui.Index.empty
-	var $sizes = Gui.Index.empty
+	var $children = Gui.Index.empty()
+	var $sizes = Gui.Index.empty()
 	var $order = []
 	if width > 1 or height > 1 {
 		left = if width > 1 width / 2 else width

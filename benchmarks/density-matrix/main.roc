@@ -16,7 +16,7 @@ high_interaction = 2500.U64
 
 make_dashboard : U64, U64, U64 -> State
 make_dashboard = |visual_count, interaction_count, first_identity| {
-	var $controls = Gui.Index.empty
+	var $controls = Gui.Index.empty()
 	var $id = 1.U64
 	for _ in List.repeat({}, interaction_count) {
 		$controls = Gui.Index.set($controls, $id, { id: $id, key: Gui.Key.id(first_identity + $id - 1), presses: 0 })
