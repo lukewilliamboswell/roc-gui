@@ -1472,7 +1472,7 @@ revocable destination broker rather than treating that flag as user consent.
 
 TCP operations block and belong inside `Gui.Action.task`. Protocol packages build
 on the byte transport rather than being reimplemented by the platform. The
-Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
+Redis Explorer adapts a stream with `roc-redis`'s `ByteIo.from_empty_eof`, so
 command encoding, bounded RESP2 decoding, typed commands, and exchange policy
 remain the responsibility of the established platform-independent package.
 

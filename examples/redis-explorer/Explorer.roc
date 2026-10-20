@@ -7,7 +7,7 @@ import redis.Client
 import redis.Commands
 import redis.Connection
 import redis.Execute
-import redis.Transport
+import redis.ByteIo
 import RedisData exposing [Key, Selection]
 
 ## Who holds the one stream.
@@ -59,7 +59,7 @@ Explorer := [].{
 
 connection : Gui.Tcp.Stream -> Connection.Connection(Gui.Tcp.TcpErr, Gui.Tcp.TcpErr)
 connection = |stream| {
-	transport = Transport.from_bytes_io({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
+	transport = ByteIo.from_empty_eof({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
 	Client.{}.attach(transport)
 }
 
