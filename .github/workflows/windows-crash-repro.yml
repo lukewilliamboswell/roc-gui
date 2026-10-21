@@ -29,7 +29,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: nightly-2026-10-20-7a8a800
-      - name: Build 40 times
+      - name: Build 40 times with roc build
         env:
           APP: ${{ matrix.app }}
           JOBS: ${{ matrix.jobs }}
@@ -37,7 +37,7 @@ jobs:
           flag=""; [ "$JOBS" = auto ] || flag="--jobs=$JOBS"
           crashes=0; other=0
           for i in $(seq 1 40); do
-            if roc check --no-cache $flag "$APP/main.roc" > out.txt 2>&1; then :; else
+            if roc build --no-cache --opt=dev $flag --output="$RUNNER_TEMP/app-$i" "$APP/main.roc" > out.txt 2>&1; then rm -f "$RUNNER_TEMP/app-$i"*; else
               if grep -q "Access violation" out.txt; then
                 crashes=$((crashes+1)); echo "::group::crash $i"; cat out.txt; echo "::endgroup::"
               else other=$((other+1)); echo "::group::other failure $i"; cat out.txt; echo "::endgroup::"; fi
