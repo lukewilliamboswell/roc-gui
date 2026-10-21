@@ -51,6 +51,52 @@ class HostReleasePolicyTests(unittest.TestCase):
                 )
             install.assert_called_once_with("arm64mac", destination, lock)
 
+    def host_lock(self, **change):
+        lock = {
+            "schema_version": 1, "kind": "roc-gui-host", "repository": gui_host_artifacts.REPOSITORY,
+            "release": "gui-hosts-sha256-" + "a" * 64,
+            "manifest": {"asset": "build-input-release.json", "sha256": "a" * 64},
+            "source": {"repository": gui_host_artifacts.REPOSITORY, "sha": "b" * 40,
+                       "ref": "refs/heads/feature", "workflow": gui_host_artifacts.WORKFLOW,
+                       "input_fingerprint": "c" * 64},
+            "targets": {identity: {"asset": identity + ".tar", "sha256": "d" * 64, "size": 1}
+                        for identity in gui_host_artifacts.IDENTITIES},
+        }
+        lock.update(change)
+        return lock
+
+    def read(self, lock, fingerprint="c" * 64):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "host.lock.json"
+            path.write_text(json.dumps(lock))
+            with patch.object(gui_host_artifacts, "source_fingerprint", return_value=fingerprint):
+                return gui_host_artifacts.read_host_lock(path), gui_host_artifacts.lock_matches_sources(path)
+
+    def test_host_lock_is_the_publisher_build_input_lock(self):
+        lock, matches = self.read(self.host_lock())
+        self.assertTrue(matches)
+        entry = gui_host_artifacts.host_entry(lock, "gui-host-sources-x64mingw")
+        self.assertEqual((entry["name"], entry["target"], entry["signer_workflow"]),
+                         ("gui-host-sources", "x64mingw", gui_host_artifacts.WORKFLOW))
+
+    def test_host_lock_for_other_sources_is_stale_not_invalid(self):
+        with self.assertRaises(gui_host_artifacts.StaleHosts):
+            self.read(self.host_lock(), fingerprint="e" * 64)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "host.lock.json"
+            path.write_text(json.dumps(self.host_lock()))
+            with patch.object(gui_host_artifacts, "source_fingerprint", return_value="e" * 64):
+                self.assertFalse(gui_host_artifacts.lock_matches_sources(path))
+
+    def test_host_lock_rejects_another_signer_or_a_missing_companion(self):
+        source = dict(self.host_lock()["source"], workflow="lukewilliamboswell/roc-gui/.github/workflows/ci.yml")
+        with self.assertRaisesRegex(ValueError, "source identity"):
+            self.read(self.host_lock(source=source))
+        targets = dict(self.host_lock()["targets"])
+        del targets["gui-host-sources-arm64mac"]
+        with self.assertRaisesRegex(ValueError, "invalid GUI host lock"):
+            self.read(self.host_lock(targets=targets))
+
     def test_notice_archive_rejects_missing_or_changed_index(self):
         packed = host_notice_payload.pack_notices({"LICENSE": b"terms"})
         self.assertIn("LICENSE", host_notice_payload.validate_notice_archive(packed))

@@ -3,20 +3,25 @@
 import argparse
 import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import shutil
 from contextlib import contextmanager
 
 from dependency_archive import write_archive
-from dependency_artifacts import materialize, read_lock, unpack_verified
+from dependency_artifacts import fetch, unpack_verified
 from host_notice_payload import NOTICE_FILES, SOURCE_KIND, validate_notices, validate_sources
 from toolchain import app_platform_span, replace_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "lukewilliamboswell/roc-gui"
 WORKFLOW = REPOSITORY + "/.github/workflows/gui-hosts.yml"
+KIND = "roc-gui-host"
 from host_build_identity import HOST_FILES, SOURCE_PATHS, compatible_source, source_fingerprint
+TARGETS = ("x64glibc", "arm64mac", "x64mingw")
+# Each target releases its host and the source companion its notices name.
+IDENTITIES = tuple(f"{name}-{target}" for target in TARGETS for name in ("gui-host", SOURCE_KIND))
 
 
 def pack_host(target, source, output, root=ROOT, notices=None):
@@ -78,61 +83,88 @@ def validate_publication_notices(tree, source_tree=None, root=ROOT):
     validate_sources(source_tree, manifest, data, host, (root / "Cargo.lock").read_bytes())
 
 
+class StaleHosts(ValueError):
+    """A valid host lock describes different host source inputs."""
+
+
+def read_host_lock(path, root=ROOT):
+    """Read the build-input lock the trusted publisher committed for the hosts."""
+    value = json.loads(path.read_text())
+    if (set(value) != {"schema_version", "kind", "repository", "release", "manifest", "source", "targets"}
+            or value["schema_version"] != 1 or value["kind"] != KIND or value["repository"] != REPOSITORY
+            or set(value["targets"]) != set(IDENTITIES)):
+        raise ValueError("invalid GUI host lock")
+    if (not re.fullmatch(r"gui-hosts-sha256-[0-9a-f]{64}", value["release"])
+            or value["manifest"].get("asset") != "build-input-release.json"
+            or not re.fullmatch(r"[0-9a-f]{64}", value["manifest"].get("sha256", ""))):
+        raise ValueError("invalid GUI host release identity")
+    source = value["source"]
+    if (set(source) != {"repository", "sha", "ref", "workflow", "input_fingerprint"}
+            or source["repository"] != REPOSITORY or not re.fullmatch(r"[0-9a-f]{40}", source["sha"])
+            or not source["ref"].startswith("refs/heads/") or source["workflow"] != WORKFLOW
+            or not re.fullmatch(r"[0-9a-f]{64}", source["input_fingerprint"])):
+        raise ValueError("invalid GUI host source identity")
+    for identity, record in value["targets"].items():
+        if (set(record) != {"asset", "sha256", "size"} or record["asset"] != identity + ".tar"
+                or not re.fullmatch(r"[0-9a-f]{64}", record["sha256"])
+                or type(record["size"]) is not int or not 0 < record["size"] <= 2 * 1024 ** 3):
+            raise ValueError("invalid GUI host asset record")
+    try:
+        fingerprint = source_fingerprint(root)
+    except ValueError as error:
+        raise StaleHosts(str(error)) from None
+    if source["input_fingerprint"] != fingerprint:
+        raise StaleHosts("GUI host lock does not match this checkout's host inputs")
+    return value
+
+
+def host_entry(lock, identity):
+    """The archive identity `fetch` and `unpack_verified` admit for one asset."""
+    record = lock["targets"][identity]
+    name, _, target = identity.rpartition("-")
+    return {
+        "name": name, "target": target, "repository": lock["repository"],
+        "release": lock["release"], "asset": record["asset"], "sha256": record["sha256"],
+        "size": record["size"], "source_sha": lock["source"]["sha"],
+        "source_ref": lock["source"]["ref"], "signer_workflow": lock["source"]["workflow"],
+        "input_fingerprint": lock["source"]["input_fingerprint"],
+    }
+
+
 def lock_matches_sources(lock_path, root=ROOT):
     """Whether a host lock describes the host inputs in this checkout.
 
-    A reviewed host release can only be published from `main`, so a change to
-    the host sources cannot have a matching release until it has landed. Asking
-    this question separately lets ordinary GUI CI build the host it is actually
-    testing in that case, instead of refusing the checkout outright and leaving
-    the change unmergeable. It reads the lock only; nothing is downloaded.
+    A host-source change has no matching release until its pull request has
+    produced and published one. Asking this question separately lets ordinary
+    GUI CI build the host it is actually testing in that case, instead of
+    refusing the checkout outright. It reads the lock only; nothing is
+    downloaded.
     """
     try:
-        fingerprint = source_fingerprint(root)
-    except ValueError:
-        # Uncommitted host sources have no fingerprint at all, so no published
-        # release can describe them. That is an answer, not a failure.
+        read_host_lock(lock_path, root)
+    except StaleHosts:
         return False
-    return all(entry.get("input_fingerprint") == fingerprint
-               for entry in read_lock(lock_path)["artifacts"].values())
+    return True
 
 
 @contextmanager
 def verified_hosts(lock_path, cache, root=ROOT, targets=None):
     """Verify provenance and compatibility before exposing any prebuilt host."""
-    lock = read_lock(lock_path)
-    for identity, entry in lock["artifacts"].items():
-        if (entry["name"] not in ("gui-host", SOURCE_KIND) or entry["target"] not in HOST_FILES
-                or identity != entry["name"] + "-" + entry["target"]
-                or entry["repository"] != REPOSITORY or entry["signer_workflow"] != WORKFLOW):
-            raise ValueError("host lock must select this repository's GUI host producer")
-    hosts = {identity: entry for identity, entry in lock["artifacts"].items() if entry["name"] == "gui-host"}
-    if not hosts or set(lock["artifacts"]) != set(hosts) | {SOURCE_KIND + "-" + e["target"] for e in hosts.values()}:
-        raise ValueError("host lock must include exactly one source companion per host")
-    current_fingerprint = source_fingerprint(root)
-    if any(entry.get("input_fingerprint") != current_fingerprint for entry in lock["artifacts"].values()):
-        raise ValueError("GUI host lock does not match this checkout's host inputs")
-    selected = hosts
-    if targets is not None:
-        targets = frozenset(targets)
-        selected = {identity: entry for identity, entry in hosts.items() if entry["target"] in targets}
-        if {entry["target"] for entry in selected.values()} != targets:
-            raise ValueError("host lock does not contain every selected target")
+    lock = read_host_lock(lock_path, root)
+    selected = tuple(targets) if targets is not None else TARGETS
+    if not set(selected) <= set(TARGETS):
+        raise ValueError("host lock does not contain every selected target")
     with tempfile.TemporaryDirectory(prefix="roc-gui-verified-hosts-") as temporary:
         destination = Path(temporary) / "inputs"
-        materialize(lock_path, tuple(selected), cache, destination)
-        for identity, entry in selected.items():
-            manifest = json.loads((destination / identity / "dependency.json").read_text())
-            validate_host(destination / identity, entry["target"], manifest.get("source_fingerprint"), root)
+        for target in selected:
+            identity = "gui-host-" + target
+            entry = host_entry(lock, identity)
+            unpack_verified(fetch(entry, cache), entry, destination / identity)
+            validate_host(destination / identity, target, lock["source"]["input_fingerprint"], root)
             notice = json.loads((destination / identity / "licenses/gui-host/NOTICE.json").read_text())
-            companion = lock["artifacts"][SOURCE_KIND + "-" + entry["target"]]
-            if (any(companion[k] != notice["source_companion"][k] for k in ("name", "target", "asset", "sha256", "size"))
-                    or any(companion[k] != entry[k] for k in
-                           ("repository", "release", "source_sha", "source_ref", "signer_workflow"))):
+            companion = lock["targets"][SOURCE_KIND + "-" + target]
+            if any(companion[k] != notice["source_companion"][k] for k in ("asset", "sha256", "size")):
                 raise ValueError("host source companion differs from its attested release identity")
-        # Preserve source download identities without adding source archives to
-        # the application's platform bundle or fetching them during every build.
-        (destination / "dependencies.lock.json").write_text(json.dumps(lock, indent=2) + "\n")
         yield destination
 
 

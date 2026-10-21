@@ -1,0 +1,43 @@
+name: Publish PR GUI hosts
+
+on:
+  workflow_dispatch:
+    inputs:
+      pull-request:
+        description: Open same-repository PR containing the host change
+        type: string
+        required: true
+      producer-run:
+        description: Successful producer run for the exact PR head (empty builds a new candidate)
+        type: string
+        required: false
+        default: ''
+
+permissions: {}
+
+concurrency:
+  group: publish-gui-hosts
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' && github.repository == 'lukewilliamboswell/roc-gui'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      actions: write
+      attestations: read
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Publish exact PR-produced hosts and adopt their lock
+        uses: lukewilliamboswell/roc-automation/actions/publish-build-inputs@26b692c5ce341efd5633793079d70c9e04559eac
+        with:
+          pull-request: ${{ inputs.pull-request }}
+          producer-workflow: gui-hosts.yml
+          producer-run: ${{ inputs.producer-run }}
+          candidate-artifact: gui-host-release
+          lock-path: host.lock.json
+          release-prefix: gui-hosts
+        env:
+          GH_TOKEN: ${{ github.token }}
