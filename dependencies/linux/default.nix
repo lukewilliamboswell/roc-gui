@@ -33,7 +33,6 @@ let
       ../../test/dependencies/unwind.cpp ../../test/dependencies/unwind.rs ../../test/dependencies/unwind-rust.c
     ] else [ (root + "/test/dependencies/${name}.c") ])
     ++ lib.optionals (name == "glibc") [ ../glibc ]
-    ++ lib.optionals (name == "freetype") [ ./zig-toolchain.cmake ]
     ++ lib.optionals (name == "xkbcommon") [ ../xkbcommon ]);
   };
   fetch = item: pkgs.fetchurl { inherit (item) url sha256; };

@@ -142,7 +142,7 @@ def unpack_verified(archive, entry, destination):
             pin_field = "nixpkgs_pin_sha256"
             build = manifest.get("build", {})
             if ((entry["name"], entry["target"]) not in {
-                    (name, "x64glibc") for name in ("alsa", "freetype", "glibc", "unwind", "xkbcommon")}
+                    (name, "x64glibc") for name in ("alsa", "glibc", "unwind", "xkbcommon")}
                     | {("windows-gnu-runtime", "x64mingw")}
                     or not re.fullmatch(r"/nix/store/[a-z0-9]{32}-[^/]+\.drv", build.get("builder_derivation", ""))
                     or not re.fullmatch(r"[0-9a-f]{40}", build.get("nixpkgs_revision", ""))
