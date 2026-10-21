@@ -59,13 +59,15 @@ def check(directory: Path, roc: str) -> None:
                 executable.parent.mkdir(parents=True, exist_ok=True)
                 subprocess.run([roc, "build", "--opt=dev", "--no-cache", f"--target={target}",
                                 f"--output={executable}", str(main)], check=True, timeout=180)
-                for spec in sorted(app.glob("specs/*.scm")):
-                    if (named := (source.parent / "specs" / spec.name).relative_to(ROOT).as_posix()) in INTERMITTENT:
+                # A case is named by its checkout paths, as run_specs.py names
+                # it; only the executable comes from the published bundle.
+                for spec in sorted(source.parent.glob("specs/*.scm")):
+                    if (named := spec.relative_to(ROOT).as_posix()) in INTERMITTENT:
                         print(f"SKIP {named}: {INTERMITTENT[named]}", flush=True)
                         continue
                     cases.append(Case(
                         spec=spec,
-                        app=main,
+                        app=source,
                         executable=executable,
                         capture=stage / "captures" / source.parent.parent.name / source.parent.name / f"{spec.stem}.rgstats",
                     ))

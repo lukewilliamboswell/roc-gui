@@ -241,8 +241,12 @@ jobs:
       - uses: ./.github/actions/setup-native-test
         with:
           target: ${{ matrix.target }}
+      # Observatory's fixture records real-window sessions, so Linux presents
+      # them through a private headless compositor, as CI does.
       - name: Serve and test the exact content-addressed bundle
-        run: python3 scripts/check_platform_bundle.py --directory "$RUNNER_TEMP/release"
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then present=(python3 scripts/headless_wayland.py --); else present=(); fi
+          "${present[@]}" python3 scripts/check_platform_bundle.py --directory "$RUNNER_TEMP/release"
 
   # The only job that can write. It checks out nothing and runs no repository
   # code: it attests the tested files and hands them to publish-release.
