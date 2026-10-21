@@ -65,7 +65,7 @@ class BlueprintLinkInputTests(unittest.TestCase):
 
     def evidence(self):
         return {"format": 1, "project": "/nix/store/" + "d" * 32 + "-source",
-                "packages": [{"name": "freetype-pkgs", "provider": "nix", "rev": "a" * 40,
+                "packages": [{"name": "default", "provider": "nix", "rev": "a" * 40,
                               "narHash": "sha256-" + "A" * 43 + "="}],
                 "files": [{"name": "freetype-source", "provider": "file", "sha256": digest(b"source")}],
                 "tools": [{"name": "python3", "path": "/nix/store/" + "c" * 32 + "-python"}]}
@@ -103,7 +103,7 @@ class BlueprintLinkInputTests(unittest.TestCase):
         manifest = unpack_verified(archive, {"name": "freetype", "target": "x64glibc"}, self.root / "contents")
         source = self.root / "contents/sources/freetype"
         expected = self.evidence()["packages"][0]
-        pin = {"format": 2, "sources": {"freetype-pkgs": {"provider": "nix", "metadata": {
+        pin = {"format": 2, "sources": {"default": {"provider": "nix", "metadata": {
             "nix": {"fetchTree": {"rev": expected["rev"], "narHash": expected["narHash"]}}}}}}
         with patch.object(adapter, "plan", return_value=self.result(schema=1)) as plan, patch.object(
                 adapter, "command", return_value=pin), patch.object(reproduction.subprocess, "run") as run:
@@ -112,7 +112,7 @@ class BlueprintLinkInputTests(unittest.TestCase):
         self.assertEqual(plan.call_count, 2)
         self.assertIn("FreeType.settings", (source / "Blueprint.roc").read_text())
         self.assertEqual((source / "scripts/build_freetype.py").stat().st_mode & 0o777, 0o644)
-        pin["sources"]["freetype-pkgs"]["metadata"]["nix"]["fetchTree"]["narHash"] = "sha256-" + "B" * 43 + "="
+        pin["sources"]["default"]["metadata"]["nix"]["fetchTree"]["narHash"] = "sha256-" + "B" * 43 + "="
         with patch.object(adapter, "plan", return_value=self.result(schema=1)) as plan, patch.object(
                 adapter, "command", return_value=pin), patch.object(reproduction.subprocess, "run"):
             with self.assertRaisesRegex(ValueError, "package pin differs"):

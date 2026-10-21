@@ -52,9 +52,9 @@ def check_blueprint_freetype(source, manifest):
     environment = dict(os.environ, BLUEPRINT_ROOT=str(source), BLUEPRINT_TARGET="x86_64-linux")
     subprocess.run([environment.get("BLUEPRINT", "blueprint"), "update"], cwd=source,
                    env=environment, check=True)
-    pins = blueprint_link_inputs.command(["lock", "show", "--json", "freetype-pkgs"], root=source)
+    pins = blueprint_link_inputs.command(["lock", "show", "--json", "default"], root=source)
     expected = json.loads((source / "blueprint-input-evidence.json").read_text())["packages"][0]
-    locked = pins.get("sources", {}).get("freetype-pkgs", {})
+    locked = pins.get("sources", {}).get("default", {})
     fetch = locked.get("metadata", {}).get("nix", {}).get("fetchTree", {})
     if (pins.get("format") != 2 or locked.get("provider") != expected["provider"]
             or fetch.get("rev") != expected["rev"] or fetch.get("narHash") != expected["narHash"]):

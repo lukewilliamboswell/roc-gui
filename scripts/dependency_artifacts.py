@@ -283,7 +283,7 @@ def validate_blueprint_freetype_evidence(evidence):
     packages, files = evidence["packages"], evidence["files"]
     if (not isinstance(packages, list) or len(packages) != 1 or not isinstance(packages[0], dict)
             or set(packages[0]) != {"name", "provider", "rev", "narHash"}
-            or packages[0]["name"] != "freetype-pkgs" or packages[0]["provider"] != "nix"
+            or packages[0]["name"] != "default" or packages[0]["provider"] != "nix"
             or not HEX160.fullmatch(packages[0]["rev"])
             or not re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", packages[0]["narHash"])
             or not isinstance(files, list) or len(files) != 1 or not isinstance(files[0], dict)

@@ -97,7 +97,7 @@ def input_evidence(path=None):
 
 
 def tool_root(name):
-    return Path(os.environ["BLUEPRINT_TOOLS"]) / ("freetype-pkgs#" + name)
+    return Path(os.environ["BLUEPRINT_TOOLS"]) / ("default#" + name)
 
 
 def configure_environment(work):

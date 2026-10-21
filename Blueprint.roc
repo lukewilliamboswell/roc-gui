@@ -10,7 +10,6 @@ roc_tool = Tool.from_quote("default#rocpkgs.${roc_version.trim()}") ?? crash "In
 config = [
 	Name("roc-gui"),
 	Systems(["x86_64-linux", "aarch64-darwin"]),
-	Packages("default", From(NixPackages("github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc"))),
 	Overlay("roc", "github:roc-lang/roc-overlay"),
 	Resolver("nix", ["roc"]),
 	Environment(
