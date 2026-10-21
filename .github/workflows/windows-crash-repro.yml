@@ -1,0 +1,46 @@
+name: Windows compiler crash repro (scratch)
+
+# Throwaway: loops `roc build` on Windows to measure the 0x5b4 type-check
+# crash with the default worker count and with one worker. Not for merging.
+on:
+  push:
+    branches: [scratch/windows-crash-repro]
+
+permissions:
+  contents: read
+
+jobs:
+  loop:
+    name: ${{ matrix.app }} jobs=${{ matrix.jobs }}
+    runs-on: windows-2025
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [benchmarks/checkboxes, examples/http-workbench]
+        jobs: [auto, '1']
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-roc
+        with:
+          nightly-tag: nightly-2026-10-20-7a8a800
+      - name: Build 40 times
+        env:
+          APP: ${{ matrix.app }}
+          JOBS: ${{ matrix.jobs }}
+        run: |
+          flag=""; [ "$JOBS" = auto ] || flag="--jobs=$JOBS"
+          crashes=0; other=0
+          for i in $(seq 1 40); do
+            if roc check --no-cache $flag "$APP/main.roc" > out.txt 2>&1; then :; else
+              if grep -q "Access violation" out.txt; then
+                crashes=$((crashes+1)); echo "::group::crash $i"; cat out.txt; echo "::endgroup::"
+              else other=$((other+1)); echo "::group::other failure $i"; cat out.txt; echo "::endgroup::"; fi
+            fi
+          done
+          echo "RESULT app=$APP jobs=$JOBS crashes=$crashes other=$other runs=40" | tee -a "$GITHUB_STEP_SUMMARY"
