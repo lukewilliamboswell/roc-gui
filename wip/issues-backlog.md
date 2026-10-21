@@ -1417,6 +1417,14 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Release infrastructure
 
+- [ ] **A release tests only the semantic specifications of its bundle.**
+  `scripts/check_platform_bundle.py` builds every application from the
+  published bundle on each target but runs only the specifications the host
+  describes as semantic. Window specifications run in CI's native jobs against
+  the same host, not against the bundle. Run them in the release test too:
+  under `scripts/headless_wayland.py` on Linux, and serially on macOS and
+  Windows with the exclusions CI's native window job applies.
+
 - [ ] **Validate Windows host packaging.** The unified linker-input release
   supplies the GNU runtime and `roc-gui.res`; the host derives its own
   `windows-imports.lib` with a schema 2 normalization receipt. The Windows host

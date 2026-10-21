@@ -16,7 +16,7 @@ import threading
 
 from host_build_identity import TARGETS
 from toolchain import replace_platform, verify_compiler
-from run_specs import INTERMITTENT, SKIP_HOST_BUILD, Case, fixture_services, run_case
+from run_specs import INTERMITTENT, SKIP_HOST_BUILD, Case, describe, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,9 +71,13 @@ def check(directory: Path, roc: str) -> None:
                     ))
                 if source.parent.name == "counter" and platform.system() == "Darwin":
                     subprocess.run([str(executable), "--host-gpui-smoke"], check=True, timeout=30)
-            with fixture_services(cases, stage / "fixtures"):
-                for case in cases:
-                    _, error = run_case(case, 180, 1)
+            # The host says which runner each specification needs and which
+            # loopback services it declares, as it does for run_specs.py.
+            described = describe(cases)
+            semantic = [case for case in cases if described[case.spec]["runner"] == "semantic"]
+            with fixture_services(semantic, described, stage / "fixtures"):
+                for case in semantic:
+                    _, error = run_case(case, described[case.spec], 180, 1)
                     if error is not None:
                         raise RuntimeError(f"{case.spec}: {error}")
     finally:
