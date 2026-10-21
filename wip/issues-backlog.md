@@ -1205,7 +1205,8 @@ names the reproduction so the workaround can be removed when the fix lands.
   points (macOS) or 1024x720 (Windows): CI runs 36519276403 and
   36509812236. The rectangle lies inside the window, so the check or a
   clipping ancestor disagrees with the layout. It passes on Linux at
-  1920x1080. `native.yml` excludes it from the window job. Find why the
+  1920x1080. `native.yml` excludes it from the window job, and `link-inputs.yml`
+  from its macOS validation. Find why the
   button reads as off screen and remove the exclusion.
 
 - [ ] **Text in a produced row reports the next row's bounds.** In the Database
