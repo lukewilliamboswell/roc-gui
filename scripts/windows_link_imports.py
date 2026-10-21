@@ -39,8 +39,10 @@ DEFINITION = "windows-imports.def"
 LINKER_DEFINED = frozenset({"__ImageBase", "__CTOR_LIST__", "__DTOR_LIST__"})
 APPLICATION_PREFIX = "roc_"
 # The DLLs whose complete exports the application may import: the Roc
-# compiler's own runtime objects call kernel32 as C code calls the UCRT.
-APPLICATION_ABI = ("kernel32",)
+# compiler's own runtime objects call kernel32 as C code calls the UCRT, and
+# from nightly-2026-10-20 its allocator calls NtAllocateVirtualMemory and
+# NtFreeVirtualMemory in ntdll.
+APPLICATION_ABI = ("kernel32", "ntdll")
 IMPORT_CODE, IMPORT_DATA = 0, 1
 # Archive index and name-table members, which are not objects.
 SPECIAL_MEMBERS = frozenset({"/", "//", "/SYM64/", "/<ECSYMBOLS>/"})
