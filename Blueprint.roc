@@ -1,4 +1,4 @@
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.4.0-rc1/DWAeBdDr2vi43QDRpaq8t1C8UTvdyKUHR6aSaewNaKRx.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.7.0/2uNhR8ABbx3F9c7wsLUKAicewL1Jjs1fuYGe6Xe5qZwX.tar.zst" }
 
 import pf.Tool
 import dependencies/FreeType

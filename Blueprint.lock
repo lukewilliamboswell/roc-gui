@@ -1,6 +1,7 @@
 (
+	(fetched ())
 	(format (
-		(major 1)
+		(major 2)
 		(minor 0)))
 	(hints ((
 		(provider "nix")
@@ -162,9 +163,15 @@
 		(overlays ((
 			(environment "dev")
 			(overlays ("roc")))))
+		(resolvers ((
+			(inputs ("roc"))
+			(provider "nix"))))
 		(sources ((
 			(name "default")
-			(provider (NixPackages "github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc")))))))
+			(provider (
+				(name "nix")
+				(ref "github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc")
+				(version 1))))))))
 	(sources ((
 		(digest "sha256:318888f82ccbd2db968113e31ac2820c7a98b364f73b332531058e6161b4aaca")
 		(name "default")
@@ -175,4 +182,9 @@
 		(name "roc")
 		(provider "nix")
 		(ref "github:roc-lang/roc-overlay")
-		(rev "2ef187164e6856a73a53424dd453acb9b4e484c9")))))
+		(rev "2ef187164e6856a73a53424dd453acb9b4e484c9")) (
+		(digest "sha256:36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f")
+		(name "freetype-source")
+		(provider "file")
+		(ref "https://download.savannah.gnu.org/releases/freetype/freetype-2.14.3.tar.xz")
+		(rev "")))))
