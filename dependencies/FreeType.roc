@@ -30,7 +30,6 @@ FreeType :: [].{
 						"default#patchelf",
 						"default#binutils",
 						"default#glibc",
-						"default#glibc.dev",
 						"default#zlib",
 						"default#zlib.dev",
 						"default#bzip2.out",
