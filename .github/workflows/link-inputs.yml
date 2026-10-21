@@ -95,9 +95,10 @@ jobs:
       - name: Install native desktop runtime for portability validation
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig xvfb
+          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig sway libvulkan1 mesa-vulkan-drivers
+      # Linux windows present through a private headless Wayland compositor.
       - name: Final-link and exercise the exact candidate outside Nix
-        run: xvfb-run -a python3 scripts/test_linux_link_inputs.py "$RUNNER_TEMP/candidate" --output "$RUNNER_TEMP/counter"
+        run: python3 scripts/headless_wayland.py -- python3 scripts/test_linux_link_inputs.py "$RUNNER_TEMP/candidate" --output "$RUNNER_TEMP/counter"
 
   macos:
     name: Build and validate macOS interfaces
