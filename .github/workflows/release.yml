@@ -204,7 +204,7 @@ jobs:
 
   test:
     name: Test the exact bundle (${{ matrix.target }})
-    needs: [validate, build]
+    needs: [validate, host, build]
     runs-on: ${{ matrix.os }}
     # Every example and benchmark is built from the bundle and every one of
     # their specifications runs. The Windows runner is the slowest by a wide
@@ -236,11 +236,11 @@ jobs:
         with:
           name: release-candidate
           path: ${{ runner.temp }}/release
-      - name: Install Linux runtime libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0
+      # The applications' fixtures are recorded by this run's own host for the
+      # target, the bytes the bundle carries, admitted rather than rebuilt.
+      - uses: ./.github/actions/setup-native-test
+        with:
+          target: ${{ matrix.target }}
       - name: Serve and test the exact content-addressed bundle
         run: python3 scripts/check_platform_bundle.py --directory "$RUNNER_TEMP/release"
 

@@ -16,7 +16,7 @@ import threading
 
 from host_build_identity import TARGETS
 from toolchain import replace_platform, verify_compiler
-from run_specs import INTERMITTENT, Case, fixture_services, run_case
+from run_specs import INTERMITTENT, SKIP_HOST_BUILD, Case, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,11 +32,13 @@ def check(directory: Path, roc: str) -> None:
     target = TARGETS.get((platform.system(), platform.machine()))
     if target is None:
         raise ValueError("bundle validation requires a supported native runner")
+    # The fixtures are recorded by the host this run built and bundled, which
+    # the job has admitted into platform/targets; nothing here builds a host.
     subprocess.run(
         [sys.executable, str(ROOT / "scripts/bootstrap.py")],
         cwd=ROOT,
         check=True,
-        env={**os.environ, "ROC": roc},
+        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1"},
     )
     handler = partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
