@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Shared actions are pinned by full SHA; each new one arrives as a pull
+  # request to review like any other dependency.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
