@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble and bundle the platform from exact locked release artifacts."""
+"""Assemble and bundle the platform from its tested hosts and locked linker inputs."""
 
 import argparse
 import json
@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import tempfile
 
-from dependency_artifacts import fetch, materialize, read_lock, sha256, unpack_verified
+from dependency_artifacts import fetch, sha256, unpack_verified, verify_archive
 from gui_host_artifacts import validate_host, validate_publication_notices
 from host_build_identity import HOST_FILES, source_fingerprint
 from link_input_artifacts import TARGETS as LINK_TARGETS, _entry as link_entry, install as install_link_inputs, read_lock as read_link_lock
@@ -16,33 +16,38 @@ from link_input_artifacts import TARGETS as LINK_TARGETS, _entry as link_entry, 
 from toolchain import check_unpinned, compiler_version
 
 ROOT = Path(__file__).resolve().parents[1]
-HOSTS = ("gui-host-x64glibc", "gui-host-arm64mac", "gui-host-x64mingw")
-HOST_SOURCES = (
-    "gui-host-sources-x64glibc", "gui-host-sources-arm64mac",
-    "gui-host-sources-x64mingw",
-)
+HOST_TARGETS = ("x64glibc", "arm64mac", "x64mingw")
 
 
-def assemble(output: Path, roc: str, link_lock: Path, host_lock: Path, cache: Path) -> Path:
+def host_archives(directory: Path) -> dict:
+    """Every target's host and source companion, as composed by host-candidate.yml."""
+    names = {f"{kind}-{target}.tar" for target in HOST_TARGETS for kind in ("gui-host", "gui-host-sources")}
+    if {path.name for path in directory.glob("*.tar")} != names:
+        raise ValueError("platform releases require every target's host and its source companion")
+    return {name.removesuffix(".tar"): {"asset": name, "sha256": sha256(directory / name),
+                                       "size": (directory / name).stat().st_size}
+            for name in sorted(names)}
+
+
+def assemble(output: Path, roc: str, link_lock: Path, host_directory: Path, cache: Path) -> Path:
     check_unpinned(ROOT)
     compiler = compiler_version(roc)
     external_lock = read_link_lock(link_lock)
-    hosts_lock = read_lock(host_lock)
     if external_lock["repository"] != "lukewilliamboswell/roc-gui":
         raise ValueError("platform releases require roc-gui-owned external inputs")
-    if set(hosts_lock["artifacts"]) != set(HOSTS) | set(HOST_SOURCES):
-        raise ValueError("platform releases require one source companion per host")
-    if any(hosts_lock["artifacts"][name]["repository"] != "lukewilliamboswell/roc-gui" for name in (*HOSTS, *HOST_SOURCES)):
-        raise ValueError("platform releases require independently released roc-gui hosts")
+    fingerprint = source_fingerprint(ROOT)
+    hosts_record = host_archives(host_directory)
     output.mkdir(parents=True, exist_ok=False)
     with tempfile.TemporaryDirectory(prefix="roc-gui-bundle-") as temporary:
         temporary = Path(temporary)
         hosts = temporary / "hosts"
-        materialize(host_lock, (*HOSTS, *HOST_SOURCES), cache, hosts)
-        fingerprint = source_fingerprint(ROOT)
-        for identity in HOSTS:
-            target = hosts_lock["artifacts"][identity]["target"]
-            tree = hosts / identity
+        for identity, record in hosts_record.items():
+            kind, _, target = identity.rpartition("-")
+            entry = {"name": kind, "target": target, **record}
+            verify_archive(host_directory / record["asset"], entry)
+            unpack_verified(host_directory / record["asset"], entry, hosts / identity)
+        for target in HOST_TARGETS:
+            tree = hosts / f"gui-host-{target}"
             validate_host(tree, target, fingerprint, ROOT)
             validate_publication_notices(tree, hosts / f"gui-host-sources-{target}", ROOT)
         platform = temporary / "platform"
@@ -58,8 +63,8 @@ def assemble(output: Path, roc: str, link_lock: Path, host_lock: Path, cache: Pa
                 source = tree / category
                 if source.is_dir():
                     shutil.copytree(source, notices / target / category)
-        for identity in HOSTS:
-            target = hosts_lock["artifacts"][identity]["target"]
+        for target in HOST_TARGETS:
+            identity = f"gui-host-{target}"
             for name in HOST_FILES[target]:
                 destination = targets / target / name
                 destination.parent.mkdir(parents=True, exist_ok=True)
@@ -67,7 +72,6 @@ def assemble(output: Path, roc: str, link_lock: Path, host_lock: Path, cache: Pa
             shutil.copytree(hosts / identity / "licenses", notices / identity / "licenses")
         shutil.copyfile(ROOT / "THIRD_PARTY_LICENSES.md", platform / "THIRD_PARTY_LICENSES.md")
         (platform / "link-inputs.lock.json").write_text(json.dumps(external_lock, indent=2) + "\n")
-        (platform / "host.lock.json").write_text(json.dumps(hosts_lock, indent=2) + "\n")
         bundle_files = [
             "main.roc",
             *sorted(
@@ -85,13 +89,18 @@ def assemble(output: Path, roc: str, link_lock: Path, host_lock: Path, cache: Pa
     if len(bundles) != 1:
         raise ValueError("roc bundle must emit exactly one content-addressed .tar.zst")
     bundle = bundles[0]
+    # Each host's notices name its source companion as an asset of the release
+    # that ships the host, which is this one.
+    for target in HOST_TARGETS:
+        name = f"gui-host-sources-{target}.tar"
+        shutil.copyfile(host_directory / name, output / name)
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "bundle": {"name": bundle.name, "sha256": sha256(bundle), "size": bundle.stat().st_size},
         "compiler": compiler,
-        "targets": [hosts_lock["artifacts"][identity]["target"] for identity in HOSTS],
+        "targets": list(HOST_TARGETS),
         "external_inputs": external_lock,
-        "host_inputs": {name: hosts_lock["artifacts"][name] for name in (*HOSTS, *HOST_SOURCES)},
+        "hosts": {"source_fingerprint": fingerprint, "archives": hosts_record},
     }
     (output / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return bundle
@@ -101,7 +110,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--link-inputs", type=Path, default=ROOT / "link-inputs.lock.json")
-    parser.add_argument("--hosts", type=Path, default=ROOT / "host.lock.json")
+    parser.add_argument("--hosts", type=Path, required=True,
+                        help="Directory holding every target's tested host and source companion")
     parser.add_argument("--cache", type=Path, default=Path.home() / ".cache/roc-gui/dependencies")
     parser.add_argument("--roc", default="roc")
     args = parser.parse_args()

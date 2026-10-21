@@ -15,7 +15,6 @@ on:
     paths:
       - .github/workflows/release.yml
       - docs/releases/**
-      - host.lock.json
       - link-inputs.lock.json
       - scripts/bundle_examples.py
       - scripts/bundle_platform.py
@@ -97,11 +96,50 @@ jobs:
           sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
       - run: blueprint run check
 
-  # Bundle once from the locked hosts and linker inputs, and build everything
-  # else a release holds from that bundle.
+  # Each target's host is built fresh on its own system from the release
+  # commit, then composed with its notices and source companion.
+  host:
+    name: Host
+    needs: validate
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: x64glibc }
+          - { os: macos-15, target: arm64mac }
+          - { os: windows-2025, target: x64mingw }
+    uses: ./.github/workflows/host.yml
+    with:
+      os: ${{ matrix.os }}
+      target: ${{ matrix.target }}
+      release: true
+      nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
+
+  candidate:
+    name: Host candidate
+    needs: [validate, host]
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: x64glibc }
+          - { os: macos-15, target: arm64mac }
+          - { os: windows-2025, target: x64mingw }
+    uses: ./.github/workflows/host-candidate.yml
+    with:
+      os: ${{ matrix.os }}
+      target: ${{ matrix.target }}
+      nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
+
+  # Bundle once from those hosts and the locked linker inputs, and build
+  # everything else a release holds from that bundle.
   build:
     name: Build the release
-    needs: [validate, check]
+    needs: [validate, check, candidate]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -119,12 +157,17 @@ jobs:
           sha256-x86_64-linux: 027b2c4d48084d7f6a49b60a378b14dc19920de78c245db3ddffb1db034c74e0
           sha256-aarch64-linux: f328879d0121f97bce52456dacd9a52a3f50f8dde68056797bb0163d02180a43
           sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
-      - name: Verify locked artifact attestations
+      - name: Verify the locked linker inputs' attestations
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/verify_release_attestations.py link-inputs.lock.json host.lock.json --cache "$RUNNER_TEMP/cache"
-      - name: Bundle exact locked bytes once
-        run: python3 scripts/bundle_platform.py --link-inputs link-inputs.lock.json --output "$RUNNER_TEMP/release" --cache "$RUNNER_TEMP/cache"
+        run: python3 scripts/verify_release_attestations.py link-inputs.lock.json --cache "$RUNNER_TEMP/cache"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: gui-host-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/hosts
+      - name: Bundle the tested hosts and locked linker inputs once
+        run: python3 scripts/bundle_platform.py --link-inputs link-inputs.lock.json --hosts "$RUNNER_TEMP/hosts" --output "$RUNNER_TEMP/release" --cache "$RUNNER_TEMP/cache"
       - name: Archive the examples against the release's bundle URL
         env:
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
@@ -226,6 +269,7 @@ jobs:
         with:
           subject-path: |
             candidate/*.tar.zst
+            candidate/*.tar
             candidate/*.tar.gz
             candidate/*.pdf
             candidate/*.zip
@@ -237,6 +281,7 @@ jobs:
           notes-file: notes/release-notes.md
           assets: |
             candidate/*.tar.zst
+            candidate/*.tar
             candidate/*.tar.gz
             candidate/*.pdf
             candidate/*.zip

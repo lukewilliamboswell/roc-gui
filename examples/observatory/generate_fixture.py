@@ -123,7 +123,6 @@ HOST_INPUTS = (
     "Cargo.toml",
     "Cargo.lock",
     "rust-toolchain.toml",
-    "host.lock.json",
     "dependencies.lock.json",
     "scripts/run_specs.py",
 )

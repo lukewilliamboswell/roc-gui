@@ -124,8 +124,7 @@ Every application keeps its specifications in one `specs/` directory beside
 python3 scripts/run_specs.py 'examples/counter/specs/*.scm'
 ----
 
-The driver verifies and stages a compatible released host, or builds the host
-when its source inputs changed. It then builds the application, classifies each
+The driver builds the host beside the locked linker inputs. It then builds the application, classifies each
 selected `.scm` file by the steps it contains, runs it in a fresh process, and
 prints the capture path for every passing case. Semantic specifications use the
 production event route and mounted graph without opening a GPUI window; window

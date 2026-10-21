@@ -14,10 +14,6 @@ an entry below or is a maintainer action.
 - [ ] Pass Observatory's window Timeline on macOS and Windows; see "RELEASE
   BLOCKER: Observatory's window Timeline fails on hosted macOS and Windows
   runners".
-- [ ] Publish GUI hosts for this checkout. The host source changed with the
-  regenerated bindings, and `gui-hosts.yml` builds from the default branch, so
-  this follows the merge of #40: dispatch it from the default branch and commit
-  the new `host.lock.json` in a follow-up pull request.
 - [ ] Build on Windows without the compiler crashing; see "RELEASE BLOCKER:
   the compiler intermittently crashes on Windows".
 - [ ] Make Observatory's folder rewatch deterministic and unskip it; see
@@ -1418,11 +1414,11 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Release infrastructure
 
-- [ ] **Validate Windows GUI-host release packaging.** The unified linker-input
-  release supplies the GNU runtime and `roc-gui.res`; the host derives its own
-  `windows-imports.lib` with a schema 2 normalization receipt. The Windows GUI
-  host release (`prepare_host_build.py`, `host_notice_payload.py`) has been
-  changed but not yet run; run it on a Windows runner before the next host release.
+- [ ] **Validate Windows host packaging.** The unified linker-input release
+  supplies the GNU runtime and `roc-gui.res`; the host derives its own
+  `windows-imports.lib` with a schema 2 normalization receipt. The Windows host
+  candidate (`prepare_host_build.py`, `host_notice_payload.py`) has been
+  changed but not yet run in a release; confirm it in the release dry run.
 
 - [ ] **Keep Metal shader debug paths free of build-machine identity.**
   The host pins the GPUI fork at
@@ -1499,11 +1495,3 @@ names the reproduction so the workaround can be removed when the fix lands.
   release's examples archive against the published bundle on each target, but
   does not run their specifications. Run them through the release's own
   runner, as `release.yml` does for the bundle it is about to publish.
-
-- [ ] **Publish CI's tested host candidate instead of rebuilding it.** A host
-  release dispatch runs the same host workflow and producer as CI, but rebuilds
-  rather than publishing the `gui-host-<target>` candidate that a green CI run
-  on the default branch already composed and exercised. Publishing that run's
-  artifacts requires the attestation's signer workflow and the host lock's
-  trust policy to admit CI as the signer; until then, confirm byte equality
-  between a dispatch build and CI's candidate at the same commit.

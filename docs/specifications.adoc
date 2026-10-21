@@ -812,8 +812,7 @@ such as `expect-visible` and `expect-count`, need no frame and take none.
 == Selecting and repeating cases
 
 Patterns match repository-relative specification paths. Multiple patterns may
-be supplied. Compatible released hosts are verified and staged automatically.
-Use `--skip-host-build` only to reuse an already staged local host while
+be supplied. Use `--skip-host-build` only to reuse an already staged local host while
 iterating:
 
 [source,sh]

@@ -142,8 +142,8 @@ jobs:
     uses: ./.github/workflows/host.yml
     with: { os: windows-2025, target: x64mingw, nightly-tag: "${{ needs.resolve.outputs.nightly-tag }}" }
 
-  # When the host changed, the release archive is composed from the same
-  # sealed build; nothing else waits on it.
+  # When the host was built rather than restored, the archive a release would
+  # publish is composed from that same sealed build; nothing else waits on it.
   candidate-x64glibc:
     needs: [resolve, host-x64glibc]
     if: needs.host-x64glibc.outputs.mode == 'built'

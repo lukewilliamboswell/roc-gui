@@ -58,7 +58,7 @@ def stage_examples(destination: Path, url: str) -> list[str]:
 
 def archive(output: Path, version: str, manifest_path: Path) -> Path:
     manifest = json.loads(manifest_path.read_text())
-    if manifest["schema_version"] != 2 or not manifest.get("compiler"):
+    if manifest["schema_version"] != 3 or not manifest.get("compiler"):
         raise ValueError("release manifest must name the compiler that bundled it")
     url = f"https://github.com/{REPOSITORY}/releases/download/{version}/{manifest['bundle']['name']}"
     output.mkdir(parents=True, exist_ok=True)

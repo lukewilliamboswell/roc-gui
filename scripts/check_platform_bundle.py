@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def check(directory: Path, roc: str) -> None:
     manifest = json.loads((directory / "release-manifest.json").read_text())
-    if manifest["schema_version"] != 2:
+    if manifest["schema_version"] != 3:
         raise ValueError("unsupported release manifest")
     verify_compiler(roc, manifest["compiler"])
     bundles = [path for path in directory.iterdir() if path.name.endswith(".tar.zst")]

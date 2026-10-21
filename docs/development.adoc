@@ -222,40 +222,43 @@ Generated objects, libraries, TBD files, host archives, and platform bundles do
 not belong in Git. Reviewed recipes, catalogs, provenance, locks, and license
 texts do.
 
-Native artifacts have three independent release layers:
+There are two kinds of release and three things that are built:
 
 . The linker-input producer builds one content-addressed release containing the
   complete `x64glibc`, `arm64mac`, and `x64mingw` sets. This includes every
   `platform/main.roc` input the host does not produce; the Windows resource
-  therefore belongs to this release, not to the GUI host release.
-. Host producers build `libhost.a` for each target and bind it to the exact host
-  source, Cargo lock, configuration, profile, and toolchain inputs. The Windows
-  host also produces `windows-imports.lib`, described below.
-. Platform release assembly admits released external and host inputs, runs the
-  supported consumer matrix, and publishes those same tested bytes under Roc's
-  content-addressed bundle name.
+  therefore belongs to this release, not to the host.
+. The host, `libhost.a` for each target, is bound to the exact host source,
+  Cargo lock, configuration, profile, and toolchain inputs. The Windows host
+  also produces `windows-imports.lib`, described below. The host has no release
+  of its own: it ships in the platform release.
+. Platform release assembly builds every target's host on its own system,
+  bundles it with the locked linker inputs, runs the supported consumer matrix,
+  and publishes those same tested bytes under Roc's content-addressed bundle
+  name, together with each host's source companion.
 
 === Continuous integration
 
 CI produces each target's native host once per run and exercises those exact
-bytes everywhere. The reusable host workflow decides how the checkout's host is
-produced: a released host that matches the committed sources is admitted as
-published; a host-source change runs the host unit tests once and builds with
-the release producer, `scripts/prepare_host_build.py`; a checkout whose linker
-inputs are not yet released builds against development inputs. The job seals
-the staged `platform/targets/<target>` with its source fingerprint and the
-digest of every file.
+bytes everywhere. The reusable host workflow fingerprints the host sources.
+When an earlier run sealed a host with the same fingerprint and linker-input
+lock, it is restored from that run's cache and nothing native is compiled.
+Otherwise the job runs the host unit tests once and builds with the release
+producer, `scripts/prepare_host_build.py`, or, when the linker inputs are not
+yet released, against development inputs. The job seals the staged
+`platform/targets/<target>` with its source fingerprint and the digest of every
+file, and caches it under that fingerprint.
 
 Every specification, smoke, window, and gallery job admits that sealed host
 with `scripts/ci_host.py admit`, which refuses a different source fingerprint or
 any changed byte, and runs with `--skip-host-build`. No test job builds a host.
 Each target's tests wait only for that target's host.
 
-When the host sources change, a candidate job composes the notice payload,
-source companion, and release archive from the same sealed build, so the
-archive a release would publish is the one the specifications exercised.
-Publishing a host release dispatches the same host workflow; its publish job
-remains the attested signer.
+When a host is built rather than restored, a candidate job composes the notice
+payload, source companion, and host archive from the same sealed build, so the
+archive a release would bundle is the one the specifications exercised.
+`release.yml` builds and composes every host the same way, from the commit it
+releases.
 
 === Host source companions
 
@@ -298,7 +301,7 @@ they call is fixed when the host is built, so the host build derives it:
 
 The host's own import members are then separated from `libhost.a` against the
 host's own inventory. The normalization receipt records both steps, the native
-libraries, and every import by DLL, name, and type; a host release is admitted
+libraries, and every import by DLL, name, and type; a host archive is admitted
 only when the packaged library matches that receipt.
 
 Linker-input production runs only when explicitly dispatched for an open pull

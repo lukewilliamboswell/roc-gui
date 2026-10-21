@@ -41,7 +41,7 @@ class CompilerEnvironmentTests(unittest.TestCase):
             directory = Path(temporary)
             manifest = directory / 'release-manifest.json'
             compiler = 'Roc compiler version nightly-2026-10-20-7a8a800'
-            manifest.write_text(json.dumps({'schema_version': 2, 'compiler': compiler,
+            manifest.write_text(json.dumps({'schema_version': 3, 'compiler': compiler,
                                             'bundle': {'name': 'platform.tar.zst'}}))
             archive = bundle_examples.archive(directory, '0.1.0', manifest)
             original = archive.read_bytes()
@@ -55,7 +55,7 @@ class CompilerEnvironmentTests(unittest.TestCase):
                 readme = next(m for m in packed.getmembers() if m.name.endswith('/README.md'))
                 self.assertIn(compiler, packed.extractfile(readme).read().decode())
             self.assertEqual(bundle_examples.archive(directory, '0.1.0', manifest).read_bytes(), original)
-            manifest.write_text(json.dumps({'schema_version': 2}))
+            manifest.write_text(json.dumps({'schema_version': 3}))
             with self.assertRaises(ValueError):
                 bundle_examples.archive(directory, '0.1.0', manifest)
 
