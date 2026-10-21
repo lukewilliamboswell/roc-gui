@@ -196,11 +196,11 @@ SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
 # wip/issues-backlog.md under "Compiler and toolchain defects" and removed when
 # its fix lands.
 COMPILER_BLOCKED = {
-    # TODO(release blocker): nightly-2026-10-20-7a8a800 does not finish
-    # building Observatory with --opt=speed: killed after 17 minutes at 6.9 GB,
-    # where nightly-2026-09-27-a3ce7f1 took 16 s. --opt=dev builds it in 11 s
-    # and every specification passes. Reduce, report upstream, and remove this
-    # entry once a nightly builds it.
+    # TODO(release blocker): nightly-2026-10-21-5349569 is killed by signal 9
+    # building Observatory with --no-cache --opt=speed after 38 s at 24.4 GiB
+    # peak RSS; see the backlog for earlier nightly results. Reduce, report
+    # upstream, and remove this entry once a nightly builds it and its
+    # specifications pass.
     ("examples/observatory", "speed"): "the speed backend does not finish building it; see the backlog",
 }
 # Specifications that fail intermittently, skipped everywhere they would run and
