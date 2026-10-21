@@ -1,8 +1,10 @@
 """Exercise the production adapter and selected-source archive trust boundary."""
 
 import json
+import os
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -19,6 +21,16 @@ class BlueprintLinkInputTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
+
+    def test_producer_runs_with_only_declared_project_files(self):
+        for relative in adapter.SELECTED_FILES:
+            target = self.root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((adapter.ROOT / relative).read_bytes())
+        completed = subprocess.run([sys.executable, "-E", "-s", "scripts/build_freetype.py", "--help"],
+                                   cwd=self.root, capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--rebuild", completed.stdout)
 
     def result(self, schema=2):
         output = self.root / "store"
@@ -69,6 +81,16 @@ class BlueprintLinkInputTests(unittest.TestCase):
                               "narHash": "sha256-" + "A" * 43 + "="}],
                 "files": [{"name": "freetype-source", "provider": "file", "sha256": digest(b"source")}],
                 "tools": [{"name": "python3", "path": "/nix/store/" + "c" * 32 + "-python"}]}
+
+    def test_compile_discovery_preserves_zig_target_libc(self):
+        with patch.dict(os.environ, {"BLUEPRINT_TOOLS": "/declared-tools"}, clear=True):
+            adapter.configure_environment(self.root / "work")
+            self.assertNotIn("glibc", os.environ["C_INCLUDE_PATH"])
+            self.assertNotIn("glibc", os.environ["LIBRARY_PATH"])
+            self.assertIn("default#bzip2.out/lib", os.environ["LIBRARY_PATH"])
+            self.assertIn("default#brotli.lib/lib", os.environ["LIBRARY_PATH"])
+            command = adapter.probe_command(self.root / "probe")
+            self.assertEqual(command[0], "/declared-tools/default#glibc/lib/ld-linux-x86-64.so.2")
 
     def test_native_evidence_rejects_full_lock_final_identity_and_non_store_paths(self):
         path = self.root / "evidence"

@@ -111,7 +111,7 @@ def configure_environment(work):
         directory.mkdir(exist_ok=True)
         environment[key] = str(directory)
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
-    names = ("glibc", "zlib", "bzip2", "libpng", "harfbuzz", "brotli")
+    names = ("zlib", "bzip2", "libpng", "harfbuzz", "brotli")
     roots = [tool_root(name) for name in names]
     headers = [tool_root(name + ".dev") for name in names]
     environment["CMAKE_PREFIX_PATH"] = ":".join(map(str, headers + roots))
