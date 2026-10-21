@@ -1175,6 +1175,15 @@ names the reproduction so the workaround can be removed when the fix lands.
   joining independent tasks into one record is ever offered. Re-test and
   report upstream.
 
+- [ ] **The compiler sometimes crashes type-checking on Windows.** In CI run
+  39519565767, `roc build --no-cache --opt=dev
+  examples/terminal-workspace/main.roc` on `nightly-2026-10-20-7a8a800` died
+  with "Access violation in the Roc compiler" (fault address 0x5b4) on compile
+  worker 2 while type-checking `platform/Session.roc`; the window job of the
+  same run built the same application from the same commit and passed, and
+  Linux builds never fail. Reproduce it by looping the build on a Windows
+  runner, then report it upstream with the worker's stack.
+
 - [ ] **`roc test` segfaults on a module whose alias shares its type's name.**
   Observatory's `History.roc` with its `Trail(place)` alias renamed to
   `History(place)`, the name of the module's own type, is reported by
@@ -1187,6 +1196,15 @@ names the reproduction so the workaround can be removed when the fix lands.
   when `roc test` reports the error.
 
 ## Runner: test what we fly
+
+- [ ] **Observatory's folder rewatch sometimes sees a change on macOS.**
+  `examples/observatory/specs/folder-rewatch.scm` line 18 expected watch
+  counters `[2, 0, 0, 0, _]` and observed `[2, 1, 0, 0, 1]` on the hosted macOS
+  runner in CI run 39515606523: one change was delivered although the
+  specification writes nothing. The same specification passed on macOS in the
+  next run and always passes on Linux. Find what the macOS watcher reports
+  (an event from before the watch started, or another process's write) and
+  either stop delivering it or make the count `_` with the reason.
 
 - [ ] **Two window specifications fail on Linux.** Under the headless sway
   compositor at 1920x1080, `examples/animation-studio/specs/window-timeline.scm`
