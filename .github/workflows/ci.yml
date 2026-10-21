@@ -29,7 +29,7 @@ jobs:
           sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig sway grim libvulkan1 mesa-vulkan-drivers
       - name: Build and test through Blueprint
         run: |
-          nix develop github:lukewilliamboswell/roc-blueprint/8a1f8c426b0d040e5677b106f0bca9644c6e28c9 --command bash -euc '
+          nix develop github:lukewilliamboswell/roc-blueprint/0.7.0 --command bash -euc '
             blueprint run check
             git diff --exit-code -- Blueprint.lock
             # The macOS shell must evaluate; nothing is built for it here.
@@ -89,6 +89,8 @@ jobs:
             scripts/test_compiler_environment.py \
             scripts/test_alsa_dependencies.py \
             scripts/test_link_input_artifacts.py \
+            scripts/test_blueprint_link_inputs.py \
+            scripts/test_blueprint_admission.py \
             scripts/test_no_tracked_machine_code.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_prepare_windows_gnu.py \

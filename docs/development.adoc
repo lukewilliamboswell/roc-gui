@@ -265,6 +265,19 @@ aggregate manifest digest. Ordinary pull requests have no linker-input build
 job. They restore the archive cache, verify its locked size and SHA-256 even on
 a cache hit, and download the immutable release only on a miss.
 
+Schema-2 unified locks also carry FreeType's reviewed component build identity,
+selected snapshot binding and original component archive digest. Linux admission
+CI verifies the component bytes and compares the exact prepared build identity.
+It may refresh the binding only when that identity is unchanged. A different
+published artifact requires an explicit repository admission decision.
+
+Consumers use `blueprint plan build freetype --json` for the selected snapshot,
+without Nix preparation. Missing, incompatible or changed evidence cannot pass
+freshness checks. These checks require the Blueprint 0.7.0 executable on `PATH`;
+CI installs its checksum-verified release binary on every supported system.
+The unchanged producers retain their broader shared-file and whole-lock
+fingerprint; only FreeType-exclusive paths move to component admission.
+
 Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
 must never fall back to a local build. Development builds select native source

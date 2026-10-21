@@ -3,6 +3,7 @@ description: Validate .roc-version and install its exact Roc compiler and Zig.
 runs:
   using: composite
   steps:
+    - uses: ./.github/actions/setup-blueprint
     - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
       with:
         version: 0.16.0
