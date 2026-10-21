@@ -1,21 +1,13 @@
-# The locked `default` package input of Blueprint.lock, as `builtins.fetchTree`
-# takes it. The lock is an S-expression; only this node's `locked` fields are
-# read, and `narHash` makes the fetch fail if they were read wrongly.
-lockFile:
-let
-  text = builtins.readFile lockFile;
-  after = separator: string: builtins.elemAt (builtins.split separator string) 2;
-  before = separator: string: builtins.head (builtins.split separator string);
-  nodes = after "\\(name \"nodes\"\\)" text;
-  node = before "\\(name \"original\"\\)" (after "\\(name \"default\"\\)" nodes);
-  field = kind: name:
-    let found = builtins.match ".*\\(name \"${name}\"\\)[[:space:]]*\\(value \\(${kind} \"?([^\")]*)\"?\\)\\).*" node;
-    in if found == null then throw "Blueprint.lock: no locked ${name} for the default package input" else builtins.head found;
-in {
-  type = field "Str" "type";
-  owner = field "Str" "owner";
-  repo = field "Str" "repo";
-  rev = field "Str" "rev";
-  narHash = field "Str" "narHash";
-  lastModified = builtins.fromJSON (field "Int" "lastModified");
+# The one nixpkgs revision the linker-input producers build from, as
+# `builtins.fetchTree` takes it. `narHash` makes the fetch fail if the tree
+# differs. Blueprint.roc's development environment names the same revision, and
+# `blueprint run check` fails if the two disagree; a Blueprint change therefore
+# never changes a linker input's provenance.
+{
+  type = "github";
+  owner = "NixOS";
+  repo = "nixpkgs";
+  rev = "6774f7bc253789b113a4f39285dc0fa100abeacc";
+  narHash = "sha256-MYiI+CzL0tuWgRPjGsKCDHqYs2T3OzMlMQWOYWG0qso=";
+  lastModified = 1790046670;
 }

@@ -23,7 +23,7 @@ import Timer
 ## The whole application-facing platform under one import. Build a tree with
 ## the element constructors and their property records, adjust an element
 ## with the modifiers on `Elem`, and answer events with the constructors on
-## `Action`: `Action.none`, `Action.update`, `Action.delegate`, or `Action.task`.
+## `Action`: `Action.none()`, `Action.update`, `Action.delegate`, or `Action.task`.
 Gui := [].{
 
 	## A declarative UI tree whose event handlers transition application state.

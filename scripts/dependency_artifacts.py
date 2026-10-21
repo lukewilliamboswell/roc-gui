@@ -127,10 +127,19 @@ def unpack_verified(archive, entry, destination):
         if metadata is None or metadata.size > 1024 ** 2:
             raise ValueError("missing or oversized dependency manifest")
         manifest = json.load(packed.extractfile(metadata))
-        if (manifest.get("schema_version") not in (1, 2, 3, 4) or manifest.get("name") != entry["name"]
+        if (manifest.get("name") != entry["name"]
                 or manifest.get("target") != entry["target"]):
             raise ValueError("dependency manifest identity mismatch")
-        if manifest["schema_version"] == 2:
+        if entry["name"] == "freetype" and manifest["schema_version"] != 5:
+            raise ValueError("FreeType archives require Blueprint schema 5")
+        native_linux = {"alsa", "glibc", "unwind", "xkbcommon"}
+        allowed = ({4} if entry["name"] in native_linux else
+                   {3, 4} if entry["name"] == "windows-gnu-runtime" else
+                   {5} if entry["name"] == "freetype" else {1})
+        if manifest["schema_version"] not in allowed:
+            raise ValueError("dependency manifest is not the producer's current format")
+        if manifest["schema_version"] == 4:
+            pin_field = "nixpkgs_pin_sha256"
             build = manifest.get("build", {})
             if ((entry["name"], entry["target"]) not in {
                     (name, "x64glibc") for name in ("alsa", "freetype", "glibc", "unwind", "xkbcommon")}
@@ -139,10 +148,10 @@ def unpack_verified(archive, entry, destination):
                     or not re.fullmatch(r"[0-9a-f]{40}", build.get("nixpkgs_revision", ""))
                     or not re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", build.get("nixpkgs_nar_hash", ""))
                     or any(not HEX256.fullmatch(build.get(key, "")) for key in
-                           ("blueprint_lock_sha256", "nix_recipe_sha256"))
+                           (pin_field, "nix_recipe_sha256"))
                     or "builder_image" in build or "builder_recipe_sha256" in build):
                 raise ValueError("invalid Nix dependency provenance")
-        if manifest["schema_version"] == 4:
+        if manifest["schema_version"] == 5:
             build = manifest.get("build", {})
             if ((entry["name"], entry["target"]) != ("freetype", "x64glibc")
                     or build.get("builder_kind") != "blueprint-nix"
@@ -173,14 +182,15 @@ def unpack_verified(archive, entry, destination):
             with packed.extractfile(members[name]) as source:
                 if hashlib.file_digest(source, "sha256").hexdigest() != record["sha256"]:
                     raise ValueError("dependency file digest mismatch")
-        if manifest["schema_version"] == 2:
-            for field, relative in (("blueprint_lock_sha256", "Blueprint.lock"),
+        if manifest["schema_version"] == 4:
+            pinned = "dependencies/nixpkgs-pin.nix"
+            for field, relative in ((pin_field, pinned),
                                     ("nix_recipe_sha256", "dependencies/windows-gnu-runtime/default.nix"
                                      if entry["name"] == "windows-gnu-runtime" else "dependencies/linux/default.nix")):
                 source = files.get(f"sources/{entry['name']}/{relative}")
                 if source is None or source["sha256"] != build[field]:
                     raise ValueError("Nix provenance differs from corresponding source")
-        if manifest["schema_version"] == 4:
+        if manifest["schema_version"] == 5:
             evidence_path = "sources/freetype/blueprint-input-evidence.json"
             evidence_record = files.get(evidence_path)
             if evidence_record is None or evidence_record["sha256"] != build["input_evidence_sha256"]:
@@ -204,7 +214,7 @@ def unpack_verified(archive, entry, destination):
                 if (record is None or not HEX256.fullmatch(expected) or record["sha256"] != expected
                         or type(modes[relative]) is not int or modes[relative] not in (0o644, 0o755)):
                     raise ValueError("Blueprint reproduction differs from corresponding source")
-        if manifest["schema_version"] in (2, 3) and entry["name"] == "windows-gnu-runtime":
+        if manifest["schema_version"] in (3, 4) and entry["name"] == "windows-gnu-runtime":
             build = manifest["build"]
             reproduction = build.get("reproduction_sha256", {})
             if not reproduction or not HEX256.fullmatch(build.get("recipe_sha256", "")):
@@ -249,17 +259,16 @@ def materialize(lock_path, identities, cache, output):
 
 
 def nix_source_inventory(name):
-    """Exact corresponding-source inventory for the Linux schema-2 archives."""
-    common = {"Blueprint.lock", "dependencies/nixpkgs-pin.nix", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py",
+    """Exact corresponding-source inventory for the Linux Nix-built archives."""
+    common = {"dependencies/nixpkgs-pin.nix", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py",
               "scripts/dependency_archive.py", "scripts/dependency_artifacts.py"}
     common.update({f"scripts/build_{'alsa_interface' if name == 'alsa' else name}.py",
                    f"dependencies/{'alsa-interface' if name == 'alsa' else name}.json"})
     if name == "alsa":
         common.update({"test/dependencies/alsa.c", "PROVENANCE.md"})
-    elif name in {"freetype", "xkbcommon"}:
-        common.update({f"test/dependencies/{name}.c", "source.tar.xz" if name == "freetype" else "source.tar.gz"})
-        common.update({"dependencies/linux/zig-toolchain.cmake"} if name == "freetype" else
-                      {"dependencies/xkbcommon/zig.ini", "dependencies/xkbcommon/cc.sh"})
+    elif name == "xkbcommon":
+        common.update({"test/dependencies/xkbcommon.c", "source.tar.gz",
+                       "dependencies/xkbcommon/zig.ini", "dependencies/xkbcommon/cc.sh"})
     elif name == "glibc":
         common.update({"source.tar.xz", "test/dependencies/glibc.c", "dependencies/glibc/COPYING.LIB"})
         common.update("dependencies/glibc/LICENSE-LINUX-" + suffix for suffix in
@@ -284,7 +293,7 @@ def validate_blueprint_freetype_evidence(evidence):
     packages, files = evidence["packages"], evidence["files"]
     if (not isinstance(packages, list) or len(packages) != 1 or not isinstance(packages[0], dict)
             or set(packages[0]) != {"name", "provider", "rev", "narHash"}
-            or packages[0]["name"] != "default" or packages[0]["provider"] != "nix"
+            or packages[0]["name"] != "nix" or packages[0]["provider"] != "nix"
             or not HEX160.fullmatch(packages[0]["rev"])
             or not re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", packages[0]["narHash"])
             or not isinstance(files, list) or len(files) != 1 or not isinstance(files[0], dict)
@@ -309,10 +318,10 @@ def freetype_blueprint_source_inventory():
 
 
 def component_inventory(expected, manifest):
-    """Retain legacy inventory rules while admitting the new source payload."""
-    if manifest["schema_version"] == 1:
+    """Select the corresponding-source inventory for the current producer contract."""
+    if manifest["schema_version"] == 1 or (manifest["schema_version"] == 3 and manifest["name"] == "windows-gnu-runtime"):
         return expected
-    sources = (freetype_blueprint_source_inventory() if manifest["schema_version"] == 4
+    sources = (freetype_blueprint_source_inventory() if manifest["schema_version"] == 5
                else nix_source_inventory(manifest["name"]))
     return {path for path in expected if not path.startswith("sources/")} | sources
 

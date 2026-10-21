@@ -11,7 +11,7 @@ import tempfile
 from dependency_artifacts import sha256
 
 ROOT = Path(__file__).resolve().parents[1]
-REPRODUCTION_FILES = ("Blueprint.lock", "dependencies/nixpkgs-pin.nix", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py")
+REPRODUCTION_FILES = ("dependencies/nixpkgs-pin.nix", "dependencies/linux/default.nix", "scripts/nix_link_inputs.py")
 
 
 def build(name, output, *, rebuild=False, recipe="dependencies/linux/default.nix", filename=None):
@@ -36,7 +36,7 @@ def provenance(recipe="dependencies/linux/default.nix"):
     return {"builder_derivation": os.environ["NIX_BUILDER_ID"],
             "nixpkgs_revision": os.environ["NIXPKGS_REV"],
             "nixpkgs_nar_hash": os.environ["NIXPKGS_NAR_HASH"],
-            "blueprint_lock_sha256": sha256(ROOT / "Blueprint.lock"),
+            "nixpkgs_pin_sha256": sha256(ROOT / "dependencies/nixpkgs-pin.nix"),
             "nix_recipe_sha256": sha256(ROOT / recipe)}
 
 

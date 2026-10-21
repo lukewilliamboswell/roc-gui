@@ -78,7 +78,7 @@ accept_or_archive = |candidate| if candidate.item.archived {
 } else if candidate.item.value <= 2 {
 	Gui.Action.update({ ..candidate, accepted: candidate.item.value })
 } else {
-	Gui.Action.none
+	Gui.Action.none()
 }
 
 main : Gui.Program(State)

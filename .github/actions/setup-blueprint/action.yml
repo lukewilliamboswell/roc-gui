@@ -16,7 +16,7 @@ runs:
         esac
         directory="$RUNNER_TEMP/blueprint-0.7.0"
         mkdir -p "$directory"
-        gh release download 0.7.0 --repo lukewilliamboswell/roc-blueprint --pattern "$asset" --pattern blueprint.sha256 --dir "$directory"
+        gh release download 0.7.0 --clobber --repo lukewilliamboswell/roc-blueprint --pattern "$asset" --pattern blueprint.sha256 --dir "$directory"
         python3 - "$directory" "$asset" <<'PY'
         import hashlib, pathlib, sys
         root, asset = pathlib.Path(sys.argv[1]), sys.argv[2]

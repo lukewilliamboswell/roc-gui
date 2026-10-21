@@ -319,13 +319,13 @@ chart = |state, opened| {
 				(End, Some(OnCycle(mark))) => Observatory.ask(current, InspectCycle(mark.cycle))
 				(Begin, Some(OnPass(mark))) => match pass_link(mark) {
 					Frame(bar) => Observatory.ask(current, SelectFrame(bar))
-					_ => Gui.Action.none
+					_ => Gui.Action.none()
 				}
 				(End, Some(OnPass(mark))) => match pass_link(mark) {
 					Cycle(cycle) => Observatory.ask(current, InspectCycle(cycle))
-					_ => Gui.Action.none
+					_ => Gui.Action.none()
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 			on_hover: Some(
 				|current, event| {
@@ -333,13 +333,13 @@ chart = |state, opened| {
 						Move => target(event.target)
 						Leave => None
 					}
-					if index == current.clock_hover Gui.Action.none else Gui.Action.update({ ..current, clock_hover: index })
+					if index == current.clock_hover Gui.Action.none() else Gui.Action.update({ ..current, clock_hover: index })
 				},
 			),
 			on_wheel: Some(
 				|current, wheel| match Timeline.zoomed(current.clock.window, wheel.x.to_i64() - gutter, plot_of(current), wheel.dx, wheel.dy) {
 					Some(next) => Observatory.ask(current, ShowTimeline(next.start, next.span))
-					None => Gui.Action.none
+					None => Gui.Action.none()
 				},
 			),
 			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),

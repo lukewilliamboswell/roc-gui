@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_alsa_interface as producer
 from dependency_archive import digest, write_archive
 import release_dependencies
+from test_native_archive_fixture import current_native
 
 
 class AlsaDependencyTests(unittest.TestCase):
@@ -62,11 +63,12 @@ class AlsaDependencyTests(unittest.TestCase):
         policy = release_dependencies.KINDS["alsa"]
         files = {"targets/x64glibc/libasound.so": b"tested ELF interface"}
         files.update({name: b"reviewed reproduction input" for name in policy["extra_files"]})
+        metadata, files = current_native("alsa", files)
         if missing:
             del files[missing]
         return write_archive(
             self.root / producer.ARCHIVE_NAME,
-            {"schema_version": 1, "name": "alsa", "version": "2", "target": "x64glibc"},
+            metadata,
             files,
         )
 

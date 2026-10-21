@@ -81,7 +81,7 @@ rows_order_table_from_entries = |entries| {
 			Same
 		},
 	)
-	var $table = Index.empty
+	var $table = Index.empty()
 	var $chunk_key = 0
 	var $chunk = []
 	var $has_chunk = False
@@ -123,10 +123,10 @@ rows_order_node_len = |node|
 
 rows_order_empty : () -> RowsOrder
 rows_order_empty = || {
-	nodes = rows_order_table_set(Index.empty, 1, OrderLeaf({ slots: [], len: 0 }))
-	parents = rows_order_table_set(Index.empty, 1, OrderRoot)
+	nodes = rows_order_table_set(Index.empty(), 1, OrderLeaf({ slots: [], len: 0 }))
+	parents = rows_order_table_set(Index.empty(), 1, OrderRoot)
 	slot_leaf : RowsOrderTable(U64)
-	slot_leaf = Index.empty
+	slot_leaf = Index.empty()
 	{ root: 1, nodes, parents, slot_leaf, next_node: 2, free_nodes: [] }
 }
 
@@ -678,9 +678,9 @@ key_slots_set = |slots, key, slot| {
 	two_key = key_slot_limb(key, 1)
 	three_key = key_slot_limb(key, 2)
 	four_key = key_slot_limb(key, 3)
-	one = Index.get(slots, one_key) ?? Index.empty
-	two = Index.get(one, two_key) ?? Index.empty
-	three = Index.get(two, three_key) ?? Index.empty
+	one = Index.get(slots, one_key) ?? Index.empty()
+	two = Index.get(one, two_key) ?? Index.empty()
+	three = Index.get(two, three_key) ?? Index.empty()
 	Index.set(slots, one_key, Index.set(one, two_key, Index.set(two, three_key, Index.set(three, four_key, { key, slot }))))
 }
 
@@ -723,8 +723,8 @@ KeyedSeq(value) :: {
 	Transition(value) : KeyedSeqTransition(value)
 	Error : [DuplicateKey(Key), MissingAnchor(Key), MissingKey(Key), SlotExhausted]
 
-	empty : KeyedSeq(value)
-	empty = KeyedSeq.({ order: rows_order_empty(), values: Index.empty, keys: Index.empty, next_slot: 1, last_visits: 0, revision: 0, transition: { base_revision: 0, revision: 0, edits: [] } })
+	empty : () -> KeyedSeq(value)
+	empty = || KeyedSeq.({ order: rows_order_empty(), values: Index.empty(), keys: Index.empty(), next_slot: 1, last_visits: 0, revision: 0, transition: { base_revision: 0, revision: 0, edits: [] } })
 
 	## Current committed collection revision.
 	revision : KeyedSeq(value) -> U64
@@ -792,7 +792,7 @@ KeyedSeq(value) :: {
 
 	from_list : List({ key : Key, value : value }) -> Try(KeyedSeq(value), Error)
 	from_list = |entries| {
-		var $sequence = empty
+		var $sequence = empty()
 		var $edits = []
 		var $visits = 0
 		for entry in entries {
@@ -1005,7 +1005,7 @@ expect {
 	a = Key.id(1)
 	b = Key.id(2)
 	c = Key.id(3)
-	one = KeyedSeq.insert_before(KeyedSeq.empty, a, "a", End) ?? crash "insert a"
+	one = KeyedSeq.insert_before(KeyedSeq.empty(), a, "a", End) ?? crash "insert a"
 	two = KeyedSeq.insert_before(one, c, "c", End) ?? crash "insert c"
 	three = KeyedSeq.insert_before(two, b, "b", Before(c)) ?? crash "insert b"
 	moved = KeyedSeq.move_before(three, c, Before(a)) ?? crash "move c"
@@ -1016,7 +1016,7 @@ expect {
 
 expect {
 	key = Key.id(9)
-	one = KeyedSeq.insert_before(KeyedSeq.empty, key, 1, End) ?? crash "unique"
+	one = KeyedSeq.insert_before(KeyedSeq.empty(), key, 1, End) ?? crash "unique"
 	duplicate = match KeyedSeq.insert_before(one, key, 2, End) {
 		Err(DuplicateKey(found)) => found == key
 		_ => False
@@ -1035,7 +1035,7 @@ expect {
 ## Exercise every insertion position and alternating removals against an
 ## ordinary list model, checking all reverse indices after every mutation.
 expect {
-	var $sequence = KeyedSeq.empty
+	var $sequence = KeyedSeq.empty()
 	var $model = []
 	var $next = 0
 	var $valid = True
@@ -1069,7 +1069,7 @@ expect {
 }
 
 expect {
-	var $sequence = KeyedSeq.empty
+	var $sequence = KeyedSeq.empty()
 	var $index = 0
 	while $index < 4096 {
 		$sequence = KeyedSeq.insert_before($sequence, Key.id($index), $index, End) ?? crash "scaling insert"
@@ -1097,7 +1097,7 @@ expect {
 expect {
 	a = Key.id(21)
 	b = Key.id(22)
-	one = KeyedSeq.insert_before(KeyedSeq.empty, a, "a", End) ?? crash "revision insert"
+	one = KeyedSeq.insert_before(KeyedSeq.empty(), a, "a", End) ?? crash "revision insert"
 	two = KeyedSeq.set(one, a, "A") ?? crash "revision set"
 	three = KeyedSeq.insert_before(two, b, "b", Before(a)) ?? crash "revision insert before"
 	one_transition = KeyedSeq.last_transition(one)
@@ -1142,7 +1142,7 @@ expect {
 ## one-generation journal; older bases require a snapshot instead.
 expect {
 	key = Key.id(41)
-	sequence = KeyedSeq.insert_before(KeyedSeq.empty, key, 41, End) ?? crash "stale sequence"
+	sequence = KeyedSeq.insert_before(KeyedSeq.empty(), key, 41, End) ?? crash "stale sequence"
 	current = KeyedSeq.transition_from(sequence, 0)
 	stale = KeyedSeq.transition_from(sequence, 9)
 	current_ok = match current {

@@ -135,7 +135,7 @@ choose = |current, act| {
 		ChooseFolder => Observatory.choose(closed)
 		ChooseFile => Observatory.choose_file(closed)
 		# The window repaints in the chosen scheme; nothing here renders again.
-		Prefer(preference) => Gui.Action.task({ pending: closed, run: || Gui.Appearance.prefer!(preference), resolve: |_, {}| Gui.Action.none })
+		Prefer(preference) => Gui.Action.task({ pending: closed, run: || Gui.Appearance.prefer!(preference), resolve: |_, {}| Gui.Action.none() })
 	}
 }
 
@@ -158,7 +158,7 @@ move = |current, delta| match current.palette {
 		highlight = if count == 0 0 else if wanted < 0 0 else if wanted >= count count - 1 else wanted
 		Gui.Action.update({ ..current, palette: Open({ ..open, highlight: highlight.to_u64_wrap() }) })
 	}
-	Closed => Gui.Action.none
+	Closed => Gui.Action.none()
 }
 
 navigation : List(Gui.Shortcut(Observatory.State))
@@ -216,7 +216,7 @@ palette = |state| match state.palette {
 							on_change: |current, event| Gui.Action.update({ ..current, palette: Open({ query: event.value, highlight: 0 }) }),
 							on_submit: |current, _| match highlighted(current) {
 								Some(chosen) => choose(current, chosen.act)
-								None => Gui.Action.none
+								None => Gui.Action.none()
 							},
 							width: Fill,
 							font_face: Theme.face,

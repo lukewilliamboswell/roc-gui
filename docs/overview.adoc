@@ -19,7 +19,7 @@ flowchart LR
     U -->|native host| W[Window]
     W -->|button press| H[Handler]
     H -->|Gui.Action.update| S
-    H -->|Gui.Action.none| N[No UI change]
+    H -->|"Gui.Action.none()"| N[No UI change]
 ....
 
 This model keeps application decisions in ordinary Roc values and functions.

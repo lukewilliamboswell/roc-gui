@@ -1,0 +1,6 @@
+= Release notes
+
+Each release's notes, newest first. A release candidate's notes stay here
+after its final release.
+
+include::releases/0.1.0-rc1.adoc[leveloffset=+1]

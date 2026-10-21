@@ -98,6 +98,13 @@ Parked : {
 ## read again, its name, and the capture itself unless it is on screen.
 Tab : { key : U64, name : Str, parked : [OnScreen, Parked(Parked)] }
 
+## Whether a tab's capture is the one on screen.
+on_screen : Tab -> Bool
+on_screen = |tab| match tab.parked {
+	OnScreen => True
+	Parked(_) => False
+}
+
 ## The inspector beside every view: how wide it is, whether it is folded
 ## away, and the view it is pinned to, whose selection it keeps showing
 ## wherever the person goes.
@@ -296,10 +303,10 @@ Observatory := [].{
 		filter: All,
 		inspected: None,
 		step_focus: None,
-		cycles: { phase: "", filter: All, window: empty_window },
+		cycles: { phase: "", filter: All, window: empty_window() },
 		cycles_reading: None,
 		cycle_scroll: None,
-		steps: { run: 0, window: empty_window },
+		steps: { run: 0, window: empty_window() },
 		steps_reading: None,
 		step_scroll: None,
 		family_focus: None,
@@ -319,7 +326,7 @@ Observatory := [].{
 		clock_hover: None,
 		chart_width: 0,
 		palette: Closed,
-		history: History.empty,
+		history: History.empty(),
 		inspector_focus: 0,
 		copied: None,
 		spec_source: SpecSource.none,
@@ -359,13 +366,13 @@ Observatory := [].{
 	open_offered : State -> Gui.Action(State)
 	open_offered = |state| match state.offer {
 		Some(offered) => open_files({ ..state, offer: None }, [offered], Overview)
-		None => Gui.Action.none
+		None => Gui.Action.none()
 	}
 
 	compare_offered : State -> Gui.Action(State)
 	compare_offered = |state| match state.offer {
 		Some(offered) => open_files(set_baseline({ ..state, offer: None }), [offered], Compare)
-		None => Gui.Action.none
+		None => Gui.Action.none()
 	}
 
 	dismiss_offer : State -> Gui.Action(State)
@@ -399,7 +406,7 @@ Observatory := [].{
 	## root's, since every view's charts are drawn for it, and the width it
 	## already has changes nothing.
 	size_charts : State, Gui.Event.CanvasSize -> Gui.Action(State)
-	size_charts = |current, laid_out| if laid_out.width == current.chart_width Gui.Action.none else Gui.Action.delegate({ ..current, chart_width: laid_out.width })
+	size_charts = |current, laid_out| if laid_out.width == current.chart_width Gui.Action.none() else Gui.Action.delegate({ ..current, chart_width: laid_out.width })
 
 	## The policy of a boundary directly under the root: perform the request,
 	## or accept the change as a root update.
@@ -523,7 +530,7 @@ Observatory := [].{
 }
 
 on_screen_tab : State -> [None, Some(U64)]
-on_screen_tab = |state| match state.tabs.find_first(|tab| tab.parked == OnScreen) {
+on_screen_tab = |state| match state.tabs.find_first(on_screen) {
 	Ok(tab) => Some(tab.key)
 	Err(_) => None
 }
@@ -557,7 +564,7 @@ stash = |state| match state.capture {
 	None => state
 	Some(opened) => {
 		parked = { capture: opened, source: state.source, place: here(state), cycles: state.cycles, steps: state.steps, strip: state.strip, clock: state.clock, trigger_sort: state.trigger_sort, budget: state.budget, history: state.history }
-		{ ..state, tabs: state.tabs.map(|tab| if tab.parked == OnScreen { ..tab, parked: Parked(parked) } else tab) }
+		{ ..state, tabs: state.tabs.map(|tab| if on_screen(tab) { ..tab, parked: Parked(parked) } else tab) }
 	}
 }
 
@@ -777,14 +784,14 @@ find_cycle = |state, ordinal| match state.capture {
 					NoCycle => Gui.Action.update({ ..latest, status: failure("No cycle ${ordinal.to_str()} in run ${run_id.to_str()}", "Cycles are numbered from 0 in each run; choose a run in Spec to look in another.") })
 					CycleFailed(message) => Gui.Action.update({ ..latest, status: failure(message, "This cycle could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
 }
 
-empty_window : Window(a)
-empty_window = { offset: 0, rows: [], read: 0 }
+empty_window : () -> Window(a)
+empty_window = || { offset: 0, rows: [], read: 0 }
 
 no_clock : Clock
 no_clock = { of: 0, window: Timeline.empty, read: 0 }
@@ -825,7 +832,7 @@ wanted = |window, reading, visible, total| {
 }
 
 listed_cycles : State -> Window(Capture.Cycle)
-listed_cycles = |state| if holds_cycles(state) state.cycles.window else empty_window
+listed_cycles = |state| if holds_cycles(state) state.cycles.window else empty_window()
 
 holds_cycles : State -> Bool
 holds_cycles = |state| state.cycles.phase == state.phase and state.cycles.filter == state.filter
@@ -1004,7 +1011,7 @@ close_capture = |state| {
 		Busy(active) => Busy(active)
 		_ => Ready
 	}
-	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty, source: None, live: idle, changed: False, tabs: state.tabs.keep_if(|tab| tab.parked != OnScreen) }
+	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty(), source: None, live: idle, changed: False, tabs: state.tabs.keep_if(|tab| !on_screen(tab)) }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -1086,7 +1093,7 @@ read_summaries = |state, watch, generation| match state.folder {
 						merged_at = latest.next_request
 						read_summaries({ ..latest, next_request: merged_at + 1, folder: Some({ ..current, revision: merged_at, captures }) }, watch, generation)
 					}
-					_ => Gui.Action.none
+					_ => Gui.Action.none()
 				},
 			})
 		}
@@ -1106,7 +1113,7 @@ choose = |state| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => folder_listed(latest, result, id)
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1241,7 +1248,7 @@ reopen_folder = |state, key| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => folder_listed(latest, result, id)
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1264,7 +1271,7 @@ reopen = |state, key| {
 				Opened(opened) => shown_files(latest, opened, id, Overview)
 				Unopened(refused) => Gui.Action.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason(refused.reason)) })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1346,7 +1353,7 @@ open_files = |state, selections, view| {
 		run: || open_selections!(access, selections),
 		resolve: |latest, opened| match latest.status {
 			Busy(active) if active == id => shown_files({ ..latest, status: note }, opened, id, view)
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1415,7 +1422,7 @@ choose_file = |state| {
 				FileCanceled => Gui.Action.update({ ..latest, status: Ready })
 				FileRefused(remedy) => Gui.Action.update({ ..latest, status: failure("Could not open the capture file", remedy) })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1485,7 +1492,7 @@ show = |latest, loaded, id| {
 		steps_reading: None,
 		step_scroll: None,
 		family_focus: None,
-		history: History.empty,
+		history: History.empty(),
 		status: Ready,
 		changed: False,
 	}
@@ -1513,7 +1520,7 @@ open_capture = |state, directory, name| {
 				Ok(loaded) => begin_live(enlist(show({ ..stash(latest), source: InFolder({ directory, name }) }, loaded, id), id), loaded.live, id)
 				Err(message) => Gui.Action.update({ ..latest, capture: None, source: None, live: idle, status: failure(message, unreadable_remedy) })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1521,7 +1528,7 @@ open_capture = |state, directory, name| {
 ## A cycle's detail is read through the connection the open capture holds.
 inspect : State, Capture.Cycle -> Gui.Action(State)
 inspect = |state, cycle| match state.capture {
-	None => Gui.Action.none
+	None => Gui.Action.none()
 	Some(opened) => {
 		id = state.next_request
 		Gui.Action.keyed_task({
@@ -1533,7 +1540,7 @@ inspect = |state, cycle| match state.capture {
 					Ok(inspected) => list_cycles({ ..latest, inspected: Some(inspected), status: Ready })
 					Err(message) => Gui.Action.update({ ..latest, status: failure(message, "This cycle's detail could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1547,7 +1554,7 @@ list_cycles = |state| if state.view == Interactions and !holds_cycles(state) {
 	read_cycles(state, 0)
 } else if state.view == Timeline and Some(state.clock.of) != opened_revision(state) and state.clock_reading == None {
 	read_clock(state, 0, 0)
-} else if state.view == Spec and state.spec_source.folder != None and Some(state.spec_source.of) != opened_revision(state) and state.spec_source.reading == None {
+} else if state.view == Spec and SpecSource.granted(state.spec_source) and Some(state.spec_source.of) != opened_revision(state) and state.spec_source.reading == None {
 	locate(state)
 } else {
 	Gui.Action.update(state)
@@ -1577,7 +1584,7 @@ read_clock = |state, start, span| match state.capture {
 					Ok(window) => Gui.Action.update({ ..latest, clock: { of, window, read: id }, clock_reading: None, clock_hover: None })
 					Err(message) => Gui.Action.update({ ..latest, clock_reading: None, status: failure(message, "The timeline could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1602,7 +1609,7 @@ read_cycles = |state, offset| match state.capture {
 					Ok(rows) => Gui.Action.update({ ..latest, cycles: { phase, filter, window: { offset, rows, read: id } }, cycles_reading: None })
 					Err(message) => Gui.Action.update({ ..latest, cycles_reading: None, status: failure(message, "These cycles could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1630,7 +1637,7 @@ read_steps = |state, run_id, offset, focus| match state.capture {
 					}
 					Err(message) => Gui.Action.update({ ..latest, steps_reading: None, status: failure(message, "The steps of this run could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1676,7 +1683,7 @@ choose_noise = |state, directory, name| {
 				Ok(member) => Gui.Action.update({ ..latest, noise: Some(read_by(member, id)), status: Ready })
 				Err(message) => Gui.Action.update({ ..latest, status: failure(message, "The A/A capture could not be read.") })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1695,7 +1702,7 @@ build_scaling = |state, directory| {
 				Ok(members) => Gui.Action.update({ ..latest, scaling: { chosen: names, members: members.map(|member| read_by(member, id)), read: id }, status: Ready })
 				Err(message) => Gui.Action.update({ ..latest, status: failure(message, "A capture of the scaling set could not be read.") })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1715,7 +1722,7 @@ read_frame = |state, bar| match state.capture {
 					Ok(detail) => Gui.Action.update({ ..latest, frame: Some(detail), status: Ready })
 					Err(message) => Gui.Action.update({ ..latest, status: failure(message, "This frame's work could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1738,7 +1745,7 @@ read_strip = |state, start, span| match state.capture {
 					Ok(strip) => Gui.Action.update({ ..latest, strip: { strip, read: id }, strip_reading: None, frame_hover: None })
 					Err(message) => Gui.Action.update({ ..latest, strip_reading: None, status: failure(message, "These frames could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1817,7 +1824,7 @@ open_sources = |state| match state.capture {
 					SourcesCanceled => Gui.Action.update({ ..latest, status: Ready })
 					SourcesRefused => Gui.Action.update({ ..latest, status: failure("Could not open the folder of specification sources", "The host granted no folder to read. Start Observatory with --host-cap-dir <folder>, or choose one this process may read.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1839,7 +1846,7 @@ locate = |state| match (state.capture, state.spec_source.folder) {
 					Ok(result) => Gui.Action.update({ ..latest, spec_source: located(latest, id, opened.revision, result) })
 					Err(message) => Gui.Action.update({ ..latest, spec_source: { ..latest.spec_source, reading: None }, status: failure(message, "The folder of specification sources could not be read.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1884,7 +1891,7 @@ annotate = |state, mode, focus| match state.capture {
 					}
 					Err(message) => Gui.Action.update({ ..latest, spec_source: { ..latest.spec_source, reading: None }, status: failure(message, "The steps of this run could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1925,7 +1932,7 @@ wait_capture = |state, watch, generation| Gui.Action.keyed_task({
 	pending: state,
 	run: || watch.next!(),
 	resolve: |latest, change| if latest.live.generation != generation {
-		Gui.Action.none
+		Gui.Action.none()
 	} else {
 		match change {
 			Changed(changes) => if changes.replaced or changes.overflowed recheck(latest, watch, generation) else grow(latest, watch, generation)
@@ -1979,7 +1986,7 @@ grow = |state, watch, generation| match state.capture {
 			pending: { ..state, next_request: id + 1 },
 			run: || grow!(held, read_to, at),
 			resolve: |latest, outcome| if latest.live.generation != generation {
-				Gui.Action.none
+				Gui.Action.none()
 			} else {
 				match outcome {
 					Ok(Same) => wait_capture(latest, watch, generation)
@@ -2018,7 +2025,7 @@ recheck = |state, watch, generation| match state.capture {
 			pending: state,
 			run: || identity_at!(source),
 			resolve: |latest, outcome| if latest.live.generation != generation {
-				Gui.Action.none
+				Gui.Action.none()
 			} else {
 				match outcome {
 					Ok(found) if found == Capture.metadata(held, "capture_id") => grow(latest, watch, generation)
@@ -2064,7 +2071,7 @@ wait_folder = |state, watch, generation| Gui.Action.keyed_task({
 	pending: { ..state, folder_watch: generation },
 	run: || captures_changed!(watch),
 	resolve: |latest, outcome| if latest.folder_watch != generation {
-		Gui.Action.none
+		Gui.Action.none()
 	} else {
 		match outcome {
 			Relevant(changes) => relist(latest, watch, generation, changes)
@@ -2096,7 +2103,7 @@ relist = |state, watch, generation, changes| match state.folder {
 				Err(_) => Unlisted
 			},
 			resolve: |latest, outcome| if latest.folder_watch != generation {
-				Gui.Action.none
+				Gui.Action.none()
 			} else {
 				match (outcome, latest.folder) {
 					(Relisted(captures), Some(current)) => wait_folder(noticed({ ..latest, folder: Some({ ..current, revision: id, captures }) }), watch, generation)
@@ -2243,7 +2250,7 @@ reload = |state| match state.capture {
 					}
 					Err(message) => Gui.Action.update({ ..latest, status: failure(message, "The replaced capture could not be read. The capture on screen is the one read before.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}

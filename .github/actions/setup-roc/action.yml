@@ -1,19 +1,19 @@
-name: Install pinned Roc compiler
-description: Validate .roc-version and install its exact Roc compiler.
+name: Install the Roc nightly
+description: Install the nightly this run resolved once, outside the checkout, and report it.
+inputs:
+  nightly-tag:
+    description: The roc-lang/nightlies tag the run's first job resolved
+    required: true
 runs:
   using: composite
   steps:
-    - id: pin
-      shell: bash
-      run: |
-        roc_pin=$(python3 scripts/toolchain.py --check)
-        echo "version=$roc_pin" >> "$GITHUB_OUTPUT"
     - uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
       with:
         version: nightly-new-compiler
-        nightly-tag: ${{ steps.pin.outputs.version }}
+        nightly-tag: ${{ inputs.nightly-tag }}
     - name: Keep downloaded compiler outside release source
       shell: bash
       run: python3 scripts/toolchain.py --relocate-for-ci
-    - shell: bash
+    - name: Reject compiler pins and report the compiler
+      shell: bash
       run: python3 scripts/toolchain.py --check --roc-bin roc

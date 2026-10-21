@@ -423,7 +423,7 @@ plot = |sorted, row, plot_width, hovered| {
 	Gui.canvas({
 		label: "Scaling chart ${name}",
 		primitives,
-		on_pointer: |_, _| Gui.Action.none,
+		on_pointer: |_, _| Gui.Action.none(),
 		on_hover: Some(
 			|current, event| {
 				index = match event.phase {
@@ -438,7 +438,7 @@ plot = |sorted, row, plot_width, hovered| {
 					(None, Some(held)) if held.trigger != row.trigger => current.scaling_hover
 					_ => index
 				}
-				if next == current.scaling_hover Gui.Action.none else Gui.Action.update({ ..current, scaling_hover: next })
+				if next == current.scaling_hover Gui.Action.none() else Gui.Action.update({ ..current, scaling_hover: next })
 			},
 		),
 		on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),

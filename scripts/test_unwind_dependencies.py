@@ -10,6 +10,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_unwind
 import release_dependencies
+from test_native_archive_fixture import current_native
 from dependency_archive import write_archive
 
 
@@ -32,6 +33,7 @@ class UnwindDependencyTests(unittest.TestCase):
         files = {"targets/x64glibc/" + name: b"generated input" for name in policy["files"]}
         files.update({"licenses/unwind/" + name: b"notice" for name in policy["licenses"]})
         files.update({name: b"corresponding source" for name in policy["extra_files"]})
+        metadata, files = current_native("unwind", files)
         environment = {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
                        "GITHUB_REPOSITORY": release_dependencies.REPOSITORY, "GITHUB_SHA": "a" * 40}
         for missing in (None, "sources/unwind/source.tar.xz", "licenses/unwind/LICENSE.TXT", "unexpected-library"):
@@ -40,9 +42,7 @@ class UnwindDependencyTests(unittest.TestCase):
                 payload = {name: data for name, data in files.items() if name != missing}
                 if missing == "unexpected-library":
                     payload["targets/x64glibc/libc++abi.a"] = b"private probe support"
-                write_archive(directory / "unwind-x64glibc.tar", {
-                    "schema_version": 1, "name": "unwind", "target": "x64glibc", "version": "test",
-                }, payload)
+                write_archive(directory / "unwind-x64glibc.tar", metadata, payload)
                 with patch.object(release_dependencies.subprocess, "check_output", return_value="a" * 40), patch.object(
                         release_dependencies, "verify_archive"):
                     if missing:

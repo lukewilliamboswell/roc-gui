@@ -10,7 +10,7 @@ import tarfile
 import tempfile
 
 from dependency_artifacts import sha256
-from toolchain import replace_platform, pin_release_app, development_pin
+from toolchain import replace_platform
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = "lukewilliamboswell/roc-gui"
@@ -21,9 +21,10 @@ README = """\
 Every application here declares the published platform directly, so nothing in
 this archive needs building first:
 
-    app [State, main] {{ pf: platform "{url}", roc: "{compiler}" }}
+    app [State, main] {{ pf: platform "{url}" }}
 
-Build and run one with the pinned compiler:
+Build and run one with a current Roc nightly. This release was built and tested
+with `{compiler}`:
 
     roc build --opt=dev --output=counter counter/main.roc
     ./counter
@@ -38,7 +39,7 @@ See https://lukewilliamboswell.github.io/roc-gui/ for the manual.
 """
 
 
-def stage_examples(destination: Path, url: str, compiler: str) -> list[str]:
+def stage_examples(destination: Path, url: str) -> list[str]:
     """Copy each example beside its specifications, bound to `url`."""
     names = []
     for source in sorted(ROOT.glob("examples/*/main.roc")):
@@ -48,7 +49,7 @@ def stage_examples(destination: Path, url: str, compiler: str) -> list[str]:
         main = staged / "main.roc"
         # The same substitution the release check uses to prove this URL
         # resolves, so a published example cannot drift from a tested one.
-        main.write_text(pin_release_app(replace_platform(main.read_text(), url), compiler))
+        main.write_text(replace_platform(main.read_text(), url))
         names.append(example.name)
     if not names:
         raise ValueError("no examples were staged")
@@ -57,15 +58,15 @@ def stage_examples(destination: Path, url: str, compiler: str) -> list[str]:
 
 def archive(output: Path, version: str, manifest_path: Path) -> Path:
     manifest = json.loads(manifest_path.read_text())
-    if manifest["schema_version"] != 2 or manifest["compiler"] != development_pin(ROOT):
-        raise ValueError("release manifest must match the repository compiler pin")
-    url = f"https://github.com/{REPOSITORY}/releases/download/v{version}/{manifest['bundle']['name']}"
+    if manifest["schema_version"] != 3 or not manifest.get("compiler"):
+        raise ValueError("release manifest must name the compiler that bundled it")
+    url = f"https://github.com/{REPOSITORY}/releases/download/{version}/{manifest['bundle']['name']}"
     output.mkdir(parents=True, exist_ok=True)
     bundle = output / f"roc-gui-examples-{version}.tar.gz"
     with tempfile.TemporaryDirectory(prefix="roc-gui-examples-") as temporary:
         stage = Path(temporary) / f"roc-gui-examples-{version}"
         stage.mkdir(parents=True)
-        stage_examples(stage, url, manifest["compiler"])
+        stage_examples(stage, url)
         (stage / "README.md").write_text(
             README.format(version=version, url=url, compiler=manifest["compiler"])
         )

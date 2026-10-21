@@ -402,7 +402,7 @@ window_keys = [
 show_view : Observatory.State, Observatory.View -> Gui.Action(Observatory.State)
 show_view = |current, view| match current.capture {
 	Some(_) => Observatory.fulfil({ ..current, request: Some(Show(view)) })
-	None => Gui.Action.none
+	None => Gui.Action.none()
 }
 
 authority_bar : Observatory.State -> Gui.Elem(Observatory.State)
@@ -857,27 +857,26 @@ measured = |opened, name, present| if Capture.complete(opened, name) present els
 
 identity : Capture.Opened -> List(Gui.Elem(Observatory.State))
 identity = |opened| {
-	m = |name| Capture.metadata(opened, name)
-	commit = m("host_commit")
+	commit = Capture.metadata(opened, "host_commit")
 	short = if Str.is_empty(commit) "unavailable" else Str.from_utf8(commit.to_utf8().take_first(7)) ?? commit
-	dirty = match m("host_dirty") {
+	dirty = match Capture.metadata(opened, "host_dirty") {
 		"1" => " (dirty)"
 		"0" => ""
 		_ => " (dirty unknown)"
 	}
-	spec_name = m("spec_name")
+	spec_name = Capture.metadata(opened, "spec_name")
 	spec = if Str.is_empty(spec_name) "no specification" else "spec \"${spec_name}\""
-	samples = m("benchmark_samples")
+	samples = Capture.metadata(opened, "benchmark_samples")
 	benchmark = if Str.is_empty(spec_name) {
 		"interactive session: no test run"
 	} else if samples == "0" or Str.is_empty(samples) {
 		"not a benchmark: one test run"
 	} else {
-		"benchmark: ${m("benchmark_warmups")} warmups · ${samples} samples · ${m("benchmark_iterations")} iterations · scale ${m("benchmark_scale")}"
+		"benchmark: ${Capture.metadata(opened, "benchmark_warmups")} warmups · ${samples} samples · ${Capture.metadata(opened, "benchmark_iterations")} iterations · scale ${Capture.metadata(opened, "benchmark_scale")}"
 	}
 	[
-		line("${m("app_name")} · ${spec} · ${m("target_profile")}"),
-		line("commit ${short}${dirty} · ${m("cpu_model")} ×${m("logical_cpu_count")} · ${m("host_os")} ${m("host_arch")}"),
+		line("${Capture.metadata(opened, "app_name")} · ${spec} · ${Capture.metadata(opened, "target_profile")}"),
+		line("commit ${short}${dirty} · ${Capture.metadata(opened, "cpu_model")} ×${Capture.metadata(opened, "logical_cpu_count")} · ${Capture.metadata(opened, "host_os")} ${Capture.metadata(opened, "host_arch")}"),
 		line(benchmark),
 	]
 }
@@ -1230,7 +1229,7 @@ cycles_section = |state, opened| {
 						on_range: Some(
 							|current, visible| match Observatory.cycles_wanted(current, visible) {
 								Some(offset) => Observatory.ask(current, ReadCycles(offset))
-								None => Gui.Action.none
+								None => Gui.Action.none()
 							},
 						),
 					}),
@@ -1373,6 +1372,12 @@ waterfall = |opened, inspected, columns| {
 		)
 }
 
+component_value : Capture.Inspected, [None, Some(Str)], I64 -> [None, Some(I64)]
+component_value = |inspected, absent, kind| match absent {
+	Some(_) => None
+	None => Capture.work_count(inspected, kind)
+}
+
 ## US-14: every kind, `—` when the cycle has no component work observation.
 component_work : Capture.Opened, Capture.Inspected, U32 -> List(Gui.Elem(Observatory.State))
 component_work = |opened, inspected, name_width| {
@@ -1383,28 +1388,27 @@ component_work = |opened, inspected, name_width| {
 	} else {
 		None
 	}
-	value = |kind| match absent {
-		Some(_) => None
-		None => Capture.work_count(inspected, kind)
-	}
 	rows = Capture.work_kinds.map_with_index(
-		|name, index| labelled_row("Work ${name}", [
-			cell(name, 190, Theme.ink),
-			match value(index.to_i64_wrap()) {
-				Some(count) => figure_cell(count.to_str(), 70)
-				None => dash_cell(
-					"component_work",
-					match absent {
-						Some(why) => why
-						None => Capture.absence(opened, "component_work")
-					},
-					70,
-				)
-			},
-			rest_cell("", Theme.dim),
-		]),
+		|name, index| labelled_row(
+			"Work ${name}",
+			[
+				cell(name, 190, Theme.ink),
+				match component_value(inspected, absent, index.to_i64_wrap()) {
+					Some(count) => figure_cell(count.to_str(), 70)
+					None => dash_cell(
+						"component_work",
+						match absent {
+							Some(why) => why
+							None => Capture.absence(opened, "component_work")
+						},
+						70,
+					)
+				},
+				rest_cell("", Theme.dim),
+			],
+		),
 	)
-	skip = match (value(2), value(1)) {
+	skip = match (component_value(inspected, absent, 2), component_value(inspected, absent, 1)) {
 		(Some(skipped), Some(compared)) => "skip rate ${Format.percent(skipped, compared)} · ${skipped.to_str()} skipped of ${compared.to_str()} compared"
 		_ => "skip rate —"
 	}
@@ -1855,7 +1859,7 @@ spec = |state, opened| {
 									on_range: Some(
 										|current, visible| match Observatory.steps_wanted(current, visible) {
 											Some(offset) => Observatory.ask(current, ReadSteps(offset))
-											None => Gui.Action.none
+											None => Gui.Action.none()
 										},
 									),
 								}),
@@ -2246,7 +2250,7 @@ distribution = |state, opened| {
 				primitives: hover_mark.concat(bars).concat(edges).concat(axis).concat(markers).append(readout).concat(hits),
 				on_pointer: |current, event| match (event.phase, target_of(event.target, Capture.bucket_count)) {
 					(Begin, Some(bucket)) => Observatory.ask(current, FilterBucket(bucket, count_of(bucket)))
-					_ => Gui.Action.none
+					_ => Gui.Action.none()
 				},
 				on_hover: Some(
 					|current, event| {
@@ -2254,7 +2258,7 @@ distribution = |state, opened| {
 							Move => target_of(event.target, Capture.bucket_count)
 							Leave => None
 						}
-						if hovered == current.bucket_hover Gui.Action.none else Gui.Action.update({ ..current, bucket_hover: hovered })
+						if hovered == current.bucket_hover Gui.Action.none() else Gui.Action.update({ ..current, bucket_hover: hovered })
 					},
 				),
 				on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
@@ -2401,9 +2405,9 @@ frame_strip = |state, opened| {
 			on_pointer: |current, event| match (event.phase, target_of(event.target, columns)) {
 				(Begin, Some(column)) => match bar_at(column) {
 					Some(bar) => Observatory.ask(current, SelectFrame(bar))
-					None => Gui.Action.none
+					None => Gui.Action.none()
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 			on_hover: Some(
 				|current, event| {
@@ -2411,13 +2415,13 @@ frame_strip = |state, opened| {
 						Move => target_of(event.target, columns)
 						Leave => None
 					}
-					if column == current.frame_hover Gui.Action.none else Gui.Action.update({ ..current, frame_hover: column })
+					if column == current.frame_hover Gui.Action.none() else Gui.Action.update({ ..current, frame_hover: column })
 				},
 			),
 			on_wheel: Some(
 				|current, wheel| match zoomed(current.strip.strip, chart_plot(current), wheel) {
 					Some(next) => Observatory.ask(current, ShowFrames(next.start, next.span))
-					None => Gui.Action.none
+					None => Gui.Action.none()
 				},
 			),
 			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
@@ -2555,15 +2559,17 @@ group_name = |group| match group {
 	Moved => "moved and rebased"
 }
 
+frame_work_total : List(Capture.WorkTotal), I64 -> Capture.WorkTotal
+frame_work_total = |work, metric| match work.find_first(|found| found.metric == metric) {
+	Ok(found) => found
+	Err(_) => { metric, total: 0, max: 0 }
+}
+
 ## US-24: the nineteen GPUI frame-work metrics, grouped.
 frame_work : Observatory.State, Capture.Opened -> List(Gui.Elem(Observatory.State))
 frame_work = |state, opened| {
 	drawn = opened.frames.drawn
 	present = Capture.complete(opened, "gpui_frame_work")
-	total_of = |metric| match opened.work.find_first(|found| found.metric == metric) {
-		Ok(found) => found
-		Err(_) => { metric, total: 0, max: 0 }
-	}
 	chosen = |metric| match state.frame {
 		Some(detail) => match detail.work.find_first(|found| found.metric == metric) {
 			Ok(found) => found.count.to_str()
@@ -2572,7 +2578,7 @@ frame_work = |state, opened| {
 		None => ""
 	}
 	metric_row = |metric, name| {
-		found = total_of(metric)
+		found = frame_work_total(opened.work, metric)
 		labelled_row(
 			"Frame work ${name}",
 			[
@@ -2589,8 +2595,8 @@ frame_work = |state, opened| {
 		members = Capture.work_metrics.map_with_index(|found, index| { index: index.to_i64_wrap(), name: found.name, group: found.group }).keep_if(|found| found.group == group)
 		[table_row([rest_cell(group_name(group), Theme.dim)])].concat(members.map(|found| metric_row(found.index, found.name)))
 	}
-	replayed = total_of(6).total
-	fresh = total_of(14).total
+	replayed = frame_work_total(opened.work, 6).total
+	fresh = frame_work_total(opened.work, 14).total
 	overall = if !present "replay share —" else if replayed + fresh == 0 "replay share: no scene operations" else "replay share over every frame: ${Format.percent(replayed, replayed + fresh)} of scene operations replayed"
 	frame_share = match state.frame {
 		Some(detail) => match Capture.replay_share(detail.work) {
@@ -2602,18 +2608,16 @@ frame_work = |state, opened| {
 	reason = if present [] else [absence_note(opened, "gpui_frame_work")]
 	[heading("FRAME WORK · GPUI replay against fresh construction")]
 		.concat(reason)
-		.concat(
-			[
-				Gui.row({ label: "Replay share", width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("${overall}${frame_share}")]),
-				table(
-					"Frame work",
-					[table_head("Frame work columns", [head_cell("metric", 250), head_figure("total", 90), head_figure("max", 70), head_figure("mean", 70), head_figure("frame", 70), head_rest("")])]
-						.concat(group_rows(Replayed))
-						.concat(group_rows(Fresh))
-						.concat(group_rows(Moved)),
-				),
-			],
-		)
+		.concat([
+			Gui.row({ label: "Replay share", width: Fill, padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face }, [Gui.text("${overall}${frame_share}")]),
+			table(
+				"Frame work",
+				[table_head("Frame work columns", [head_cell("metric", 250), head_figure("total", 90), head_figure("max", 70), head_figure("mean", 70), head_figure("frame", 70), head_rest("")])]
+					.concat(group_rows(Replayed))
+					.concat(group_rows(Fresh))
+					.concat(group_rows(Moved)),
+			),
+		])
 }
 
 ## A list the platform builds the viewport and one viewport either side of
@@ -2714,7 +2718,7 @@ list_passes = |state, opened| if !Capture.complete(opened, "virtual_list_materia
 		Gui.canvas({
 			label: "List passes",
 			primitives: pass_bars.concat(visible_marks).concat(chart_captions),
-			on_pointer: |_, _| Gui.Action.none,
+			on_pointer: |_, _| Gui.Action.none(),
 			on_size: Some(|current, laid_out| Observatory.size_charts(current, laid_out)),
 			width: chart_width,
 			height: Px(110),
@@ -2966,7 +2970,13 @@ tab_key = |text| U64.from_str(text) ?? 0
 same_tabs : Observatory.State, Observatory.State -> Bool
 same_tabs = |a, b| {
 	titles = |state| state.tabs.map(|tab| { key: tab.key, baseline: Observatory.holds_baseline(state, tab) })
-	titles(a) == titles(b) and Observatory.on_screen_tab(a) == Observatory.on_screen_tab(b) and (a.capture == None) == (b.capture == None)
+	titles(a) == titles(b) and Observatory.on_screen_tab(a) == Observatory.on_screen_tab(b) and has_capture(a) == has_capture(b)
+}
+
+has_capture : Observatory.State -> Bool
+has_capture = |state| match state.capture {
+	Some(_) => True
+	None => False
 }
 
 render : Observatory.State -> Gui.Elem(Observatory.State)

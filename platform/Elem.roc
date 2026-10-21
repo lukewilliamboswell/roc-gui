@@ -62,7 +62,7 @@ Elem(a) :: [
 	## Start with `key`, `get`, and `set`; add policies only when needed.
 	## `get` reads the child; `set` replaces it while preserving other parent data.
 	## `on_delegate` receives the proposed parent and defaults to `Action.update`;
-	## returning `Action.none` rejects the whole proposal. `memo` defaults to None.
+	## returning `Action.none()` rejects the whole proposal. `memo` defaults to None.
 	## A comparator receives saved and incoming child states: True promises that
 	## both the rendered UI and captured handlers remain equivalent. Retaining
 	## that comparison snapshot can require cloning during subsequent updates.
@@ -78,7 +78,7 @@ Elem(a) :: [
 		set : parent, child -> parent,
 
 		## Decide whether to accept a proposed parent containing the child's change.
-		## `Action.none` rejects the entire proposal. The default accepts it.
+		## `Action.none()` rejects the entire proposal. The default accepts it.
 		on_delegate : parent -> Action(parent) ?? Action.update,
 
 		## Compare saved and incoming child states. True promises equivalent UI and
@@ -1974,10 +1974,10 @@ Elem(a) :: [
 		}
 		select_at! = |state, index| match props.tabs.get(index) {
 			Ok(tab) => (props.on_select)(state, { key: tab.key })
-			Err(_) => Action.none
+			Err(_) => Action.none()
 		}
 		previous! = |state, _| match current {
-			Some(index) => if index > 0 select_at!(state, index - 1) else Action.none
+			Some(index) => if index > 0 select_at!(state, index - 1) else Action.none()
 			None => select_at!(state, 0)
 		}
 		next! = |state, _| match current {
@@ -1985,13 +1985,13 @@ Elem(a) :: [
 			None => select_at!(state, 0)
 		}
 		first! = |state, _| select_at!(state, 0)
-		last! = |state, _| if count == 0 Action.none else select_at!(state, count - 1)
+		last! = |state, _| if count == 0 Action.none() else select_at!(state, count - 1)
 		close! = |state, _| match current {
 			Some(index) => match props.tabs.get(index) {
-				Ok(tab) => if tab.closable (props.on_close)(state, { key: tab.key }) else Action.none
-				Err(_) => Action.none
+				Ok(tab) => if tab.closable (props.on_close)(state, { key: tab.key }) else Action.none()
+				Err(_) => Action.none()
 			}
-			None => Action.none
+			None => Action.none()
 		}
 		strip = Row({
 			children: props.tabs.map(|tab| tab_unit(props, tab)),
@@ -2379,7 +2379,7 @@ Elem(a) :: [
 			|| project(
 				parent,
 				|result| match result {
-					Err(Removed) => Work.next(|| done(Action.none))
+					Err(Removed) => Work.next(|| done(Action.none()))
 					Ok(child) => Work.next(|| adapt(handler!(child, event), parent, done))
 				},
 			),

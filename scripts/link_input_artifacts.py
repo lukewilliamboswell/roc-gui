@@ -35,7 +35,7 @@ COMPONENTS = {
     "x64mingw": (("windows-gnu-runtime", "x64mingw"),),
 }
 SOURCE_PATHS = (
-    "Blueprint.lock", "dependencies/nixpkgs-pin.nix", "scripts/nix_link_inputs.py", "scripts/dependency_artifacts.py",
+    "dependencies/nixpkgs-pin.nix", "scripts/nix_link_inputs.py", "scripts/dependency_artifacts.py",
     "test/dependencies", "scripts/test_unwind_rust.py", "scripts/test_linux_link_inputs.py",
     "scripts/check_linux_reproduction.py",
     "dependencies/alsa-interface.json", "dependencies/freetype.json", "dependencies/glibc",
@@ -53,7 +53,7 @@ SOURCE_PATHS = (
 )
 
 
-# Shared files and the Lock remain genuine inputs to unmigrated producers.
+# Shared files and the reviewed native package pin remain producer inputs.
 # Exclude only paths whose ownership has moved wholly to the FreeType Build.
 FREETYPE_ONLY = (
     "dependencies/freetype.json", "scripts/build_freetype.py",
@@ -70,24 +70,14 @@ class UncommittedLinkInputs(ValueError):
 
 
 def development_requires_source_inputs(root=ROOT):
-    """Select local recipes only for absent or out-of-date development inputs.
-
-    Release consumers continue to use read_lock directly. Malformed locks and
-    artifact verification failures must never become a source-build fallback.
-    """
-    path = root / "link-inputs.lock.json"
-    if not path.exists() and not path.is_symlink():
-        return True
-    try:
-        read_lock(path, root=root)
-    except (StaleLinkInputs, UncommittedLinkInputs):
-        return True
+    """Require current reviewed authority; source builds require --source-inputs."""
+    read_lock(root / "link-inputs.lock.json", root=root)
     return False
 
 
-def source_fingerprint(root=ROOT, *, component_builds=False):
+def source_fingerprint(root=ROOT):
     """Hash the committed tree records for every input that may affect the set."""
-    paths = SOURCE_PATHS + (tuple(":(exclude)" + path for path in FREETYPE_ONLY) if component_builds else ())
+    paths = SOURCE_PATHS + tuple(":(exclude)" + path for path in FREETYPE_ONLY)
     changed = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths], cwd=root).returncode
     if changed not in (0, 1):
         raise ValueError("could not inspect linker-input producer changes")
@@ -97,10 +87,9 @@ def source_fingerprint(root=ROOT, *, component_builds=False):
         raise UncommittedLinkInputs("linker-input releases require clean committed producer inputs")
     tree = subprocess.check_output(
         ["git", "ls-tree", "-r", "-z", "--full-tree", "HEAD", "--", *SOURCE_PATHS], cwd=root)
-    if component_builds:
-        excluded = {path.encode() for path in FREETYPE_ONLY}
-        records = [record for record in tree.split(b"\0") if record and record.split(b"\t", 1)[1] not in excluded]
-        tree = b"\0".join(records) + (b"\0" if records else b"")
+    excluded = {path.encode() for path in FREETYPE_ONLY}
+    records = [record for record in tree.split(b"\0") if record and record.split(b"\t", 1)[1] not in excluded]
+    tree = b"\0".join(records) + (b"\0" if records else b"")
     if not tree:
         raise ValueError("linker-input source inventory is empty")
     return hashlib.sha256(tree).hexdigest()
@@ -132,7 +121,7 @@ def compose(components, output, resource=None, *, root=ROOT, source=None):
     """Compose target archives from freshly tested component archives."""
     output.mkdir(parents=True, exist_ok=False)
     archives = {}
-    fingerprint = source_fingerprint(root, component_builds=True)
+    fingerprint = source_fingerprint(root)
     archive = components / "freetype-x64glibc.tar"
     freetype = blueprint_admission.read_record(archive.with_suffix(".tar.blueprint.json"))
     blueprint_admission.verify_bytes(archive, freetype)
@@ -146,7 +135,7 @@ def compose(components, output, resource=None, *, root=ROOT, source=None):
             for name, component_target in COMPONENTS[target]:
                 archive = components / f"{name}-{component_target}.tar"
                 manifest, payload = _component_files(archive, name, component_target, stage)
-                if name == "freetype" and manifest["schema_version"] != 4:
+                if name == "freetype" and manifest["schema_version"] != 5:
                     raise ValueError("new linker-input releases require a Blueprint FreeType candidate")
                 identities[name] = {key: value for key, value in manifest.items() if key != "files"}
                 for path, data in payload.items():
@@ -192,7 +181,7 @@ def read_lock(path=LOCK, *, root=ROOT):
     if version == 2:
         fields.add("component_builds")
     if (set(value) != fields
-            or version not in (1, 2) or value["kind"] != "roc-gui-link-inputs"
+            or version != 2 or value["kind"] != "roc-gui-link-inputs"
             or value["repository"] != REPOSITORY or set(value["targets"]) != set(TARGETS)):
         raise ValueError("invalid unified linker-input lock")
     if (not re.fullmatch(r"link-inputs-sha256-[0-9a-f]{64}", value["release"])
@@ -220,7 +209,7 @@ def read_lock(path=LOCK, *, root=ROOT):
             blueprint_admission.check_current(builds["freetype"], root=root)
         except blueprint_admission.StaleAdmission as error:
             raise StaleLinkInputs(str(error)) from error
-    fingerprint = source_fingerprint(root, component_builds=True) if version == 2 else source_fingerprint(root)
+    fingerprint = source_fingerprint(root)
     if source["input_fingerprint"] != fingerprint:
         raise StaleLinkInputs("linker-input lock is stale for this checkout")
     return value

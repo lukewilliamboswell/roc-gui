@@ -98,7 +98,7 @@ def input_evidence(path=None):
 
 def tool_root(name):
     name = {"bzip2": "bzip2.out", "brotli": "brotli.lib"}.get(name, name)
-    return Path(os.environ["BLUEPRINT_TOOLS"]) / ("default#" + name)
+    return Path(os.environ["BLUEPRINT_TOOLS"]) / ("nix#" + name)
 
 
 def configure_environment(work):

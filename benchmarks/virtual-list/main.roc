@@ -52,7 +52,7 @@ step = |state, move| {
 	count = total(state)
 	chosen = state.selected < count
 	if count == 0 {
-		Gui.Action.none
+		Gui.Action.none()
 	} else {
 		row = match move {
 			Next => if !chosen 0 else if state.selected + 1 < count state.selected + 1 else state.selected
@@ -92,7 +92,7 @@ render = |state| Gui.col(
 						}
 						Gui.Action.update({ ..current, jump: Some({ row: current.provided - 1, align: End, serial }) })
 					} else {
-						Gui.Action.none
+						Gui.Action.none()
 					},
 				}),
 			],

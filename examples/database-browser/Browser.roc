@@ -84,7 +84,7 @@ Browser := [].{
 	cancel_query : State -> Gui.Action(State)
 	cancel_query = |state| match state.status {
 		Querying(_) => Gui.Action.cancel({ ..state, status: Canceled }, query_key)
-		_ => Gui.Action.none
+		_ => Gui.Action.none()
 	}
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
@@ -140,7 +140,7 @@ choose = |state| {
 					),
 				})
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -176,7 +176,7 @@ open_database = |state, directory, name| {
 					status: Ready,
 				})
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -214,7 +214,7 @@ run_page = |state, database, sql, offset| {
 					),
 				})
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }

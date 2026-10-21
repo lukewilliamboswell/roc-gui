@@ -8,7 +8,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from dependency_archive import write_archive
+from dependency_archive import write_archive, digest
+from test_native_archive_fixture import current_native
 from dependency_artifacts import unpack_verified
 import test_blueprint_link_inputs as fixtures
 import link_input_artifacts as links
@@ -16,9 +17,17 @@ import link_input_artifacts as links
 
 class LinkInputArtifactsTests(unittest.TestCase):
     def component(self, directory, name, target, files):
-        write_archive(directory / f"{name}-{target}.tar", {
-            "schema_version": 1, "name": name, "target": target,
-        }, files)
+        metadata = {"schema_version": 1, "name": name, "target": target}
+        if name in {"alsa", "glibc", "unwind", "xkbcommon"}:
+            metadata, files = current_native(name, files)
+        elif name == "windows-gnu-runtime":
+            recipe = "dependencies/windows-gnu-runtime.json"
+            files["sources/windows-gnu-runtime/" + recipe] = b"recipe"
+            identity = digest(b"recipe")
+            metadata.update(schema_version=3, source={"native_toolchain": {"sha256": "c" * 64}},
+                            build={"builder_kind": "native-windows-zig", "toolchain_sha256": "c" * 64,
+                                   "recipe_sha256": identity, "reproduction_sha256": {recipe: identity}})
+        write_archive(directory / f"{name}-{target}.tar", metadata, files)
 
     def candidates(self, directory):
         for name, target in sum((list(value) for value in links.COMPONENTS.values()), []):
@@ -71,7 +80,7 @@ class LinkInputArtifactsTests(unittest.TestCase):
     def test_component_fingerprint_excludes_only_migrated_freetype_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            paths = (*links.FREETYPE_ONLY, "Blueprint.lock", "scripts/dependency_artifacts.py")
+            paths = (*links.FREETYPE_ONLY, "dependencies/nixpkgs-pin.nix", "scripts/dependency_artifacts.py")
             for relative in paths:
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -80,14 +89,12 @@ class LinkInputArtifactsTests(unittest.TestCase):
             subprocess.run(["git", "add", "."], cwd=root, check=True)
             subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
                             "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "fixture"], cwd=root, check=True)
-            before = links.source_fingerprint(root, component_builds=True)
+            before = links.source_fingerprint(root)
             (root / "scripts/build_freetype.py").write_text("changed producer")
-            self.assertEqual(links.source_fingerprint(root, component_builds=True), before)
+            self.assertEqual(links.source_fingerprint(root), before)
+            (root / "dependencies/nixpkgs-pin.nix").write_text("changed shared pins")
             with self.assertRaises(links.UncommittedLinkInputs):
                 links.source_fingerprint(root)
-            (root / "Blueprint.lock").write_text("changed shared pins")
-            with self.assertRaises(links.UncommittedLinkInputs):
-                links.source_fingerprint(root, component_builds=True)
 
     def test_new_lock_requires_fresh_component_binding_without_provider_preparation(self):
         from test_blueprint_admission import BlueprintAdmissionTests
@@ -120,7 +127,7 @@ class LinkInputArtifactsTests(unittest.TestCase):
     def test_lock_requires_all_targets_and_current_fingerprint(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "link-inputs.lock.json"
-            lock = {"schema_version": 1, "kind": "roc-gui-link-inputs",
+            lock = {"schema_version": 2, "kind": "roc-gui-link-inputs",
                     "repository": links.REPOSITORY, "release": "link-inputs-sha256-" + "a" * 64,
                     "manifest": {"asset": "build-input-release.json", "sha256": "b" * 64},
                     "source": {"repository": links.REPOSITORY, "sha": "a" * 40,
@@ -129,16 +136,25 @@ class LinkInputArtifactsTests(unittest.TestCase):
                     "targets": {target: {"asset": f"link-inputs-{target}.tar",
                                          "sha256": "c" * 64, "size": 1}
                                 for target in links.TARGETS}}
+            from test_blueprint_admission import BlueprintAdmissionTests
+            fixture = BlueprintAdmissionTests()
+            fixture.setUp()
+            lock["component_builds"] = {"freetype": fixture.record}
+            self.admission_patch = patch.object(links.blueprint_admission, "check_current")
+            self.admission_patch.start()
+            self.addCleanup(self.admission_patch.stop)
             path.write_text(json.dumps(lock))
             with patch.object(links, "source_fingerprint", return_value="f" * 64):
                 self.assertEqual(links.read_lock(path)["release"], lock["release"])
                 self.assertFalse(links.development_requires_source_inputs(path.parent))
             with patch.object(links, "source_fingerprint", return_value="e" * 64):
-                self.assertTrue(links.development_requires_source_inputs(path.parent))
+                with self.assertRaises(links.StaleLinkInputs):
+                    links.development_requires_source_inputs(path.parent)
                 with self.assertRaisesRegex(links.StaleLinkInputs, "stale"):
                     links.read_lock(path)
             with patch.object(links, "source_fingerprint", side_effect=links.UncommittedLinkInputs("dirty")):
-                self.assertTrue(links.development_requires_source_inputs(path.parent))
+                with self.assertRaises(links.UncommittedLinkInputs):
+                    links.development_requires_source_inputs(path.parent)
                 with self.assertRaises(links.UncommittedLinkInputs):
                     links.read_lock(path)
             with patch.object(links, "source_fingerprint", side_effect=ValueError("cannot inspect producer")):
@@ -151,8 +167,14 @@ class LinkInputArtifactsTests(unittest.TestCase):
             path.write_text("not json")
             with self.assertRaises(json.JSONDecodeError):
                 links.development_requires_source_inputs(path.parent)
+            old = dict(lock, schema_version=1)
+            old.pop("component_builds")
+            path.write_text(json.dumps(old))
+            with self.assertRaisesRegex(ValueError, "invalid unified"):
+                links.read_lock(path)
             path.unlink()
-            self.assertTrue(links.development_requires_source_inputs(path.parent))
+            with self.assertRaises(FileNotFoundError):
+                links.development_requires_source_inputs(path.parent)
 
 
 if __name__ == "__main__":

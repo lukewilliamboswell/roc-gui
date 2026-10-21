@@ -24,7 +24,7 @@ def check(components, target="x64glibc"):
         with tempfile.TemporaryDirectory(prefix="roc-gui-reproduction-") as temporary:
             root = Path(temporary) / "archive"
             manifest = unpack_verified(components / f"{name}-{target}.tar", {"name": name, "target": target}, root)
-            if manifest["schema_version"] == 4:
+            if manifest["schema_version"] == 5:
                 check_blueprint_freetype(root / "sources/freetype", manifest)
                 continue
             command = ["nix", "eval", "--impure", "--raw", "--file"]
@@ -52,9 +52,9 @@ def check_blueprint_freetype(source, manifest):
     environment = dict(os.environ, BLUEPRINT_ROOT=str(source), BLUEPRINT_TARGET="x86_64-linux")
     subprocess.run([environment.get("BLUEPRINT", "blueprint"), "update"], cwd=source,
                    env=environment, check=True)
-    pins = blueprint_link_inputs.command(["lock", "show", "--json", "default"], root=source)
+    pins = blueprint_link_inputs.command(["lock", "show", "--json", "nix"], root=source)
     expected = json.loads((source / "blueprint-input-evidence.json").read_text())["packages"][0]
-    locked = pins.get("sources", {}).get("default", {})
+    locked = pins.get("sources", {}).get("nix", {})
     fetch = locked.get("metadata", {}).get("nix", {}).get("fetchTree", {})
     if (pins.get("format") != 2 or locked.get("provider") != expected["provider"]
             or fetch.get("rev") != expected["rev"] or fetch.get("narHash") != expected["narHash"]):

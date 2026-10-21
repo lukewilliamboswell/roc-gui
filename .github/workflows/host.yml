@@ -2,11 +2,17 @@ name: Native host
 
 # Produces one target's native host once per run. Every job that exercises the
 # host admits this sealed output (`scripts/ci_host.py admit`); none builds it.
-# `host-candidate.yml` composes the release archive from those same bytes, as a
-# separate call so specifications never wait on notice composition.
+# A host whose sources and linker inputs match an earlier run's is restored
+# from that run's cache instead of rebuilt. `host-candidate.yml` composes the
+# release archive from a fresh build, as a separate call so specifications
+# never wait on notice composition.
 on:
   workflow_call:
     inputs:
+      nightly-tag:
+        description: The Roc nightly the calling run resolved
+        type: string
+        required: true
       os:
         type: string
         required: true
@@ -14,12 +20,12 @@ on:
         type: string
         required: true
       release:
-        description: Build with the release producer even when a released host matches
+        description: Build fresh, with evidence, even when a cached host matches
         type: boolean
         default: false
     outputs:
       mode:
-        description: released, built, or development
+        description: cached, built, or development
         value: ${{ jobs.build.outputs.mode }}
 
 permissions:
@@ -40,6 +46,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ inputs.nightly-tag }}
       - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: ~/.cache/roc-gui/link-inputs
@@ -55,18 +63,23 @@ jobs:
         run: |
           rustup toolchain install 1.95.0 --profile minimal
           rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
+      - id: fingerprint
+        name: Fingerprint the host sources
+        run: echo "value=$(python3 scripts/ci_host.py fingerprint)" >> "$GITHUB_OUTPUT"
+      - id: cache
+        if: ${{ !inputs.release }}
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ${{ runner.temp }}/ci-host
+          key: ci-host-v1-${{ inputs.target }}-${{ steps.fingerprint.outputs.value }}-${{ hashFiles('link-inputs.lock.json') }}
       - id: decide
         name: Decide how this checkout's host is produced
         run: |
-          mode=$(python3 scripts/ci_host.py decide)
-          if [ "$mode" = released ] && [ "${{ inputs.release }}" = true ]; then mode=built; fi
+          if [ "${{ steps.cache.outputs.cache-hit }}" = true ]; then mode=cached; else mode=$(python3 scripts/ci_host.py decide); fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           echo "Host mode: $mode"
-      - name: Admit the released host
-        if: steps.decide.outputs.mode == 'released'
-        run: python3 scripts/install_released_host.py
       - name: Test the host
-        if: steps.decide.outputs.mode != 'released'
+        if: steps.decide.outputs.mode != 'cached'
         run: python3 scripts/run_cargo.py test --locked --package roc-gui-host
       - name: Build the host with the release producer
         if: steps.decide.outputs.mode == 'built'
@@ -77,7 +90,14 @@ jobs:
         if: steps.decide.outputs.mode == 'development'
         run: python3 build.py
       - name: Seal the staged host
+        if: steps.decide.outputs.mode != 'cached'
         run: python3 scripts/ci_host.py seal --mode "${{ steps.decide.outputs.mode }}" --output "$RUNNER_TEMP/ci-host"
+      - name: Cache the sealed host for runs with the same inputs
+        if: steps.decide.outputs.mode != 'cached' && !inputs.release
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809
+        with:
+          path: ${{ runner.temp }}/ci-host
+          key: ci-host-v1-${{ inputs.target }}-${{ steps.fingerprint.outputs.value }}-${{ hashFiles('link-inputs.lock.json') }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ci-host-${{ inputs.target }}

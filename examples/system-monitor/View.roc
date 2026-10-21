@@ -289,7 +289,7 @@ plot = |state| Theme.panel(
 					history: Chart.loads(state.history),
 					capacity: Monitor.capacity,
 					width: state.plot_width,
-					on_size: |current, laid_out| if laid_out.width == current.plot_width Gui.Action.none else Gui.Action.update({ ..current, plot_width: laid_out.width }),
+					on_size: |current, laid_out| if laid_out.width == current.plot_width Gui.Action.none() else Gui.Action.update({ ..current, plot_width: laid_out.width }),
 				}),
 			],
 		),

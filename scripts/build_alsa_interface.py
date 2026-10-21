@@ -119,7 +119,7 @@ def inside_builder(output):
         subprocess.run(command, check=True, timeout=120)
         provider = native_provider()
         metadata = {
-            "schema_version": 2,
+            "schema_version": 4,
             "name": expected["name"],
             "version": expected["version"],
             "target": expected["target"],

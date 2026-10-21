@@ -7,8 +7,8 @@
 WorkStack(a) :: [Empty, Node(Box({ item : a, rest : WorkStack(a) }))].{
 
 	## A traversal with no pending frames.
-	empty : WorkStack(a)
-	empty = Empty
+	empty : () -> WorkStack(a)
+	empty = || Empty
 
 	## Add the next frame while sharing the existing tail.
 	push : WorkStack(a), a -> WorkStack(a)
@@ -30,7 +30,7 @@ WorkStack(a) :: [Empty, Node(Box({ item : a, rest : WorkStack(a) }))].{
 }
 
 expect {
-	stack = WorkStack.empty.push(1).push(2).push(3)
+	stack = WorkStack.empty().push(1).push(2).push(3)
 	three = stack.pop() ?? crash "missing third frame"
 	two = three.rest.pop() ?? crash "missing second frame"
 	one = two.rest.pop() ?? crash "missing first frame"
@@ -38,7 +38,7 @@ expect {
 }
 
 expect {
-	var $stack = WorkStack.empty
+	var $stack = WorkStack.empty()
 	var $pushed = 0
 	while $pushed < 10000 {
 		$stack = $stack.push($pushed)

@@ -15,15 +15,15 @@ import tempfile
 import threading
 
 from host_build_identity import TARGETS
-from toolchain import replace_platform, pin_release_app, verify_compiler
-from run_specs import Case, fixture_services, run_case
+from toolchain import replace_platform, verify_compiler
+from run_specs import INTERMITTENT, SKIP_HOST_BUILD, Case, describe, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def check(directory: Path, roc: str) -> None:
     manifest = json.loads((directory / "release-manifest.json").read_text())
-    if manifest["schema_version"] != 2:
+    if manifest["schema_version"] != 3:
         raise ValueError("unsupported release manifest")
     verify_compiler(roc, manifest["compiler"])
     bundles = [path for path in directory.iterdir() if path.name.endswith(".tar.zst")]
@@ -32,11 +32,13 @@ def check(directory: Path, roc: str) -> None:
     target = TARGETS.get((platform.system(), platform.machine()))
     if target is None:
         raise ValueError("bundle validation requires a supported native runner")
+    # The fixtures are recorded by the host this run built and bundled, which
+    # the job has admitted into platform/targets; nothing here builds a host.
     subprocess.run(
         [sys.executable, str(ROOT / "scripts/bootstrap.py")],
         cwd=ROOT,
         check=True,
-        env={**os.environ, "ROC": roc},
+        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1"},
     )
     handler = partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -52,23 +54,32 @@ def check(directory: Path, roc: str) -> None:
                 app = stage / source.parent.parent.name / source.parent.name
                 shutil.copytree(source.parent, app)
                 main = app / "main.roc"
-                main.write_text(pin_release_app(replace_platform(main.read_text(), url), manifest["compiler"]))
+                main.write_text(replace_platform(main.read_text(), url))
                 executable = stage / "bin" / source.parent.parent.name / source.parent.name
                 executable.parent.mkdir(parents=True, exist_ok=True)
                 subprocess.run([roc, "build", "--opt=dev", "--no-cache", f"--target={target}",
                                 f"--output={executable}", str(main)], check=True, timeout=180)
-                for spec in sorted(app.glob("specs/*.scm")):
+                # A case is named by its checkout paths, as run_specs.py names
+                # it; only the executable comes from the published bundle.
+                for spec in sorted(source.parent.glob("specs/*.scm")):
+                    if (named := spec.relative_to(ROOT).as_posix()) in INTERMITTENT:
+                        print(f"SKIP {named}: {INTERMITTENT[named]}", flush=True)
+                        continue
                     cases.append(Case(
                         spec=spec,
-                        app=main,
+                        app=source,
                         executable=executable,
                         capture=stage / "captures" / source.parent.parent.name / source.parent.name / f"{spec.stem}.rgstats",
                     ))
                 if source.parent.name == "counter" and platform.system() == "Darwin":
                     subprocess.run([str(executable), "--host-gpui-smoke"], check=True, timeout=30)
-            with fixture_services(cases, stage / "fixtures"):
-                for case in cases:
-                    _, error = run_case(case, 180, 1)
+            # The host says which runner each specification needs and which
+            # loopback services it declares, as it does for run_specs.py.
+            described = describe(cases)
+            semantic = [case for case in cases if described[case.spec]["runner"] == "semantic"]
+            with fixture_services(semantic, described, stage / "fixtures"):
+                for case in semantic:
+                    _, error = run_case(case, described[case.spec], 180, 1)
                     if error is not None:
                         raise RuntimeError(f"{case.spec}: {error}")
     finally:

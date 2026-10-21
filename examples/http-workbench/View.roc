@@ -215,7 +215,7 @@ readout = |props| Gui.textarea({
 	value: props.value,
 	placeholder: props.placeholder,
 	read_only: True,
-	on_input: |_, _| Gui.Action.none,
+	on_input: |_, _| Gui.Action.none(),
 	width: Fill,
 	height: props.height,
 	grow: props.grow,

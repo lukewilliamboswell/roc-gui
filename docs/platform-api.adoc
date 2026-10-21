@@ -52,7 +52,7 @@ It returns an action:
 
 `Gui.Action.update(next_state)`:: Propose the next state and update the required
 render scope, subject to the component's memoization policy.
-`Gui.Action.none`:: Keep the existing state and element tree unchanged.
+`Gui.Action.none()`:: Keep the existing state and element tree unchanged.
 
 The names in the example distinguish two moments. `curr_state` describes the
 UI being rendered. The handler's `prev_state` is the state immediately before
@@ -70,7 +70,7 @@ Using the handler argument also matters when handlers are retained across
 updates: it supplies the latest state, whereas a captured render snapshot
 still describes the earlier render.
 
-Use `Gui.Action.none` when an event is valid but has no effect, such as pressing a
+Use `Gui.Action.none()` when an event is valid but has no effect, such as pressing a
 decrement button at a lower bound. It is both clearer and less work than
 returning an unchanged state with `Gui.Action.update`.
 
@@ -207,7 +207,7 @@ color, as in `benchmarks/hover-grid`.
 Gui.button({
     caption: "Preview",
     label: "Preview item",
-    on_press: |_, _| Gui.Action.none,
+    on_press: |_, _| Gui.Action.none(),
     on_hover_enter: Some(|prev_state, _| Gui.Action.update({ ..prev_state, preview: True })),
     on_hover_exit: Some(|prev_state, _| Gui.Action.update({ ..prev_state, preview: False })),
 })
@@ -290,7 +290,7 @@ of `Gui.virtual_list`. See <<rows-produced-on-demand>>.
 Lay out a `Gui.KeyedSeq` vertically while preserving each item's component lifetime
 by its complete `Gui.Key`. Inserts, moves, removals, and replacements are applied as
 one mounted-graph transaction and one native keyed transaction. Construct a
-sequence with `Gui.KeyedSeq.empty` and update it with `insert_before`, `remove`,
+sequence with `Gui.KeyedSeq.empty()` and update it with `insert_before`, `remove`,
 `move_before`, `set`, or one atomic `apply_all`; `Before(anchor)` and `End`
 describe placement. Duplicate inserted keys, missing targets, and missing
 anchors reject the operation without publishing a partial revision.
@@ -794,7 +794,7 @@ an old state can force the list to be copied. An index limits how much shared
 storage each update needs to copy; it does not eliminate copying.
 
 `Index(value)` is a persistent map keyed by application `U64` identifiers.
-`Gui.Index.empty`, `Gui.Index.get(index, id)`, `Gui.Index.set(index, id, value)`, and
+`Gui.Index.empty()`, `Gui.Index.get(index, id)`, `Gui.Index.set(index, id, value)`, and
 `Gui.Index.remove(index, id)` provide lookup, insertion/replacement, and removal.
 Lookup returns `Try(value, [Missing])`. Updating an index preserves older
 snapshots and copies at most sixteen radix branches, rather than an entire
@@ -828,7 +828,7 @@ translation, then calls `on_delegate(candidate)`. That handler may:
 
 * return `Gui.Action.update(candidate)` to accept;
 * return an update with revised parent data;
-* return `Gui.Action.none` to veto the entire candidate;
+* return `Gui.Action.none()` to veto the entire candidate;
 * return `Gui.Action.task` to start parent-owned work; or
 * return `Gui.Action.delegate` to continue to the next parent policy.
 
@@ -1310,14 +1310,15 @@ output.
 Playing sound through the shared system mixer is an automatically provisioned
 service with no prompt, and the handle lasts for the session; exclusive access
 or unusual routing would be separate scope. Acquisition fails when the machine
-has no usable output device. `Gui.Audio.load!(output, directory, name)` loads
+has no usable output device. `output.load!(directory, name)` loads
 one direct file through an existing `Gui.Files.Dir.Read` grant; names with traversal
 or multiple components are rejected and encoded input is bounded to 64 MiB.
 The host delegates media decoding and playback to Rodio and Symphonia.
 
-`Gui.Audio.Track` is an opaque host resource. `Gui.Audio.play!`, `Gui.Audio.pause!`,
-`Gui.Audio.seek!`, `Gui.Audio.status!`, and `Gui.Audio.stop!` are bounded operations intended
-for `Gui.Action.task`. Status reports the decoder-owned duration, playback position,
+`Gui.Audio.Output` and `Gui.Audio.Track` are opaque host resources whose
+operations are methods on the handle, like every other resource. A track's
+`play!`, `pause!`, `seek!`, `status!`, and `stop!` are bounded operations
+intended for `Gui.Action.task`. Status reports the decoder-owned duration, playback position,
 and `Playing`, `Paused`, or `Stopped` state. `Gui.Audio.AudioErr` identifies
 the failed operation and carries a portable reason such as `DecodeFailed`,
 `OutputUnavailable`, or `InvalidCapability`.
@@ -1380,7 +1381,7 @@ capabilities, unsupported schemes, connection and timeout failures, and
 redirect and body limits.
 
 Give each submitted request a monotonically increasing identity. In the task
-resolver, compare that identity with the latest state and return `Gui.Action.none`
+resolver, compare that identity with the latest state and return `Gui.Action.none()`
 for an obsolete result. This prevents a slow earlier response from replacing a
 newer response without creating a second completion route.
 
@@ -1472,7 +1473,7 @@ revocable destination broker rather than treating that flag as user consent.
 
 TCP operations block and belong inside `Gui.Action.task`. Protocol packages build
 on the byte transport rather than being reimplemented by the platform. The
-Redis Explorer adapts a stream with `roc-redis`'s `Transport.from_bytes_io`, so
+Redis Explorer adapts a stream with `roc-redis`'s `ByteIo.from_empty_eof`, so
 command encoding, bounded RESP2 decoding, typed commands, and exchange policy
 remain the responsibility of the established platform-independent package.
 
@@ -1525,8 +1526,8 @@ drawn for it:
 Gui.canvas({
     label: "CPU history plot",
     primitives: bars(state.history, state.plot_width),
-    on_pointer: |_, _| Gui.Action.none,
-    on_size: Some(|current, laid_out| if laid_out.width == current.plot_width Gui.Action.none else Gui.Action.update({ ..current, plot_width: laid_out.width })),
+    on_pointer: |_, _| Gui.Action.none(),
+    on_size: Some(|current, laid_out| if laid_out.width == current.plot_width Gui.Action.none() else Gui.Action.update({ ..current, plot_width: laid_out.width })),
     width: Fill,
     grow: True,
     height: Px(112),
@@ -1547,7 +1548,7 @@ Each delivered size records one `resize` cycle, whose target is the canvas.
 The handler draws for the size it hears; a handler that also changes the
 canvas's own dimensions must reach a size it keeps, or each frame would ask for
 another. A canvas that answers the width it was already drawn for with
-`Gui.Action.none` makes that turn change nothing.
+`Gui.Action.none()` makes that turn change nothing.
 
 Only a canvas reports its size. Every other element lays its content out
 natively, so text wraps, rows share their width, and a scroll region clips

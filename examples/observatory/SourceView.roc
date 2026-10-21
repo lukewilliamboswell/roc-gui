@@ -90,7 +90,7 @@ bar = |state, opened| {
 	status = |label, text, ink| Widgets.labelled_note(label, text, ink)
 	if Str.is_empty(Capture.metadata(opened, "spec_hash")) {
 		[status("Source", "This capture ran no specification file, so it has no source to show.", Theme.dim)]
-	} else if state.spec_source.folder == None {
+	} else if !SpecSource.granted(state.spec_source) {
 		[Gui.row({ label: "Source bar", width: Fill, padding: 0, gap: Theme.inset, align: Center }, [open_key, status("Source", "Grant the folder of specification sources to see the steps on their lines.", Theme.dim)])]
 	} else if !current {
 		[Gui.row({ label: "Source bar", width: Fill, padding: 0, gap: Theme.inset, align: Center }, [open_key, status("Source", "Looking for this capture's specification…", Theme.dim)])]

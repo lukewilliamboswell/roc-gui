@@ -14,7 +14,7 @@ trailing = 0xD58AFF.Gui.Color
 
 create_grid : U64, U64 -> State
 create_grid = |count, first_identity| {
-	var $cells = Gui.Index.empty
+	var $cells = Gui.Index.empty()
 	var $id = 1.U64
 	for _ in List.repeat({}, count) {
 		$cells = Gui.Index.set($cells, $id, { id: $id, key: Gui.Key.id(first_identity + $id - 1), inside: False, lit: False, generation: 0 })
@@ -24,11 +24,11 @@ create_grid = |count, first_identity| {
 }
 
 enter : Cell -> Gui.Action(Cell)
-enter = |cell| if cell.inside Gui.Action.none else Gui.Action.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
+enter = |cell| if cell.inside Gui.Action.none() else Gui.Action.update({ ..cell, inside: True, lit: True, generation: cell.generation + 1 })
 
 leave : Cell -> Gui.Action(Cell)
 leave = |cell| if !cell.inside {
-	Gui.Action.none
+	Gui.Action.none()
 } else {
 	generation = cell.generation
 	Gui.Action.task({
@@ -44,7 +44,7 @@ leave = |cell| if !cell.inside {
 		resolve: |latest, tick| if tick == Fired and !latest.inside and latest.generation == generation {
 			Gui.Action.update({ ..latest, lit: False })
 		} else {
-			Gui.Action.none
+			Gui.Action.none()
 		},
 	})
 }
@@ -53,7 +53,7 @@ render_cell : Cell -> Gui.Elem(Cell)
 render_cell = |cell| Gui.button({
 	caption: "",
 	label: "Cell ${cell.id.to_str()}",
-	on_press: |_, _| Gui.Action.none,
+	on_press: |_, _| Gui.Action.none(),
 	on_hover_enter: Some(|latest, _| enter(latest)),
 	on_hover_exit: Some(|latest, _| leave(latest)),
 	width: Px(5),

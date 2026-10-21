@@ -7,7 +7,7 @@ import redis.Client
 import redis.Commands
 import redis.Connection
 import redis.Execute
-import redis.Transport
+import redis.ByteIo
 import RedisData exposing [Key, Selection]
 
 ## Who holds the one stream.
@@ -59,7 +59,7 @@ Explorer := [].{
 
 connection : Gui.Tcp.Stream -> Connection.Connection(Gui.Tcp.TcpErr, Gui.Tcp.TcpErr)
 connection = |stream| {
-	transport = Transport.from_bytes_io({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
+	transport = ByteIo.from_empty_eof({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
 	Client.{}.attach(transport)
 }
 
@@ -91,7 +91,7 @@ connect = |state| {
 				Err(ConnectFailed(trouble)) => Gui.Action.update({ ..latest, link: Offline, trouble: Some(trouble) })
 			}
 		} else {
-			Gui.Action.none
+			Gui.Action.none()
 		},
 	})
 }
@@ -109,7 +109,7 @@ disconnect = |state, stream| {
 				Err(error) => Gui.Action.update({ ..latest, link: Offline, trouble: Some(tcp_trouble(error)) })
 			}
 		} else {
-			Gui.Action.none
+			Gui.Action.none()
 		},
 	})
 }
@@ -151,13 +151,15 @@ scan = |state, stream| {
 					trouble: Some({ message: "Redis could not scan that key pattern", remedy: "SCAN takes a glob, for example profile:* or catalog:item:*.", denied: False }),
 				})
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
 
+utf8 : Bytes.Bytes -> Try(Str, [InspectFailed])
 utf8 = |bytes| bytes.to_utf8().map_err(|_| InspectFailed)
 
+inspect_value! : Connection.Connection(Gui.Tcp.TcpErr, Gui.Tcp.TcpErr), Bytes.Bytes, Str => Try(RedisData.Value, [InspectFailed, UnsupportedType])
 inspect_value! = |conn, key, kind| match kind {
 	"string" => match conn.request!(Commands.Strings.get(key)) ? |_| InspectFailed {
 		Present(bytes) => Ok(StringValue(utf8(bytes)?))
@@ -222,7 +224,7 @@ inspect = |state, stream, key| {
 					trouble: Some({ message: "Redis could not read the selected key", remedy: "The key may have expired between the scan and this read.", denied: False }),
 				})
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }

@@ -77,7 +77,7 @@ class BlueprintLinkInputTests(unittest.TestCase):
 
     def evidence(self):
         return {"format": 1, "sources": [], "dependencies": [], "roc_packages": [], "project": "/nix/store/" + "d" * 32 + "-source",
-                "packages": [{"name": "default", "provider": "nix", "rev": "a" * 40,
+                "packages": [{"name": "nix", "provider": "nix", "rev": "a" * 40,
                               "narHash": "sha256-" + "A" * 43 + "="}],
                 "files": [{"name": "freetype-source", "provider": "file", "sha256": digest(b"source")}],
                 "tools": [{"name": "python3", "path": "/nix/store/" + "c" * 32 + "-python"}]}
@@ -87,10 +87,10 @@ class BlueprintLinkInputTests(unittest.TestCase):
             adapter.configure_environment(self.root / "work")
             self.assertNotIn("glibc", os.environ["C_INCLUDE_PATH"])
             self.assertNotIn("glibc", os.environ["LIBRARY_PATH"])
-            self.assertIn("default#bzip2.out/lib", os.environ["LIBRARY_PATH"])
-            self.assertIn("default#brotli.lib/lib", os.environ["LIBRARY_PATH"])
+            self.assertIn("nix#bzip2.out/lib", os.environ["LIBRARY_PATH"])
+            self.assertIn("nix#brotli.lib/lib", os.environ["LIBRARY_PATH"])
             command = adapter.probe_command(self.root / "probe")
-            self.assertEqual(command[0], "/declared-tools/default#glibc/lib/ld-linux-x86-64.so.2")
+            self.assertEqual(command[0], "/declared-tools/nix#glibc/lib/ld-linux-x86-64.so.2")
 
     def test_native_evidence_rejects_full_lock_final_identity_and_non_store_paths(self):
         path = self.root / "evidence"
@@ -124,7 +124,7 @@ class BlueprintLinkInputTests(unittest.TestCase):
         files.update({"sources/freetype/source.tar.xz": b"source",
                       "sources/freetype/blueprint-input-evidence.json": encoded,
                       "targets/x64glibc/libfreetype.so": b"library"})
-        metadata = {"schema_version": 4, "name": "freetype", "target": "x64glibc",
+        metadata = {"schema_version": 5, "name": "freetype", "target": "x64glibc",
                     "source": {"sha256": digest(b"source")},
                     "build": {"builder_kind": "blueprint-nix",
                               "input_evidence_sha256": "e" * 64 if changed_evidence else digest(encoded),
@@ -137,7 +137,7 @@ class BlueprintLinkInputTests(unittest.TestCase):
         manifest = unpack_verified(archive, {"name": "freetype", "target": "x64glibc"}, self.root / "contents")
         source = self.root / "contents/sources/freetype"
         expected = self.evidence()["packages"][0]
-        pin = {"format": 2, "sources": {"default": {"provider": "nix", "metadata": {
+        pin = {"format": 2, "sources": {"nix": {"provider": "nix", "metadata": {
             "nix": {"fetchTree": {"rev": expected["rev"], "narHash": expected["narHash"]}}}}}}
         with patch.object(adapter, "plan", return_value=self.result(schema=1)) as plan, patch.object(
                 adapter, "command", return_value=pin), patch.object(reproduction.subprocess, "run") as run:
@@ -146,17 +146,26 @@ class BlueprintLinkInputTests(unittest.TestCase):
         self.assertEqual(plan.call_count, 2)
         self.assertIn("FreeType.settings", (source / "Blueprint.roc").read_text())
         self.assertEqual((source / "scripts/build_freetype.py").stat().st_mode & 0o777, 0o644)
-        pin["sources"]["default"]["metadata"]["nix"]["fetchTree"]["narHash"] = "sha256-" + "B" * 43 + "="
+        pin["sources"]["nix"]["metadata"]["nix"]["fetchTree"]["narHash"] = "sha256-" + "B" * 43 + "="
         with patch.object(adapter, "plan", return_value=self.result(schema=1)) as plan, patch.object(
                 adapter, "command", return_value=pin), patch.object(reproduction.subprocess, "run"):
             with self.assertRaisesRegex(ValueError, "package pin differs"):
                 reproduction.check_blueprint_freetype(source, manifest)
         self.assertEqual(plan.call_count, 1)
 
+    def test_only_blueprint_schema_five_is_accepted_for_freetype(self):
+        for version in (1, 2, 3, 4):
+            archive = write_archive(self.root / f"old-{version}.tar",
+                                    {"schema_version": version, "name": "freetype", "target": "x64glibc"},
+                                    {"targets/x64glibc/libfreetype.so": b"library"})
+            with self.subTest(version=version), self.assertRaisesRegex(ValueError, "schema 5"):
+                unpack_verified(archive, {"name": "freetype", "target": "x64glibc"}, self.root / "contents")
+            self.assertFalse((self.root / "contents").exists())
+
     def test_new_archive_validates_selected_evidence_and_sources(self):
         archive = self.make_source_archive()
         manifest = unpack_verified(archive, {"name": "freetype", "target": "x64glibc"}, self.root / "contents")
-        self.assertEqual(manifest["schema_version"], 4)
+        self.assertEqual(manifest["schema_version"], 5)
         self.assertNotIn("builder_derivation", manifest["build"])
 
     def test_tampered_evidence_or_mismatched_upstream_fails_before_extraction(self):

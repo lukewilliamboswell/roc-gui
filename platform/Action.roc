@@ -31,14 +31,14 @@ Action(a) := {
 	Project(parent, child) : parent, (Try(child, [Removed]) -> Work) -> Work
 
 	## Leave state and the displayed UI unchanged.
-	none : Action(a)
-	none = Action.{ value: NoChange, levels: 0 }
+	none : () -> Action(a)
+	none = || Action.{ value: NoChange, levels: 0 }
 
 	## Platform action rendering the originating boundary again against the
 	## state it already has. Its ancestors' memo snapshots stay valid, because
 	## no state changed; only the boundary's own render inputs from the host did.
-	refresh : Action(a)
-	refresh = Action.{ value: Refresh, levels: 0 }
+	refresh : () -> Action(a)
+	refresh = || Action.{ value: Refresh, levels: 0 }
 
 	## Request a new state for this render boundary. Derive it from the handler's
 	## `prev_state`, not a state snapshot captured by the renderer.
@@ -196,8 +196,8 @@ Action(a) := {
 		project! = |latest, found!| Work.get(|| found!(Ok(get(latest))))
 		write = |latest, child| Ok(set(latest, child))
 		match inspect(action) {
-			NoChange => none
-			Refresh => with_levels(refresh, levels)
+			NoChange => none()
+			Refresh => with_levels(refresh(), levels)
 			Update(child) => with_levels(update(set(parent, child)), levels)
 			Delegate(child) => match delegated {
 				None => with_levels(delegate(set(parent, child)), levels)
@@ -224,7 +224,7 @@ Action(a) := {
 							|| get!(
 								latest,
 								|projected| match projected {
-									Err(_) => Work.next(|| accept!(none))
+									Err(_) => Work.next(|| accept!(none()))
 									Ok(child) => complete_work!(child_complete, child, |child_action| Work.next(|| adapt_work!(child_action, latest, get!, set, delegated, accept!)))
 								},
 							),
@@ -245,17 +245,17 @@ Action(a) := {
 		|resolved| {
 			levels = owner_levels(resolved)
 			match inspect(resolved) {
-				NoChange => Work.next(|| done!(none))
-				Refresh => Work.next(|| done!(with_levels(refresh, levels)))
+				NoChange => Work.next(|| done!(none()))
+				Refresh => Work.next(|| done!(with_levels(refresh(), levels)))
 				Update(child) => Work.set(
 					|| match set(parent, child) {
-						Err(_) => Work.next(|| done!(none))
+						Err(_) => Work.next(|| done!(none()))
 						Ok(next) => Work.next(|| done!(with_levels(update(next), levels)))
 					},
 				)
 				Delegate(child) => Work.set(
 					|| match set(parent, child) {
-						Err(_) => Work.next(|| done!(none))
+						Err(_) => Work.next(|| done!(none()))
 						Ok(candidate) => match delegated {
 							None => Work.next(|| done!(with_levels(delegate(candidate), levels)))
 							Some(handle) => Work.next(|| resolve_work!(handle(candidate), |accepted| Work.next(|| done!(with_levels(accepted, levels + owner_levels(accepted) + 1)))))
@@ -264,13 +264,13 @@ Action(a) := {
 				)
 				Task(task_value) => Work.set(
 					|| match set(parent, task_value.pending) {
-						Err(_) => Work.next(|| done!(none))
+						Err(_) => Work.next(|| done!(none()))
 						Ok(pending) => Work.next(|| done!(Action.{ value: Task({ key: task_value.key, pending, run: adapt_worker(task_value.run, get!, set, delegated) }), levels }))
 					},
 				)
 				Cancel(canceled) => Work.set(
 					|| match set(parent, canceled.state) {
-						Err(_) => Work.next(|| done!(none))
+						Err(_) => Work.next(|| done!(none()))
 						Ok(next) => Work.next(|| done!(with_levels(cancel(next, canceled.key), levels)))
 					},
 				)
@@ -304,7 +304,7 @@ expect {
 
 expect {
 	parent = { child: 1.I64 }
-	vetoed = Action.through_boundary(Action.delegate(2.I64), parent, |state| state.child, |state, child| { ..state, child }, |_| Action.none)
+	vetoed = Action.through_boundary(Action.delegate(2.I64), parent, |state| state.child, |state, child| { ..state, child }, |_| Action.none())
 	match Action.inspect(vetoed) {
 		NoChange => True
 		_ => False
@@ -323,7 +323,7 @@ expect {
 
 expect {
 	inner = Action.through_boundary(Action.delegate(2.I64), { value: 1.I64 }, |state| state.value, |state, value| { ..state, value }, Action.delegate)
-	outer = Action.through_boundary(inner, { child: { value: 1.I64 } }, |state| state.child, |state, child| { ..state, child }, |_| Action.none)
+	outer = Action.through_boundary(inner, { child: { value: 1.I64 } }, |state| state.child, |state, child| { ..state, child }, |_| Action.none())
 	match Action.inspect(outer) {
 		NoChange => True
 		_ => False

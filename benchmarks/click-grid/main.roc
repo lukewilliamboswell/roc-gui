@@ -12,7 +12,7 @@ pressed = 0xF59E0B.Gui.Color
 
 create_grid : U64, U64 -> State
 create_grid = |count, first_identity| {
-	var $cells = Gui.Index.empty
+	var $cells = Gui.Index.empty()
 	var $id = 1.U64
 	for _ in List.repeat({}, count) {
 		$cells = Gui.Index.set($cells, $id, { id: $id, key: Gui.Key.id(first_identity + $id - 1), pressed: False, presses: 0 })

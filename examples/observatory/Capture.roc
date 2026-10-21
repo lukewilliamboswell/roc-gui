@@ -753,14 +753,16 @@ work_metrics = [
 	{ name: "view states rebased in paint", group: Moved },
 ]
 
+frame_work_count : List({ metric : I64, count : I64 }), I64 -> I64
+frame_work_count = |work, metric| match work.find_first(|found| found.metric == metric) {
+	Ok(found) => found.count
+	Err(_) => 0
+}
+
 replay_share : List({ metric : I64, count : I64 }) -> [None, Some(I64)]
 replay_share = |work| {
-	count = |metric| match work.find_first(|found| found.metric == metric) {
-		Ok(found) => found.count
-		Err(_) => 0
-	}
-	replayed = count(6)
-	fresh = count(14)
+	replayed = frame_work_count(work, 6)
+	fresh = frame_work_count(work, 14)
 	if replayed + fresh == 0 None else Some(replayed * 100 / (replayed + fresh))
 }
 

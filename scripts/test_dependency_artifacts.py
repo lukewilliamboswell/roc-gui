@@ -37,21 +37,43 @@ class DependencyTests(unittest.TestCase):
     def test_nix_manifest_requires_provenance_and_retains_inventory_checks(self):
         build = {"builder_derivation": "/nix/store/" + "a" * 32 + "-builder.drv",
                  "nixpkgs_revision": "b" * 40, "nixpkgs_nar_hash": "sha256-" + "A" * 43 + "=",
-                 "blueprint_lock_sha256": hashlib.sha256(b"lock").hexdigest(),
+                 "nixpkgs_pin_sha256": hashlib.sha256(b"lock").hexdigest(),
                  "nix_recipe_sha256": hashlib.sha256(b"recipe").hexdigest()}
         entry = {"name": "alsa", "target": "x64glibc"}
         for index, change in enumerate(({}, {"builder_image": "legacy"},
                                         {"builder_derivation": "unlocked"}, {"nixpkgs_revision": "latest"})):
             archive = write_archive(self.root / f"nix-{index}.tar", {
-                "schema_version": 2, **entry, "build": dict(build, **change),
+                "schema_version": 4, **entry, "build": dict(build, **change),
             }, {"targets/x64glibc/libasound.so": b"interface",
-                "sources/alsa/Blueprint.lock": b"lock",
+                "sources/alsa/dependencies/nixpkgs-pin.nix": b"lock",
                 "sources/alsa/dependencies/linux/default.nix": b"recipe"})
             destination = self.root / f"nix-{index}"
             if index == 0:
                 deps.unpack_verified(archive, entry, destination)
             else:
                 with self.assertRaisesRegex(ValueError, "Nix dependency provenance"):
+                    deps.unpack_verified(archive, entry, destination)
+                self.assertFalse(destination.exists())
+
+    def test_nix_manifest_schema_4_is_bound_to_the_nixpkgs_pin(self):
+        build = {"builder_derivation": "/nix/store/" + "a" * 32 + "-builder.drv",
+                 "nixpkgs_revision": "b" * 40, "nixpkgs_nar_hash": "sha256-" + "A" * 43 + "=",
+                 "nixpkgs_pin_sha256": hashlib.sha256(b"pin").hexdigest(),
+                 "nix_recipe_sha256": hashlib.sha256(b"recipe").hexdigest()}
+        entry = {"name": "alsa", "target": "x64glibc"}
+        lock_bound = {key: value for key, value in build.items() if key != "nixpkgs_pin_sha256"}
+        lock_bound["blueprint_lock_sha256"] = hashlib.sha256(b"lock").hexdigest()
+        for index, provenance in enumerate((build, lock_bound, dict(build, nixpkgs_pin_sha256="c" * 64))):
+            archive = write_archive(self.root / f"pin-{index}.tar", {
+                "schema_version": 4, **entry, "build": provenance,
+            }, {"targets/x64glibc/libasound.so": b"interface",
+                "sources/alsa/dependencies/nixpkgs-pin.nix": b"pin",
+                "sources/alsa/dependencies/linux/default.nix": b"recipe"})
+            destination = self.root / f"pin-{index}"
+            if index == 0:
+                deps.unpack_verified(archive, entry, destination)
+            else:
+                with self.assertRaisesRegex(ValueError, "Nix dependency provenance|Nix provenance differs"):
                     deps.unpack_verified(archive, entry, destination)
                 self.assertFalse(destination.exists())
 
@@ -77,6 +99,16 @@ class DependencyTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     deps.unpack_verified(archive, entry, destination)
                 self.assertFalse(destination.exists())
+
+    def test_current_native_inventory_has_only_the_standalone_package_pin(self):
+        current = deps.nix_source_inventory("alsa")
+        self.assertIn("sources/alsa/dependencies/nixpkgs-pin.nix", current)
+        self.assertNotIn("sources/alsa/Blueprint.lock", current)
+        expected = {"sources/windows-gnu-runtime/source.tar.xz", "targets/x64mingw/libunwind.a"}
+        self.assertEqual(deps.component_inventory(expected, {"schema_version": 3, "name": "windows-gnu-runtime"}), expected)
+        archive = write_archive(self.root / "obsolete.tar", {"schema_version": 2, "name": "alsa", "target": "x64glibc"}, {})
+        with self.assertRaises(ValueError):
+            deps.unpack_verified(archive, {"name": "alsa", "target": "x64glibc"}, self.root / "obsolete")
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

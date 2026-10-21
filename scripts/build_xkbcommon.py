@@ -104,7 +104,7 @@ def inside_builder(source_archive, output):
     ):
         files["sources/xkbcommon/" + path] = (ROOT / path).read_bytes()
     metadata = {
-        "schema_version": 2, "name": recipe["name"], "version": recipe["version"],
+        "schema_version": 4, "name": recipe["name"], "version": recipe["version"],
         "target": recipe["target"], "source": recipe["source"],
         "build": {
             **nix_link_inputs.provenance(),

@@ -21,7 +21,7 @@ mod observatory;
 mod probe;
 mod process;
 mod recents;
-// Generated glue (scripts/regenerate_glue.py); variant names mirror the Roc types.
+// Generated glue (scripts/regenerate_glue.roc); variant names mirror the Roc types.
 mod appearance;
 #[allow(clippy::enum_variant_names)]
 mod roc_platform_abi;
@@ -52,21 +52,22 @@ use roc_platform_abi::{
     HostGlueKeyedEditBeginArgs, HostGlueKeyedInsertBeforeArgs, HostGlueKeyedMoveBeforeArgs,
     HostGlueKeyedSeedArgs, HostGlueKeyedSetArgs, HostGlueNodeActionButton,
     HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeColumnArgs, HostGlueNodeDialogArgs, HostGlueNodeDropTargetArgs,
-    HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodePopover, HostGlueNodePopoverArgs,
-    HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeSplit, HostGlueNodeSplitArgs,
-    HostGlueNodeChordArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs, HostGlueNodeTextInputRetRecord,
-    HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs, HostGlueResizeEventRetRecord,
-    HostGlueShortcutEvent, HostGlueVirtualRowsEventRetRecord, HostGlueVirtualWindowArgs,
-    HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList,
-    RocListWith, RocStr, decref_erased_callable, incref_erased_callable, make_roc_host,
-    roc_gui_dispatch, roc_gui_init,
+    HostGlueNodeChordArgs, HostGlueNodeColumnArgs, HostGlueNodeDialogArgs,
+    HostGlueNodeDropTargetArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodePopover,
+    HostGlueNodePopoverArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeSplit,
+    HostGlueNodeSplitArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs,
+    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs,
+    HostGlueResizeEventRetRecord, HostGlueShortcutEvent, HostGlueVirtualRowsEventRetRecord,
+    HostGlueVirtualWindowArgs, HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace,
+    RocErasedCallable, RocHost, RocList, RocListWith, RocStr, decref_erased_callable,
+    incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
 };
 use std::{
     cell::RefCell,
     collections::HashMap,
     ffi::c_void,
     path::PathBuf,
+    ptr::NonNull,
     sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, Ordering},
     sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
@@ -449,7 +450,7 @@ fn roc_host() -> &'static RocHost {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> *mut c_void {
+pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> NonNull<c_void> {
     observatory::note_roc_alloc(length);
     DefaultAllocators::roc_alloc(roc_host_ptr(), length, alignment)
 }
@@ -652,7 +653,7 @@ pub extern "C" fn roc_realloc(
     pointer: *mut c_void,
     new_length: usize,
     alignment: usize,
-) -> *mut c_void {
+) -> NonNull<c_void> {
     observatory::note_roc_realloc(new_length);
     DefaultAllocators::roc_realloc(roc_host_ptr(), pointer, new_length, alignment)
 }
@@ -676,7 +677,7 @@ extern "C" fn counted_roc_alloc(
     _host: *mut RocHost,
     length: usize,
     alignment: usize,
-) -> *mut c_void {
+) -> NonNull<c_void> {
     roc_alloc(length, alignment)
 }
 
@@ -689,7 +690,7 @@ extern "C" fn counted_roc_realloc(
     pointer: *mut c_void,
     new_length: usize,
     alignment: usize,
-) -> *mut c_void {
+) -> NonNull<c_void> {
     roc_realloc(pointer, new_length, alignment)
 }
 

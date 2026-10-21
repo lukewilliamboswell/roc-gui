@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_freetype as producer
 from dependency_archive import digest, write_archive
 import release_dependencies
+import test_blueprint_link_inputs as blueprint_fixtures
+import tarfile
 
 
 class FreeTypeDependencyTests(unittest.TestCase):
@@ -33,14 +35,18 @@ class FreeTypeDependencyTests(unittest.TestCase):
 
     def make_archive(self, missing_license=False):
         policy = release_dependencies.KINDS["freetype"]
-        files = {"targets/x64glibc/libfreetype.so": b"tested shared library"}
+        fixture = blueprint_fixtures.BlueprintLinkInputTests()
+        fixture.root = self.root
+        draft = fixture.make_source_archive()
+        with tarfile.open(draft) as archive:
+            metadata = json.load(archive.extractfile("dependency.json"))
+            files = {name: archive.extractfile(name).read() for name in metadata.pop("files")}
+        draft.unlink()
         for name in policy["licenses"]:
             files["licenses/freetype/" + name] = b"license text"
         if missing_license:
             del files["licenses/freetype/NOTICE"]
-        return write_archive(self.root / producer.ARCHIVE_NAME,
-                             {"schema_version": 1, "name": "freetype", "version": "test",
-                              "target": "x64glibc"}, files)
+        return write_archive(self.root / producer.ARCHIVE_NAME, metadata, files)
 
     def prepare(self):
         environment = {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",

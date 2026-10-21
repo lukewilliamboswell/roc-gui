@@ -90,7 +90,7 @@ def inside_builder(source_archive, output):
     for path in blueprint_link_inputs.SELECTED_FILES:
         files["sources/freetype/" + path] = (ROOT / path).read_bytes()
     metadata = {
-        "schema_version": 4, "name": recipe["name"], "version": recipe["version"],
+        "schema_version": 5, "name": recipe["name"], "version": recipe["version"],
         "target": recipe["target"], "source": recipe["source"],
         "build": {
             "builder_kind": "blueprint-nix",

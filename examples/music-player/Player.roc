@@ -150,9 +150,9 @@ play_index = |state, library, index| match library.tracks.get(index) {
 		generation = state.generation + 1
 		Gui.Action.task({
 			pending: report({ ..state, chosen: At(index), generation }, "Loading…"),
-			run: || match Gui.Audio.load!(library.output, library.directory, item.name) {
+			run: || match library.output.load!(library.directory, item.name) {
 				Err(err) => PlayFailed(generation, audio_error(err))
-				Ok(loaded) => match Gui.Audio.play!(loaded.track) {
+				Ok(loaded) => match loaded.track.play!() {
 					Err(err) => PlayFailed(generation, audio_error(err))
 					Ok(_) => PlayStarted(generation, index, loaded.track)
 				}
@@ -166,7 +166,7 @@ play_index = |state, library, index| match library.tracks.get(index) {
 				PlayStarted(request, started_index, track) => if request == latest.generation {
 					Gui.Action.update(report({ ..latest, playback: Active({ index: started_index, paused: False, track }) }, "Playing"))
 				} else {
-					Gui.Action.task({ pending: latest, run: || Gui.Audio.stop!(track), resolve: |current, _| Gui.Action.update(current) })
+					Gui.Action.task({ pending: latest, run: || track.stop!(), resolve: |current, _| Gui.Action.update(current) })
 				}
 			},
 		})
@@ -176,7 +176,7 @@ play_index = |state, library, index| match library.tracks.get(index) {
 stop = |state| match state.playback {
 	Active(current) => Gui.Action.task({
 		pending: report({ ..state, generation: state.generation + 1 }, "Stopping…"),
-		run: || Gui.Audio.stop!(current.track),
+		run: || current.track.stop!(),
 		resolve: |latest, result| match result {
 			Ok(_) => Gui.Action.update(report({ ..latest, chosen: Nothing, playback: Stopped }, "Stopped"))
 			Err(_) => Gui.Action.update(alarmed(latest, "Stop failed"))
@@ -196,11 +196,11 @@ skip_ahead_ms = 5000
 skip_forward = |state| match state.playback {
 	Active(current) => Gui.Action.task({
 		pending: report(state, "Skipping…"),
-		run: || match Gui.Audio.status!(current.track) {
+		run: || match current.track.status!() {
 			Err(err) => SkipFailed(audio_error(err))
 			Ok(status) => {
 				target = status.position_ms + skip_ahead_ms
-				match Gui.Audio.seek!(current.track, target) {
+				match current.track.seek!(target) {
 					Err(err) => SkipFailed(audio_error(err))
 					Ok(_) => Skipped(target)
 				}
@@ -217,7 +217,7 @@ skip_forward = |state| match state.playback {
 show_position = |state| match state.playback {
 	Active(current) => Gui.Action.task({
 		pending: state,
-		run: || Gui.Audio.status!(current.track),
+		run: || current.track.status!(),
 		resolve: |latest, result| match result {
 			Ok(status) => Gui.Action.update(report(latest, "Position ${U64.to_str(status.position_ms)} ms"))
 			Err(err) => Gui.Action.update(alarmed(latest, audio_error(err)))
@@ -245,7 +245,7 @@ toggle = |state| match state.playback {
 	Active(current) => if current.paused {
 		Gui.Action.task({
 			pending: report(state, "Resuming…"),
-			run: || Gui.Audio.play!(current.track),
+			run: || current.track.play!(),
 			resolve: |latest, result| match result {
 				Ok(_) => Gui.Action.update(report({ ..latest, playback: Active({ ..current, paused: False }) }, "Playing"))
 				Err(_) => Gui.Action.update(alarmed(latest, "Resume failed"))
@@ -254,7 +254,7 @@ toggle = |state| match state.playback {
 	} else {
 		Gui.Action.task({
 			pending: report(state, "Pausing…"),
-			run: || Gui.Audio.pause!(current.track),
+			run: || current.track.pause!(),
 			resolve: |latest, result| match result {
 				Ok(_) => Gui.Action.update(report({ ..latest, playback: Active({ ..current, paused: True }) }, "Paused"))
 				Err(_) => Gui.Action.update(alarmed(latest, "Pause failed"))
@@ -310,7 +310,7 @@ step = |state, delta| match state.library {
 
 stop_then_play = |state, track, next| Gui.Action.task({
 	pending: report({ ..state, generation: state.generation + 1 }, "Changing track…"),
-	run: || Gui.Audio.stop!(track),
+	run: || track.stop!(),
 	resolve: |latest, result| match result {
 		Err(err) => Gui.Action.update(alarmed(latest, audio_error(err)))
 
