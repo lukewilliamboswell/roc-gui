@@ -18,8 +18,11 @@ an entry below or is a maintainer action.
   the compiler intermittently crashes on Windows".
 - [ ] Make Observatory's folder rewatch deterministic and unskip it; see
   "RELEASE BLOCKER: Observatory's folder rewatch sometimes counts a change".
-- [ ] Make `CI` the required status check, enable immutable releases, and
-  create the protected `release` environment `release.yml` publishes from.
+- [ ] After #40 merges, rerun roc-automation's `check-settings` with
+  `--platform`. Its last three failures need this branch on the default
+  branch: `SECURITY.md`, `.github/dependabot.yml`, and a merged pull request
+  whose jobs produced the required `CI` check. Then confirm with a pull request
+  whose `CI` fails that the merge is blocked.
 - [ ] Dry-run `release.yml` on a pull request, then dispatch it with
   `0.1.0-rc1`.
 
