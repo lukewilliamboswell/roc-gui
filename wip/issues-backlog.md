@@ -24,8 +24,8 @@ an entry below or is a maintainer action.
   commit the new `host.lock.json`.
 - [ ] Build on Windows without the compiler crashing; see "RELEASE BLOCKER:
   the compiler intermittently crashes on Windows".
-- [ ] Make Observatory's folder rewatch deterministic; see "Observatory's
-  folder rewatch sometimes counts a change". It fails CI intermittently.
+- [ ] Make Observatory's folder rewatch deterministic and unskip it; see
+  "RELEASE BLOCKER: Observatory's folder rewatch sometimes counts a change".
 - [ ] Make `CI` the required status check, enable immutable releases, and
   create the protected `release` environment `release.yml` publishes from.
 - [ ] Dry-run `release.yml` on a pull request, then dispatch it with
@@ -1204,7 +1204,8 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Runner: test what we fly
 
-- [ ] **Observatory's folder rewatch sometimes counts a change.**
+- [ ] **RELEASE BLOCKER: Observatory's folder rewatch sometimes counts a
+  change.**
   `examples/observatory/specs/folder-rewatch.scm` line 18 expects watch
   counters `[2, 0, 0, 0, _]` and observed `[2, 1, 0, 0, 1]` on the hosted macOS
   runner (CI run 39515606523) and the Linux Blueprint job (run 39522990540);
@@ -1214,7 +1215,8 @@ names the reproduction so the workaround can be removed when the fix lands.
   `-wal` and `-shm` files beside a database it opens even read-only. Confirm
   whether those transient files are the change, then open captures so that
   they write nothing beside themselves, or exclude SQLite sidecars from the
-  watch.
+  watch. The specification is skipped everywhere through `INTERMITTENT` in
+  `scripts/run_specs.py`; remove that entry with the fix.
 
 - [ ] **Two window specifications fail on Linux.** Under the headless sway
   compositor at 1920x1080, `examples/animation-studio/specs/window-timeline.scm`

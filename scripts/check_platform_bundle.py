@@ -16,7 +16,7 @@ import threading
 
 from host_build_identity import TARGETS
 from toolchain import replace_platform, verify_compiler
-from run_specs import Case, fixture_services, run_case
+from run_specs import INTERMITTENT, Case, fixture_services, run_case
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,6 +58,9 @@ def check(directory: Path, roc: str) -> None:
                 subprocess.run([roc, "build", "--opt=dev", "--no-cache", f"--target={target}",
                                 f"--output={executable}", str(main)], check=True, timeout=180)
                 for spec in sorted(app.glob("specs/*.scm")):
+                    if (named := (source.parent / "specs" / spec.name).relative_to(ROOT).as_posix()) in INTERMITTENT:
+                        print(f"SKIP {named}: {INTERMITTENT[named]}", flush=True)
+                        continue
                     cases.append(Case(
                         spec=spec,
                         app=main,
