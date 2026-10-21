@@ -127,7 +127,7 @@ def unpack_verified(archive, entry, destination):
         if metadata is None or metadata.size > 1024 ** 2:
             raise ValueError("missing or oversized dependency manifest")
         manifest = json.load(packed.extractfile(metadata))
-        if (manifest.get("schema_version") not in (1, 2, 3) or manifest.get("name") != entry["name"]
+        if (manifest.get("schema_version") not in (1, 2, 3, 4) or manifest.get("name") != entry["name"]
                 or manifest.get("target") != entry["target"]):
             raise ValueError("dependency manifest identity mismatch")
         if manifest["schema_version"] == 2:
@@ -142,6 +142,13 @@ def unpack_verified(archive, entry, destination):
                            ("blueprint_lock_sha256", "nix_recipe_sha256"))
                     or "builder_image" in build or "builder_recipe_sha256" in build):
                 raise ValueError("invalid Nix dependency provenance")
+        if manifest["schema_version"] == 4:
+            build = manifest.get("build", {})
+            if ((entry["name"], entry["target"]) != ("freetype", "x64glibc")
+                    or build.get("builder_kind") != "blueprint-nix"
+                    or not HEX256.fullmatch(build.get("input_evidence_sha256", ""))
+                    or any(key in build for key in ("builder_derivation", "blueprint_lock_sha256", "nix_recipe_sha256"))):
+                raise ValueError("invalid Blueprint dependency provenance")
         if manifest["schema_version"] == 3:
             build = manifest.get("build", {})
             source = manifest.get("source", {})
@@ -173,6 +180,30 @@ def unpack_verified(archive, entry, destination):
                 source = files.get(f"sources/{entry['name']}/{relative}")
                 if source is None or source["sha256"] != build[field]:
                     raise ValueError("Nix provenance differs from corresponding source")
+        if manifest["schema_version"] == 4:
+            evidence_path = "sources/freetype/blueprint-input-evidence.json"
+            evidence_record = files.get(evidence_path)
+            if evidence_record is None or evidence_record["sha256"] != build["input_evidence_sha256"]:
+                raise ValueError("Blueprint evidence differs from corresponding source")
+            evidence = json.load(packed.extractfile(members[evidence_path]))
+            validate_blueprint_freetype_evidence(evidence)
+            if evidence["files"][0]["sha256"] != manifest.get("source", {}).get("sha256"):
+                raise ValueError("Blueprint source pin differs from archive source")
+            original = files.get("sources/freetype/source.tar.xz")
+            if original is None or original["sha256"] != evidence["files"][0]["sha256"]:
+                raise ValueError("Blueprint upstream source differs from archive source")
+            reproduction = build.get("reproduction_sha256", {})
+            modes = build.get("reproduction_modes", {})
+            expected_sources = freetype_blueprint_source_inventory()
+            expected_reproduction = {path.removeprefix("sources/freetype/") for path in expected_sources}
+            expected_reproduction -= {"source.tar.xz", "blueprint-input-evidence.json"}
+            if set(reproduction) != expected_reproduction or set(modes) != expected_reproduction:
+                raise ValueError("incomplete Blueprint reproduction inventory")
+            for relative, expected in reproduction.items():
+                record = files.get("sources/freetype/" + relative)
+                if (record is None or not HEX256.fullmatch(expected) or record["sha256"] != expected
+                        or type(modes[relative]) is not int or modes[relative] not in (0o644, 0o755)):
+                    raise ValueError("Blueprint reproduction differs from corresponding source")
         if manifest["schema_version"] in (2, 3) and entry["name"] == "windows-gnu-runtime":
             build = manifest["build"]
             reproduction = build.get("reproduction_sha256", {})
@@ -241,11 +272,48 @@ def nix_source_inventory(name):
     return {f"sources/{name}/{path}" for path in common}
 
 
+def validate_blueprint_freetype_evidence(evidence):
+    """Accept only selected native evidence, never whole-lock or final-identity data."""
+    if (not isinstance(evidence, dict) or evidence.get("format") != 1
+            or set(evidence) != {"format", "packages", "files", "project", "tools"}
+            or not isinstance(evidence["project"], str)
+            or not re.fullmatch(r"/nix/store/[a-z0-9]{32}-[^/]+", evidence["project"])
+            or not isinstance(evidence["tools"], list)):
+        raise ValueError("invalid selected Blueprint reproduction evidence")
+    packages, files = evidence["packages"], evidence["files"]
+    if (not isinstance(packages, list) or len(packages) != 1 or not isinstance(packages[0], dict)
+            or set(packages[0]) != {"name", "provider", "rev", "narHash"}
+            or packages[0]["name"] != "freetype-pkgs" or packages[0]["provider"] != "nix"
+            or not HEX160.fullmatch(packages[0]["rev"])
+            or not re.fullmatch(r"sha256-[A-Za-z0-9+/]{43}=", packages[0]["narHash"])
+            or not isinstance(files, list) or len(files) != 1 or not isinstance(files[0], dict)
+            or set(files[0]) != {"name", "provider", "sha256"}
+            or files[0]["name"] != "freetype-source" or files[0]["provider"] != "file"
+            or not HEX256.fullmatch(files[0]["sha256"])):
+        raise ValueError("invalid selected Blueprint reproduction pins")
+    for tool in evidence["tools"]:
+        if (not isinstance(tool, dict) or set(tool) != {"name", "path"}
+                or not isinstance(tool["name"], str) or not isinstance(tool["path"], str)
+                or not re.fullmatch(r"/nix/store/[a-z0-9]{32}-[^/]+", tool["path"])):
+            raise ValueError("invalid selected Blueprint tool root")
+
+
+def freetype_blueprint_source_inventory():
+    return {"sources/freetype/" + path for path in (
+        "source.tar.xz", "blueprint-input-evidence.json", "dependencies/FreeType.roc",
+        "dependencies/freetype.json", "dependencies/linux/zig-toolchain.cmake",
+        "scripts/build_freetype.py", "scripts/blueprint_link_inputs.py",
+        "scripts/dependency_archive.py", "scripts/dependency_artifacts.py", "test/dependencies/freetype.c",
+    )}
+
+
 def component_inventory(expected, manifest):
     """Retain legacy inventory rules while admitting the new source payload."""
     if manifest["schema_version"] == 1:
         return expected
-    return {path for path in expected if not path.startswith("sources/")} | nix_source_inventory(manifest["name"])
+    sources = (freetype_blueprint_source_inventory() if manifest["schema_version"] == 4
+               else nix_source_inventory(manifest["name"]))
+    return {path for path in expected if not path.startswith("sources/")} | sources
 
 
 if __name__ == "__main__":

@@ -62,7 +62,6 @@ let
   '';
 in {
   alsa = mk "alsa" "build_alsa_interface" null;
-  freetype = mk "freetype" "build_freetype" (recipe "freetype").source;
   glibc = mk "glibc" "build_glibc" (recipe "glibc").toolchain;
   unwind = mk "unwind" "build_unwind" (recipe "unwind").toolchain;
   xkbcommon = mk "xkbcommon" "build_xkbcommon" (recipe "xkbcommon").source;
