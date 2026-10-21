@@ -1185,6 +1185,15 @@ names the reproduction so the workaround can be removed when the fix lands.
   builds every application on Windows, so a release fails at random. Loop the
   build on a Windows runner (or with a Debug compiler) for the worker's stack,
   report it upstream, and move to a nightly that fixes it.
+  It has since crashed a third and fourth time in CI, building
+  `examples/http-workbench` and `examples/counter` (run 39552628536, compile
+  worker 3), always at 0x5b4 in `Session`. Yet 160 isolated `roc build
+  --no-cache` loops on a Windows runner, of `benchmarks/checkboxes` and
+  `examples/http-workbench` with `--jobs=1` and the default, never crashed
+  (scratch run 39552608635), so a single worker is not known to avoid it and
+  the trigger needs more than one build of one application. Meanwhile
+  `scripts/run_specs.py` retries this one crash once on Windows and prints
+  `RETRY`; remove that retry with this entry.
 
 - [ ] **`roc test` segfaults on a module whose alias shares its type's name.**
   Observatory's `History.roc` with its `Trail(place)` alias renamed to

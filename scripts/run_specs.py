@@ -240,17 +240,27 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
         # Every application is compiled from source, never from Roc's shared
         # build cache: a result must describe the program the sources define,
         # not whatever an earlier build left cached (see the backlog).
-        result = subprocess.run(
-            [roc, "build", "--no-cache", f"--opt={roc_opt}", f"--output={executable}", str(app)],
-            cwd=ROOT,
-            capture_output=True,
-            # The compiler writes UTF-8 whatever the console's code page; a
-            # diagnostic that quotes source must not end the run on Windows.
-            encoding="utf-8",
-            errors="replace",
-        )
-        print(result.stdout, end="")
-        print(result.stderr, end="", file=sys.stderr)
+        for attempt in range(2):
+            result = subprocess.run(
+                [roc, "build", "--no-cache", f"--opt={roc_opt}", f"--output={executable}", str(app)],
+                cwd=ROOT,
+                capture_output=True,
+                # The compiler writes UTF-8 whatever the console's code page; a
+                # diagnostic that quotes source must not end the run on Windows.
+                encoding="utf-8",
+                errors="replace",
+            )
+            print(result.stdout, end="")
+            print(result.stderr, end="", file=sys.stderr)
+            # TODO(release blocker): the compiler intermittently crashes on
+            # Windows while type-checking platform/Session.roc (see the
+            # backlog). Retry that one crash once, loudly, until a nightly
+            # fixes it; remove this before 0.1.0-rc1 is cut.
+            if not (attempt == 0 and sys.platform == "win32"
+                    and "Access violation in the Roc compiler" in result.stdout + result.stderr):
+                break
+            print(f"RETRY {app.relative_to(ROOT).as_posix()}: the compiler crashed on Windows; see the backlog",
+                  flush=True)
         # Roc exits with code 2 for warnings even if it writes an executable.
         # A produced executable does not exempt its source from the warning gate.
         if result.returncode != 0:
