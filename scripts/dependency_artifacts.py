@@ -275,7 +275,8 @@ def nix_source_inventory(name):
 def validate_blueprint_freetype_evidence(evidence):
     """Accept only selected native evidence, never whole-lock or final-identity data."""
     if (not isinstance(evidence, dict) or evidence.get("format") != 1
-            or set(evidence) != {"format", "packages", "files", "project", "tools"}
+            or set(evidence) != {"format", "packages", "files", "project", "tools", "sources", "dependencies", "roc_packages"}
+            or evidence["sources"] != [] or evidence["dependencies"] != [] or evidence["roc_packages"] != []
             or not isinstance(evidence["project"], str)
             or not re.fullmatch(r"/nix/store/[a-z0-9]{32}-[^/]+", evidence["project"])
             or not isinstance(evidence["tools"], list)):

@@ -319,7 +319,11 @@ cmp /tmp/candidate/freetype-x64glibc.tar /tmp/rebuild/freetype-x64glibc.tar
 cached. CI requires sandboxing and repeats this for every Linux component.
 Schema-4 FreeType archives include selected native reproduction evidence:
 package revision/NAR hash, original-file hash, captured source identity and tool
-roots. The evidence is checked against its checksum and shipped corresponding
+roots. Its native format 1 also explicitly lists source trees, dependency-build
+outputs and Roc package paths. This FreeType profile requires all three lists
+to be present and empty; unexpected inputs are rejected rather than silently
+omitted from its reproduction contract. The evidence is checked against its
+checksum and shipped corresponding
 source files. Selected source modes are recorded for faithful reconstruction.
 The final build identity is external, in
 `freetype-x64glibc.tar.blueprint.json`, bound to the measured archive digest and

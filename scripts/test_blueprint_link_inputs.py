@@ -76,7 +76,7 @@ class BlueprintLinkInputTests(unittest.TestCase):
         command.assert_called_once_with(["plan", "build", "freetype", "--json", "--prepare"], root=self.root)
 
     def evidence(self):
-        return {"format": 1, "project": "/nix/store/" + "d" * 32 + "-source",
+        return {"format": 1, "sources": [], "dependencies": [], "roc_packages": [], "project": "/nix/store/" + "d" * 32 + "-source",
                 "packages": [{"name": "default", "provider": "nix", "rev": "a" * 40,
                               "narHash": "sha256-" + "A" * 43 + "="}],
                 "files": [{"name": "freetype-source", "provider": "file", "sha256": digest(b"source")}],
@@ -98,9 +98,21 @@ class BlueprintLinkInputTests(unittest.TestCase):
         path.write_text(json.dumps(evidence))
         self.assertEqual(adapter.input_evidence(path)[0], evidence)
         for mutation in ({"build_identity": "self"}, {"lock": "whole lock"},
-                         {"project": "/home/user/source"}):
+                         {"project": "/home/user/source"},
+                         {"sources": [{"name": "unexpected", "path": "/nix/store/source", "rev": "", "narHash": ""}]},
+                         {"dependencies": [{"name": "unexpected", "path": "/nix/store/dependency"}]},
+                         {"roc_packages": ["/nix/store/unexpected-package"]}):
             path.write_text(json.dumps(dict(evidence, **mutation)))
             with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                adapter.input_evidence(path)
+
+    def test_freetype_evidence_requires_explicit_empty_unsupported_input_categories(self):
+        path = self.root / "evidence"
+        for name in ("sources", "dependencies", "roc_packages"):
+            evidence = self.evidence()
+            del evidence[name]
+            path.write_text(json.dumps(evidence))
+            with self.subTest(name=name), self.assertRaises(ValueError):
                 adapter.input_evidence(path)
 
     def make_source_archive(self, *, changed_evidence=False, source_mismatch=False):
