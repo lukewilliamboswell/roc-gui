@@ -204,8 +204,8 @@ noise_section = |state| {
 	chooser = match state.folder {
 		None => [Widgets.note("Open a folder of captures to choose an A/A capture from it.")]
 		Some(folder) => [
-			Gui.col(
-				{ label: "A/A table", width: Fill, height: Px(Theme.row_height * 8), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
+			Widgets.sideways("A/A table", Gui.col(
+				{ label: "A/A table", width: Auto, min_width: Fill, height: Px(Theme.row_height * 8), padding: 0, gap: 0, bg: Theme.card, border_color: Theme.line, border_width: 1, radius: Theme.radius, overflow_y: Clip },
 				[
 					Widgets.table_head("A/A columns", [Widgets.head_cell("file", 260), Widgets.head_cell("spec", 240), Widgets.head_figure("scale", 70), Widgets.head_cell("", 140), Widgets.head_rest("")]),
 					Gui.virtual_rows({
@@ -218,7 +218,7 @@ noise_section = |state| {
 						},
 					}),
 				],
-			),
+			)),
 		]
 	}
 	[Widgets.heading("A/A NOISE"), Widgets.note(Compare.noise_rule), status].concat(chooser)

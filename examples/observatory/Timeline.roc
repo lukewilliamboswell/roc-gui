@@ -16,14 +16,17 @@ FrameMark : { column : I64, frames : I64, bar : Capture.Bar, start : I64, end : 
 
 ## The list pass of a column that materialised the most, and what produced it:
 ## the frame whose paint settled it or the cycle whose patch performed it, as
-## recorded; `None` is a link the recorder did not make.
+## recorded, read whole so pressing the pass can open it; `None` is a link the
+## recorder did not make.
 PassMark : {
 	column : I64,
+	## Its place among the window's passes, from one, earliest first.
+	order : I64,
 	passes : I64,
 	list_id : I64,
 	origin : Str,
-	frame : [None, Some(I64)],
-	cycle : [None, Some(I64)],
+	frame : [None, Some(Capture.Bar)],
+	cycle : [None, Some(Capture.Cycle)],
 	visible : I64,
 	materialized : I64,
 	start : I64,
@@ -115,7 +118,7 @@ cycles_sql = "WITH c AS (SELECT id, run_id, ordinal, step_ordinal, measurement_p
 
 frames_sql = "WITH f AS (SELECT id, run_id, ordinal, layout_request_ns AS l, prepaint_ns AS p, paint_ns AS q, start_ns, end_ns, (SELECT count(*) FROM gpui_frame_cycles k WHERE k.frame_id = gpui_frames.id) AS n, ${column_expression} AS col FROM gpui_frames WHERE ${within}) SELECT col, count(*), max(l + p + q), id, run_id, ordinal, l, p, q, start_ns, end_ns, n FROM f GROUP BY col ORDER BY col"
 
-passes_sql = "WITH v AS (SELECT list_id, origin, (SELECT ordinal FROM gpui_frames g WHERE g.id = virtual_list_frames.frame_id) AS frame, (SELECT ordinal FROM cycles c WHERE c.id = virtual_list_frames.cycle_id) AS cycle, visible_items, materialized_entities, start_ns, end_ns, ${column_expression} AS col FROM virtual_list_frames WHERE ${within}) SELECT col, count(*), max(materialized_entities), list_id, origin, frame, cycle, visible_items, start_ns, end_ns FROM v GROUP BY col ORDER BY col"
+passes_sql = "WITH v AS (SELECT list_id, origin, frame_id, cycle_id, visible_items, materialized_entities, start_ns, end_ns, ${column_expression} AS col FROM virtual_list_frames WHERE ${within}), p AS (SELECT col, count(*) AS n, max(materialized_entities) AS m, list_id, origin, frame_id, cycle_id, visible_items, start_ns, end_ns FROM v GROUP BY col) SELECT p.col, p.n, p.m, p.list_id, p.origin, p.visible_items, p.start_ns, p.end_ns, g.id, g.run_id, g.ordinal, g.layout_request_ns, g.prepaint_ns, g.paint_ns, c.id, c.run_id, c.ordinal, c.step_ordinal, c.measurement_phase, c.trigger, c.patch_kind, c.duration_ns, c.roc_callback_ns, c.validate_ns, c.apply_ns, c.target_kind, c.target_identity FROM p LEFT JOIN gpui_frames g ON g.id = p.frame_id LEFT JOIN cycles c ON c.id = p.cycle_id ORDER BY p.col"
 
 decode_cycle : List(Gui.Sqlite.Value) -> CycleMark
 decode_cycle = |row| {
@@ -152,15 +155,35 @@ decode_frame = |row| {
 decode_pass : List(Gui.Sqlite.Value) -> PassMark
 decode_pass = |row| {
 	column: int_at(row, 0),
+	order: 0,
 	passes: int_at(row, 1),
 	materialized: int_at(row, 2),
 	list_id: int_at(row, 3),
 	origin: text_at(row, 4),
-	frame: option_at(row, 5),
-	cycle: option_at(row, 6),
-	visible: int_at(row, 7),
-	start: int_at(row, 8),
-	end: int_at(row, 9),
+	visible: int_at(row, 5),
+	start: int_at(row, 6),
+	end: int_at(row, 7),
+	frame: match option_at(row, 8) {
+		Some(id) => Some({ column: int_at(row, 0), frames: 1, id, run_id: int_at(row, 9), ordinal: int_at(row, 10), layout: int_at(row, 11), prepaint: int_at(row, 12), paint: int_at(row, 13) })
+		None => None
+	},
+	cycle: match option_at(row, 14) {
+		Some(id) => Some({
+			id,
+			run_id: int_at(row, 15),
+			ordinal: int_at(row, 16),
+			step_ordinal: option_at(row, 17),
+			phase: text_at(row, 18),
+			trigger: text_at(row, 19),
+			patch_kind: text_at(row, 20),
+			duration: int_at(row, 21),
+			callback: int_at(row, 22),
+			validate: int_at(row, 23),
+			apply: int_at(row, 24),
+			target: Capture.target_at(row, 25),
+		})
+		None => None
+	},
 }
 
 read! : Gui.Sqlite.Db, I64, I64 => Try(Window, Str)
@@ -192,7 +215,7 @@ read! = |database, start, span| {
 				triggers: triggers.map(|row| text_at(row, 0)),
 				cycles: cycles.map(decode_cycle),
 				frames: frames.map(decode_frame),
-				passes: passes.map(decode_pass),
+				passes: passes.map_with_index(|row, index| { ..decode_pass(row), order: index.to_i64_wrap() + 1 }),
 			})
 		}
 	}

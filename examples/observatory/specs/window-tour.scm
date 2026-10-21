@@ -5,6 +5,8 @@
   (grants
     (directory "fixture/captures"))
   (steps
+    ; The smallest window the suite supports, as a small laptop or CI display gives.
+    (resize 1024 656)
     (settle)
     (expect-on-screen (role row :name "Observatory header"))
     (expect-on-screen (role row :name "Authority bar"))
@@ -22,6 +24,8 @@
     (click (role button :name "Interactions"))
     (settle)
     (screenshot "interactions")
+    (scroll (role scroll :name "Interactions scroll") :to (role button :name "Cycle r4 #7"))
+    (settle)
     (click (role button :name "Cycle r4 #7"))
     (await-task)
     (settle)

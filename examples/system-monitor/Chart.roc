@@ -137,7 +137,7 @@ render = |props| {
 	Gui.canvas({
 		label: "CPU history plot",
 		primitives: gridlines(plot_width).concat(bars(props.history, props.capacity, plot_width)),
-		on_pointer: |_, _| Gui.Action.none,
+		on_pointer: |_, _| Gui.Action.none(),
 		on_size: Some(props.on_size),
 		width: Fill,
 		grow: True,

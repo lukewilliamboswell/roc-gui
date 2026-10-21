@@ -146,7 +146,7 @@ Studio := [].{
 	## Pressing or dragging on the timeline track scrubs to that frame.
 	timeline_pointer : State, Gui.Event.CanvasPointer => Gui.Action(State)
 	timeline_pointer = |state, event| match event.phase {
-		End => Gui.Action.none
+		End => Gui.Action.none()
 		Begin => Gui.Action.update(scrub_to(state, event.x))
 		Move => Gui.Action.update(scrub_to(state, event.x))
 	}

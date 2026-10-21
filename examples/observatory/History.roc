@@ -9,8 +9,8 @@ Trail(place) : { back : List(place), forward : List(place) }
 History := [].{
 	Trail(place) : Trail(place)
 
-	empty : Trail(place)
-	empty = { back: [], forward: [] }
+	empty : () -> Trail(place)
+	empty = || { back: [], forward: [] }
 
 	## How many places back remembers; the oldest are forgotten first.
 	depth : U64
@@ -42,7 +42,7 @@ keep_recent : List(place) -> List(place)
 keep_recent = |places| if places.len() > depth places.drop_first(places.len() - depth) else places
 
 expect {
-	visited = History.push(History.push(History.empty, 1.I64), 2)
+	visited = History.push(History.push(History.empty(), 1.I64), 2)
 	match History.back(visited, 3) {
 		Some(went) => went.place == 2 and went.history.forward == [3]
 		None => False
@@ -50,7 +50,7 @@ expect {
 }
 
 expect {
-	went = History.push(History.push(History.empty, 1.I64), 2)
+	went = History.push(History.push(History.empty(), 1.I64), 2)
 	match History.back(went, 3) {
 		Some(back) => match History.forward(back.history, back.place) {
 			Some(ahead) => ahead.place == 3 and ahead.history.back == [1, 2] and ahead.history.forward == []
@@ -62,11 +62,11 @@ expect {
 
 # A new jump forgets what was ahead.
 expect {
-	went = History.push(History.empty, 1.I64)
+	went = History.push(History.empty(), 1.I64)
 	match History.back(went, 2) {
 		Some(back) => History.push(back.history, back.place).forward == []
 		None => False
 	}
 }
 
-expect History.back(History.empty, 1.I64) == None
+expect History.back(History.empty(), 1.I64) == None

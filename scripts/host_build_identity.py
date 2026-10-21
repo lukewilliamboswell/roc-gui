@@ -38,7 +38,7 @@ SOURCE_PATHS = (
     ".github/workflows/host-candidate.yml",
     "scripts/cargo_build_evidence.py", "scripts/git_cargo_sources.py", "scripts/gui_host_artifacts.py",
     "scripts/host_notice_payload.py", "scripts/prepare_gui_host_release.py",
-    "scripts/prepare_host_build.py", "scripts/release_host_artifacts.py",
+    "scripts/prepare_host_build.py",
     "scripts/normalize_host_archive.py",
     # The Windows host's build recipe and archive normalizer decide its bytes
     # as surely as the Cargo sources do.
@@ -68,21 +68,6 @@ def source_fingerprint(root=ROOT):
         if record and not record.startswith((b"100644 blob ", b"100755 blob ")):
             raise ValueError("host source inventory must contain regular files")
     return hashlib.sha256(tree).hexdigest()
-
-
-def compatible_source(root, source_sha, archived_fingerprint):
-    """Accept an older receipt only when every actual host source is unchanged."""
-    if archived_fingerprint == source_fingerprint(root):
-        return archived_fingerprint
-    if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
-        raise ValueError("invalid GUI host source revision")
-    exists = subprocess.run(["git", "cat-file", "-e", source_sha + "^{commit}"], cwd=root).returncode
-    changed = subprocess.run([
-        "git", "diff", "--quiet", source_sha, "HEAD", "--", *SOURCE_PATHS,
-    ], cwd=root).returncode
-    if exists or changed:
-        raise ValueError("GUI host archive does not match this checkout's source inputs")
-    return archived_fingerprint
 
 
 def record_outputs(root, target, destination, evidence_root, fingerprint):

@@ -114,7 +114,7 @@ discover = |state| {
 				Ok(devices) => Discovered(devices)
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Gui.Action.none else match result {
+		resolve: |latest, result| if latest.generation != next Gui.Action.none() else match result {
 			DiscoveryFailed(err) => Gui.Action.update({ ..latest, status: refusal(err) })
 			Discovered(devices) => Gui.Action.update({ ..latest, devices, status: Discovered(List.len(devices)) })
 		},
@@ -138,7 +138,7 @@ connect = |state| {
 				}
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Gui.Action.none else match result {
+		resolve: |latest, result| if latest.generation != next Gui.Action.none() else match result {
 			ConnectFailed(err) => Gui.Action.update({ ..latest, status: refusal(err) })
 			ProtocolFailed => Gui.Action.update({ ..latest, status: Lost("Unsupported device protocol") })
 			Connected(value) => Gui.Action.update({

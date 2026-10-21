@@ -150,6 +150,61 @@ pub(crate) fn component_work_claim(
     }
 }
 
+/// The pointer step a canvas-item locator stands for. A `click` is a press
+/// and release at the centre of the named primitive, as a `drag` that does
+/// not move, and a `pointer-move` with no coordinates rests the pointer there.
+/// `None` for any other step. Refused when the primitive is not the one the
+/// canvas's own hit test finds at that point, because the pointer there would
+/// reach whatever lies on top of it instead.
+pub(crate) fn canvas_press(
+    graph: &MountedGraph,
+    command: &Command,
+) -> Option<Result<Command, String>> {
+    match command {
+        Command::Click(locator)
+            if matches!(
+                locator.target(),
+                Locator::CanvasItemName(_) | Locator::CanvasItemPrefix(_)
+            ) =>
+        {
+            Some(
+                canvas_press_point(graph, locator)
+                    .map(|(x, y)| Command::Drag(locator.clone(), x, y, x, y)),
+            )
+        }
+        Command::PointerOver(locator) => Some(
+            canvas_press_point(graph, locator)
+                .map(|(x, y)| Command::PointerMove(locator.clone(), x, y)),
+        ),
+        _ => None,
+    }
+}
+
+fn canvas_press_point(graph: &MountedGraph, locator: &Locator) -> Result<(i32, i32), String> {
+    let (canvas, item) = canvas_item(graph, locator)
+        .ok_or_else(|| "the locator must match exactly one canvas primitive".to_owned())?;
+    let (x, y) = match item.kind {
+        crate::bridge::CanvasPrimitiveKind::Line => {
+            ((item.x + item.x2) / 2, (item.y + item.y2) / 2)
+        }
+        _ => (
+            item.x.saturating_add((item.width / 2) as i32),
+            item.y.saturating_add((item.height / 2) as i32),
+        ),
+    };
+    let primitives = match graph.node(canvas).map(|node| &node.kind) {
+        Some(NodeKind::Canvas { primitives, .. }) => primitives,
+        _ => return Err("the primitive's canvas is not mounted".to_owned()),
+    };
+    match crate::canvas_target(primitives, x, y) {
+        Some(key) if key == item.key => Ok((x, y)),
+        _ => Err(format!(
+            "canvas primitive `{}` is not what a press at its centre ({x}, {y}) reaches",
+            item.label
+        )),
+    }
+}
+
 /// The one primitive a canvas-item locator names, and the canvas that owns it.
 ///
 /// `matches` answers with the canvas node for these locators, because that is
@@ -519,6 +574,69 @@ pub(crate) fn graph_claim(graph: &MountedGraph, command: &Command) -> Option<Cla
     })
 }
 
+/// Say on standard error what a text locator that matched nothing was near:
+/// the texts under its scope (or the whole window) sharing the longest prefix
+/// with the one sought. Application text never enters a capture, so this goes
+/// to the person running the specification and not into the step's diagnostic.
+fn explain_missing_text(graph: &MountedGraph, locator: &Locator, line: usize) {
+    let sought = match locator.target() {
+        Locator::Text(text) | Locator::TextPrefix(text) => text,
+        _ => return,
+    };
+    let scopes: Option<std::collections::HashSet<u64>> = match locator {
+        Locator::Within(scope, _) => {
+            let found: std::collections::HashSet<u64> = matches(graph, scope).into_iter().collect();
+            if found.is_empty() {
+                eprintln!("line {line}: the locator's scope `{scope}` matched nothing on screen");
+                return;
+            }
+            Some(found)
+        }
+        _ => None,
+    };
+    let inside = |id: u64| {
+        let Some(scopes) = &scopes else { return true };
+        let mut next = graph.parent(id).map(|(parent, _)| parent);
+        while let Some(parent) = next {
+            if scopes.contains(&parent) {
+                return true;
+            }
+            next = graph.parent(parent).map(|(parent, _)| parent);
+        }
+        false
+    };
+    let mut near: Vec<(usize, &str)> = graph
+        .presented_preorder()
+        .into_iter()
+        .filter_map(|node| match &node.kind {
+            NodeKind::Text(text) | NodeKind::StyledText { value: text, .. } if inside(node.id) => {
+                let shared = text
+                    .chars()
+                    .zip(sought.chars())
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                Some((shared, text.as_str()))
+            }
+            _ => None,
+        })
+        .collect();
+    near.sort_by_key(|(shared, text)| (std::cmp::Reverse(*shared), *text));
+    near.dedup_by(|a, b| a.1 == b.1);
+    if near.is_empty() {
+        eprintln!("line {line}: no text is on screen where `{locator}` looked");
+    } else {
+        let shown: Vec<String> = near
+            .iter()
+            .take(3)
+            .map(|(_, text)| format!("{text:?}"))
+            .collect();
+        eprintln!(
+            "line {line}: `{locator}` matched nothing; the nearest text there is {}",
+            shown.join(", ")
+        );
+    }
+}
+
 /// Resolve a locator against the mounted graph.
 ///
 /// Shared with the window runner so both resolve locators identically rather
@@ -640,6 +758,13 @@ pub(crate) fn matches(graph: &MountedGraph, locator: &Locator) -> Vec<u64> {
             {
                 Some(node.id)
             }
+            (
+                Locator::Chord(expected),
+                NodeKind::StyledText {
+                    chord: Some(actual),
+                    ..
+                },
+            ) if expected == actual => Some(node.id),
             (Locator::Shortcut(expected), NodeKind::Popover { shortcuts, .. })
                 if shortcuts.iter().any(|shortcut| &shortcut.keys == expected) =>
             {
@@ -1085,6 +1210,7 @@ fn run_lifecycle(
 }
 
 fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
+    crate::recents::begin_lifecycle();
     let file_counter_baseline = crate::files::operation_counts();
     let mut graph = MountedGraph::default();
     let cycle_started = Instant::now();
@@ -1176,7 +1302,19 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
         let mut tcp_counter_evidence = None;
         let mut component_work_evidence = None;
         let mut patch_evidence = None;
-        let result = match &step.command {
+        // A click on a canvas primitive is a press and release at its centre,
+        // through the canvas's own pointer route, as a person presses it.
+        let (command, refusal) = match canvas_press(&graph, &step.command) {
+            Some(Ok(press)) => (press, None),
+            Some(Err(message)) => (step.command.clone(), Some(message)),
+            None => (step.command.clone(), None),
+        };
+        let result = match &command {
+            _ if refusal.is_some() => Err(format!(
+                "line {}: {}",
+                step.line,
+                refusal.clone().unwrap_or_default()
+            )),
             // Unreachable in practice: `spec::check_runner` rejects window-only
             // steps before a case reaches this runner. Kept as a real arm so the
             // refusal is stated here too rather than silently skipped.
@@ -1191,6 +1329,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::ExpectRenderedCount(_, _)
             | Command::ExpectBounds(_, _)
             | Command::Screenshot(_)
+            | Command::ExpectInk(_)
             | Command::Type(_)
             | Command::Resize { .. }
             | Command::DragFiles(..)
@@ -1335,6 +1474,12 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                     Ok(())
                 }
             }
+            // `canvas_press` has already read this as a `pointer-move` to the
+            // primitive's centre, or refused it; it never reaches here.
+            Command::PointerOver(_) => Err(format!(
+                "line {}: pointer-move with no coordinates names one canvas primitive",
+                step.line
+            )),
             Command::Drag(locator, from_x, from_y, to_x, to_y) => {
                 let found = matches(&graph, locator);
                 if found.len() != 1 {
@@ -1438,7 +1583,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             | Command::PointerLeave(locator)
             | Command::Wheel(locator, _, _, _, _) => {
                 let found = matches(&graph, locator);
-                let listening = match (found.as_slice(), &step.command) {
+                let listening = match (found.as_slice(), &command) {
                     ([id], _) => match graph.node(*id).map(|node| &node.kind) {
                         Some(NodeKind::Canvas {
                             primitives,
@@ -1480,7 +1625,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                             Some(NodeKind::Canvas { label, .. }) => label.clone(),
                             _ => String::new(),
                         };
-                        let event = match &step.command {
+                        let event = match &command {
                             Command::PointerMove(_, x, y) => {
                                 (hovering != Some((canvas.clone(), (*x, *y)))).then(|| {
                                     hovering = Some((canvas.clone(), (*x, *y)));
@@ -1563,6 +1708,9 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::ReplaceText(locator, value) => {
                 let found = matches(&graph, locator);
                 if found.len() != 1 {
+                    if found.is_empty() {
+                        explain_missing_text(&graph, locator, step.line);
+                    }
                     Err(format!(
                         "line {}: text locator matched {} nodes; expected exactly one",
                         step.line,
@@ -2148,6 +2296,7 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
             Command::ExpectVisible(locator) => {
                 let count = matches(&graph, locator).len();
                 if count == 0 {
+                    explain_missing_text(&graph, locator, step.line);
                     Err(format!(
                         "line {}: expected locator to be visible",
                         step.line
@@ -2738,6 +2887,38 @@ mod locator_tests {
         let (owner, item) = canvas_item(&graph, &item).unwrap();
         assert_eq!(owner, 12);
         assert_eq!(item.label, "Dot one");
+    }
+
+    #[test]
+    fn a_click_on_a_primitive_presses_its_centre_unless_another_covers_it() {
+        let graph = graph();
+        let alone = within(
+            Locator::PanelName("Right".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert_eq!(
+            canvas_press(&graph, &Command::Click(alone.clone())),
+            Some(Ok(Command::Drag(alone, 5, 5, 5, 5)))
+        );
+        // "Dot two" is drawn over "Dot one" on the left canvas.
+        let covered = within(
+            Locator::PanelName("Left".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert!(matches!(
+            canvas_press(&graph, &Command::Click(covered)),
+            Some(Err(_))
+        ));
+        let rest = within(
+            Locator::PanelName("Right".into()),
+            Locator::CanvasItemName("Dot one".into()),
+        );
+        assert_eq!(
+            canvas_press(&graph, &Command::PointerOver(rest.clone())),
+            Some(Ok(Command::PointerMove(rest, 5, 5)))
+        );
+        let control = Locator::TextInputName("Value".into());
+        assert_eq!(canvas_press(&graph, &Command::Click(control)), None);
     }
 
     #[test]

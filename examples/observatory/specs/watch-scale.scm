@@ -9,6 +9,8 @@
   (steps
     (click (role button :name "Open folder"))
     (await-task)
+    ; the first page is summarized with the listing, the rest a page at a time
+    (await-count (text "CAPTURES IN scale-100 · 100") 1)
     (expect-sqlite-counters 0 100 200)
     (expect-visible (within (role row :name "Capture row run-0002.rgstats") (text "database-browser")))
     (replace-file "run-0002.rgstats" "fixture/captures/counter-counting.rgstats")

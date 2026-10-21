@@ -279,7 +279,7 @@ Render := [].{
 					font_size: body_size,
 					placeholder: "Search every setting",
 					on_change: |current, event| Gui.Action.update({ ..current, search: event.value }),
-					on_submit: |_, _| Gui.Action.none,
+					on_submit: |_, _| Gui.Action.none(),
 				}),
 				Gui.row({ label: "Categories", width: Fill, gap: 6 }, category_chips),
 				Gui.row(
@@ -407,7 +407,7 @@ Render := [].{
 						font_size: body_size,
 						enabled: False,
 						on_change: |current, event| Gui.Action.update({ ..current, disabled_value: event.value }),
-						on_submit: |_, _| Gui.Action.none,
+						on_submit: |_, _| Gui.Action.none(),
 					}),
 				),
 				hint(
@@ -512,7 +512,7 @@ Render := [].{
 									placeholder: "Workspace name",
 									on_change: |current, event| Gui.Action.update({ ..current, modal_draft: event.value }),
 									on_submit: |current, _| if current.modal_draft.is_empty() {
-										Gui.Action.none
+										Gui.Action.none()
 									} else {
 										Gui.Action.update({ ..current, dialog_open: False, modal_value: current.modal_draft })
 									},

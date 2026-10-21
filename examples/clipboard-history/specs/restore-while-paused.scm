@@ -4,7 +4,7 @@
   (steps
     (click (role button :name "Start clipboard capture"))
     (clipboard-text "alpha note")
-    (await-ticks 1)
+    (await-ticks 2)
     (expect-visible (text "1 matching items"))
     (click (role button :name "Pause clipboard capture"))
     (await-task)
@@ -13,4 +13,4 @@
     (expect-visible (text "Capture is paused"))
     (expect-not-visible (text "Restoring selected item"))
     (expect-not-visible (text "Selected item is now on the clipboard"))
-    (expect-clipboard-counters 0 1 1 0)))
+    (expect-clipboard-counters 0 1 2 0)))

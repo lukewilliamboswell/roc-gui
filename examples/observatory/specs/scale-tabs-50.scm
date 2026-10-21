@@ -9,6 +9,8 @@
   (steps
     (click (role button :name "Open folder"))
     (await-task)
+    ; the first page is summarized with the listing, the rest a page at a time
+    (await-count (text "CAPTURES IN scale-100 · 100") 1)
     (click (role button :name "Capture run-0000.rgstats"))
     (await-task)
     (click (role button :name "Open another capture"))

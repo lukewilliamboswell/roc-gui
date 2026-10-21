@@ -4,12 +4,13 @@ that exercises it.
 
 `decide` names how this checkout's host is produced:
 
-- `released`: a published host matches the committed sources and is admitted
-  by `install_released_host.py`.
-- `built`: the host sources changed and the release producer
-  (`prepare_host_build.py`) builds it once, with evidence.
+- `built`: the release producer (`prepare_host_build.py`) builds it once, with
+  evidence, beside the locked linker inputs.
 - `development`: the linker inputs themselves are not yet released, so
   `build.py` stages them from their recipes.
+
+A host whose source fingerprint and linker-input lock match an earlier run's is
+restored from the cache that run saved, already sealed; `decide` is not asked.
 
 `seal` records the staged `platform/targets/<target>` with the source
 fingerprint it was produced from and the digest of every file. `admit` accepts
@@ -23,21 +24,43 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import platform
 from pathlib import Path
 import shutil
 import tempfile
 
-from host_build_identity import source_fingerprint
-from install_released_host import native_target, released_available, stage
+from host_build_identity import HOST_FILES, TARGETS, source_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = "ci-host.json"
-MODES = ("released", "built", "development")
+MODES = ("built", "development")
+
+
+def native_target() -> str:
+    try:
+        return TARGETS[(platform.system(), platform.machine())]
+    except KeyError as error:
+        raise ValueError(f"unsupported native host: {platform.system()} {platform.machine()}") from error
+
+
+def stage(target: str, hosts: Path, root: Path = ROOT) -> None:
+    """Stage the host files in `hosts` beside the target's locked link inputs."""
+    targets = root / "platform/targets"
+    targets.mkdir(parents=True, exist_ok=True)
+    destination = targets / target
+    with tempfile.TemporaryDirectory(dir=targets, prefix=".built-host-") as temporary:
+        staged_target = Path(temporary) / "targets" / target
+        from link_input_artifacts import install as install_link_inputs
+        link_inputs = install_link_inputs(target, staged_target, root / "link-inputs.lock.json")
+        for name in HOST_FILES[target]:
+            shutil.copyfile(hosts / name, staged_target / name)
+        (staged_target / "link-inputs.json").write_text(json.dumps(link_inputs, indent=2) + "\n")
+        if destination.exists():
+            shutil.rmtree(destination)
+        staged_target.rename(destination)
 
 
 def decide(root: Path = ROOT) -> str:
-    if released_available(root=root):
-        return "released"
     from link_input_artifacts import development_requires_source_inputs
     return "development" if development_requires_source_inputs(root) else "built"
 
@@ -104,7 +127,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("decide", help="print released, built, or development")
+    commands.add_parser("decide", help="print built or development")
+    commands.add_parser("fingerprint", help="print the host source fingerprint")
     staging = commands.add_parser("stage-built",
                                   help="stage prepare_host_build.py outputs beside the locked link inputs")
     staging.add_argument("--host-output", type=Path, required=True)
@@ -116,6 +140,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "decide":
         print(decide())
+    elif args.command == "fingerprint":
+        print(source_fingerprint())
     elif args.command == "stage-built":
         stage(native_target(), args.host_output.resolve())
     elif args.command == "seal":

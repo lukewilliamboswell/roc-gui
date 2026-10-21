@@ -30,6 +30,7 @@ Elem(a) :: [
 	Split({ children : List(Elem(a)), props : SplitNode(a) }),
 	DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 	StyledText(TextNode),
+	Chord(ChordNode),
 	Text(Str),
 ].{
 	KeyedOperation : [KeyedInsert(Key, KeyedSeq.Placement), KeyedMove(Key, KeyedSeq.Placement), KeyedRemove(Key), KeyedSet(Key)]
@@ -61,7 +62,7 @@ Elem(a) :: [
 	## Start with `key`, `get`, and `set`; add policies only when needed.
 	## `get` reads the child; `set` replaces it while preserving other parent data.
 	## `on_delegate` receives the proposed parent and defaults to `Action.update`;
-	## returning `Action.none` rejects the whole proposal. `memo` defaults to None.
+	## returning `Action.none()` rejects the whole proposal. `memo` defaults to None.
 	## A comparator receives saved and incoming child states: True promises that
 	## both the rendered UI and captured handlers remain equivalent. Retaining
 	## that comparison snapshot can require cloning during subsequent updates.
@@ -77,7 +78,7 @@ Elem(a) :: [
 		set : parent, child -> parent,
 
 		## Decide whether to accept a proposed parent containing the child's change.
-		## `Action.none` rejects the entire proposal. The default accepts it.
+		## `Action.none()` rejects the entire proposal. The default accepts it.
 		on_delegate : parent -> Action(parent) ?? Action.update,
 
 		## Compare saved and incoming child states. True promises equivalent UI and
@@ -407,6 +408,10 @@ Elem(a) :: [
 	## is empty for text of one style; otherwise `value` is the spans' texts in
 	## order, and each span restyles its own part of it.
 	TextNode := { value : Str, style : Style, spans : List(TextSpan) }
+
+	## Platform representation of a key chord shown as text. `keys` is the chord
+	## as a shortcut declares it; the host spells it as the person presses it.
+	ChordNode := { keys : Str, style : Style }
 
 	## One styled run of rich text: its text, and what it sets over the
 	## element's own type. `Default` colours and weight 0 keep the element's.
@@ -1307,6 +1312,13 @@ Elem(a) :: [
 	text : Str -> Elem(a)
 	text = |value| Text(value)
 
+	## Display a key chord, declared as a shortcut declares it (`secondary-k`),
+	## in the spelling of the platform it runs on: `⌘K` on macOS and `ctrl-K`
+	## elsewhere. It inherits colour and size from its container, and
+	## `with_style` restyles it as it restyles text.
+	chord : Str -> Elem(a)
+	chord = |keys| Chord({ keys, style: Style.{} })
+
 	## Display text in its own colour, size, weight, and face, without a
 	## container element that exists only to carry them.
 	styled_text : TextProps -> Elem(a)
@@ -1402,6 +1414,7 @@ Elem(a) :: [
 	with_style = |elem, change| match elem {
 		Text(value) => StyledText({ value, style: change(Style.{}), spans: [] })
 		StyledText(value) => StyledText({ ..value, style: change(value.style) })
+		Chord(value) => Chord({ ..value, style: change(value.style) })
 		Row(value) => Row({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		Column(value) => Column({ ..value, props: { ..value.props, style: change(value.props.style) } })
 		KeyedColumn(value) => KeyedColumn({ ..value, props: { ..value.props, style: change(value.props.style) } })
@@ -1961,10 +1974,10 @@ Elem(a) :: [
 		}
 		select_at! = |state, index| match props.tabs.get(index) {
 			Ok(tab) => (props.on_select)(state, { key: tab.key })
-			Err(_) => Action.none
+			Err(_) => Action.none()
 		}
 		previous! = |state, _| match current {
-			Some(index) => if index > 0 select_at!(state, index - 1) else Action.none
+			Some(index) => if index > 0 select_at!(state, index - 1) else Action.none()
 			None => select_at!(state, 0)
 		}
 		next! = |state, _| match current {
@@ -1972,13 +1985,13 @@ Elem(a) :: [
 			None => select_at!(state, 0)
 		}
 		first! = |state, _| select_at!(state, 0)
-		last! = |state, _| if count == 0 Action.none else select_at!(state, count - 1)
+		last! = |state, _| if count == 0 Action.none() else select_at!(state, count - 1)
 		close! = |state, _| match current {
 			Some(index) => match props.tabs.get(index) {
-				Ok(tab) => if tab.closable (props.on_close)(state, { key: tab.key }) else Action.none
-				Err(_) => Action.none
+				Ok(tab) => if tab.closable (props.on_close)(state, { key: tab.key }) else Action.none()
+				Err(_) => Action.none()
 			}
-			None => Action.none
+			None => Action.none()
 		}
 		strip = Row({
 			children: props.tabs.map(|tab| tab_unit(props, tab)),
@@ -2171,6 +2184,7 @@ Elem(a) :: [
 	lift_shell = |elem, project, set_child, adapt_action| match elem {
 		Text(value) => Text(value)
 		StyledText(text_value) => StyledText(text_value)
+		Chord(chord_value) => Chord(chord_value)
 		Row(value) => Row({ props: value.props, children: [] })
 		Column(value) => Column({ props: value.props, children: [] })
 		KeyedColumn(_) => crash "keyed_col cannot be lifted; construct it at its owning state boundary"
@@ -2365,7 +2379,7 @@ Elem(a) :: [
 			|| project(
 				parent,
 				|result| match result {
-					Err(Removed) => Work.next(|| done(Action.none))
+					Err(Removed) => Work.next(|| done(Action.none()))
 					Ok(child) => Work.next(|| adapt(handler!(child, event), parent, done))
 				},
 			),
@@ -2393,6 +2407,7 @@ Elem(a) :: [
 		Split({ children : List(Elem(a)), props : SplitNode(a) }),
 		DropTarget({ children : List(Elem(a)), props : DropTargetNode(a) }),
 		StyledText(TextNode),
+		Chord(ChordNode),
 		Text(Str),
 	]
 	inspect = |value| match value {
@@ -2414,6 +2429,7 @@ Elem(a) :: [
 		Split(split_value) => Split(split_value)
 		DropTarget(drop_value) => DropTarget(drop_value)
 		StyledText(styled_value) => StyledText(styled_value)
+		Chord(chord_value) => Chord(chord_value)
 		Text(text_value) => Text(text_value)
 	}
 }

@@ -5,6 +5,10 @@ name: Native host release candidate
 on:
   workflow_call:
     inputs:
+      nightly-tag:
+        description: The Roc nightly the calling run resolved
+        type: string
+        required: true
       os:
         type: string
         required: true
@@ -28,6 +32,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-toolchain
+        with:
+          nightly-tag: ${{ inputs.nightly-tag }}
       - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: ~/.cache/roc-gui/link-inputs

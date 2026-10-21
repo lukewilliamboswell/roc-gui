@@ -23,7 +23,7 @@ import Timer
 ## The whole application-facing platform under one import. Build a tree with
 ## the element constructors and their property records, adjust an element
 ## with the modifiers on `Elem`, and answer events with the constructors on
-## `Action`: `Action.none`, `Action.update`, `Action.delegate`, or `Action.task`.
+## `Action`: `Action.none()`, `Action.update`, `Action.delegate`, or `Action.task`.
 Gui := [].{
 
 	## A declarative UI tree whose event handlers transition application state.
@@ -111,6 +111,12 @@ Gui := [].{
 	## Display literal text. It inherits colour and size from its container.
 	text : Str -> Elem.Elem(a)
 	text = |value| Elem.text(value)
+
+	## Display a key chord, declared as a shortcut declares it (`secondary-k`),
+	## in the spelling of the platform it runs on: `⌘K` on macOS and `ctrl-K`
+	## elsewhere, so a hint always names the keys a person presses.
+	chord : Str -> Elem.Elem(a)
+	chord = |keys| Elem.chord(keys)
 
 	## Display text in its own colour, size, weight, and face.
 	styled_text : Elem.TextProps -> Elem.Elem(a)

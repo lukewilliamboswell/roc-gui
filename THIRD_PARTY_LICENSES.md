@@ -65,8 +65,8 @@ debug paths before publication.
 
 The released platform bundle retains external dependency notices and source
 payloads under `third-party/<artifact>/`, retains each host's notice payload, and
-includes the reviewed dependency and host locks. Host `NOTICE.json` identifies
-the exact source-companion release asset and digest.
+includes the reviewed linker-input lock. Host `NOTICE.json` identifies the exact
+source-companion asset and digest, published in the same platform release.
 
 The generated macOS interfaces contain linking metadata created
 from the repository's reviewed catalog. Their producer does not read, copy, or

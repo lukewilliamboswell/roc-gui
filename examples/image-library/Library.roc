@@ -47,7 +47,7 @@ pick = |state| {
 				ScanDenied => Gui.Action.update({ ..latest, status: Failed({ headline: "No folder was opened", detail: "Access to a folder was not granted, so nothing was read. Nothing already open has changed. Press Open folder to choose again." }) })
 				ScanFailed => Gui.Action.update({ ..latest, status: Failed({ headline: "That folder could not be read", detail: "The folder was granted but could not be listed. Press Open folder to choose another." }) })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -164,7 +164,7 @@ gallery = |state| match state.scan {
 		Gui.col(
 			{ label: "Gallery", width: Px(320), height: Fill, gap: Theme.within, padding: 0 },
 			[
-				Gui.text_input({ label: "Filter images", value: state.filter, placeholder: "Search this folder", on_change: |current, event| Gui.Action.update({ ..current, filter: event.value }), on_submit: |_, _| Gui.Action.none, width: Fill, height: Px(44), padding: 14, font_size: Theme.body, bg: Theme.card, fg: Theme.ink, border_width: 0, radius: Theme.control_radius }),
+				Gui.text_input({ label: "Filter images", value: state.filter, placeholder: "Search this folder", on_change: |current, event| Gui.Action.update({ ..current, filter: event.value }), on_submit: |_, _| Gui.Action.none(), width: Fill, height: Px(44), padding: 14, font_size: Theme.body, bg: Theme.card, fg: Theme.ink, border_width: 0, radius: Theme.control_radius }),
 				quiet_text("Gallery count", "${visible.len().to_str()} of ${scan.items.len().to_str()} entries"),
 				Gui.virtual_list({ label: "Image thumbnails", row_height: Theme.row_height, items: item_rows(visible, chosen_name_of(state)) }),
 			],

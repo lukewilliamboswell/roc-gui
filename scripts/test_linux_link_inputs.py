@@ -12,13 +12,14 @@ import tempfile
 from dependency_artifacts import component_inventory, unpack_verified
 from link_input_artifacts import COMPONENTS
 from release_dependencies import KINDS
-from toolchain import validate_roots, verify_compiler
+from toolchain import check_unpinned, compiler_version
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def validate(components, output, roc):
-    verify_compiler(roc, validate_roots(ROOT))
+    check_unpinned(ROOT)
+    print(f"Roc compiler: {compiler_version(roc)}", flush=True)
     if os.environ.get("IN_NIX_SHELL") or os.environ.get("LD_LIBRARY_PATH"):
         raise ValueError("portability validation must run outside the Nix shell and library overrides")
     target = ROOT / "platform/targets/x64glibc"
@@ -37,7 +38,7 @@ def validate(components, output, roc):
             expected = {f"targets/{triple}/{file}" for file in policy["files"]}
             expected.update(f"licenses/{name}/{file}" for file in policy["licenses"])
             expected.update(policy.get("extra_files", ()))
-            if manifest["schema_version"] != 2 or set(manifest["files"]) != component_inventory(expected, manifest):
+            if manifest["schema_version"] != 4 or set(manifest["files"]) != component_inventory(expected, manifest):
                 raise ValueError("incomplete Nix candidate: " + name)
             for file in (destination / "targets" / triple).iterdir():
                 if file.suffix == ".so":

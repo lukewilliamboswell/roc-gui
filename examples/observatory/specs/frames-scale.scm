@@ -2,7 +2,8 @@
 ;; frames, several times the strip's columns. The strip always draws 240 columns, each the costliest of the frames
 ;; it stands for, so a slow frame is never averaged away. Scrolling the wheel
 ;; over the strip reads a narrower span around the pointer, and the whole
-;; capture is one press away.
+;; capture is one press away. The session mounts its list hundreds of times,
+;; and the virtual-list table builds only the rows near its viewport.
 (test "the frame strip draws a session of 1000 frames and zooms into it"
   (grants
     (directory "fixture/window"))
@@ -13,6 +14,7 @@
     (await-task)
     (click (role button :name "Frames"))
     (expect-count (canvas-item-prefix "Frame r1 #") 240)
+    (expect-rows (role virtual-list :name "Virtual list table") :count 452 :first 0 :mounted 70)
     (expect-not-visible (role button :name "Show every frame"))
     (wheel (role canvas :name "Frames") 416 100 0 -120)
     (await-task)

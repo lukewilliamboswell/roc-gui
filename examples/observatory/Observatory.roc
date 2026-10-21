@@ -5,6 +5,7 @@
 ## task of their own. The mounted presentation lives in `View.roc`.
 import pf.Gui
 import Capture
+import Format
 import History
 import Scaling
 import SpecSource
@@ -96,6 +97,13 @@ Parked : {
 ## One open capture's tab: a key of its own, which survives the capture being
 ## read again, its name, and the capture itself unless it is on screen.
 Tab : { key : U64, name : Str, parked : [OnScreen, Parked(Parked)] }
+
+## Whether a tab's capture is the one on screen.
+on_screen : Tab -> Bool
+on_screen = |tab| match tab.parked {
+	OnScreen => True
+	Parked(_) => False
+}
 
 ## The inspector beside every view: how wide it is, whether it is folded
 ## away, and the view it is pinned to, whose selection it keeps showing
@@ -201,6 +209,9 @@ State : {
 	baseline : [None, Some(Capture.Opened)],
 	noise : [None, Some(Scaling.Member)],
 	scaling : Scaling.Selection,
+	## The metric the scaling charts draw, and the point under the pointer.
+	scaling_metric : Scaling.Metric,
+	scaling_hover : [None, Some({ trigger : Str, index : U64 })],
 	## The frame budget, in hertz, frames are drawn against.
 	budget : I64,
 	strip : Strip,
@@ -243,6 +254,9 @@ State : {
 	## The captures and folders the host remembers for Observatory, most
 	## recent first, as last read.
 	recent : List(Gui.Files.Recent),
+	## What each recent entry holds, read after the list is shown: a
+	## capture's identity and verdict, or how many captures a folder lists.
+	glances : List(Glance),
 	## A capture dropped on an open capture, waiting for the person to open
 	## it or compare it with the capture on screen.
 	offer : [None, Some(Gui.Files.FileSelection)],
@@ -270,6 +284,8 @@ Observatory := [].{
 	Tab : Tab
 	Parked : Parked
 	Inspector : Inspector
+	Glance : Glance
+	Glimpse : Glimpse
 
 	init : Gui.Access -> State
 	init = |access| {
@@ -287,16 +303,18 @@ Observatory := [].{
 		filter: All,
 		inspected: None,
 		step_focus: None,
-		cycles: { phase: "", filter: All, window: empty_window },
+		cycles: { phase: "", filter: All, window: empty_window() },
 		cycles_reading: None,
 		cycle_scroll: None,
-		steps: { run: 0, window: empty_window },
+		steps: { run: 0, window: empty_window() },
 		steps_reading: None,
 		step_scroll: None,
 		family_focus: None,
 		baseline: None,
 		noise: None,
 		scaling: Scaling.empty,
+		scaling_metric: Callback,
+		scaling_hover: None,
 		budget: 60,
 		strip: { strip: { start: 0, span: 0, total: 0, bars: [] }, read: 0 },
 		strip_reading: None,
@@ -308,7 +326,7 @@ Observatory := [].{
 		clock_hover: None,
 		chart_width: 0,
 		palette: Closed,
-		history: History.empty,
+		history: History.empty(),
 		inspector_focus: 0,
 		copied: None,
 		spec_source: SpecSource.none,
@@ -320,6 +338,7 @@ Observatory := [].{
 		inspector: { size: 360, collapsed: False, pinned: None },
 		request: None,
 		recent: [],
+		glances: [],
 		offer: None,
 	}
 
@@ -327,7 +346,14 @@ Observatory := [].{
 	## host checks each entry against what is at its place now, so an entry
 	## that cannot be reopened is listed with its reason.
 	opened! : State => Gui.Action(State)
-	opened! = |state| Gui.Action.update({ ..state, recent: state.access.recent!() })
+	opened! = |state| glance({ ..state, recent: state.access.recent!() })
+
+	## What a recent entry was last read to hold, if it has been read.
+	glance_of : State, U64 -> [None, Some(Glimpse)]
+	glance_of = |state, key| match state.glances.find_first(|held| held.key == key) {
+		Ok(held) => Some(held.glimpse)
+		Err(_) => None
+	}
 
 	## Captures dropped on the window. On the start page every dropped capture
 	## opens, each in a tab; on an open capture one dropped capture waits for
@@ -340,13 +366,13 @@ Observatory := [].{
 	open_offered : State -> Gui.Action(State)
 	open_offered = |state| match state.offer {
 		Some(offered) => open_files({ ..state, offer: None }, [offered], Overview)
-		None => Gui.Action.none
+		None => Gui.Action.none()
 	}
 
 	compare_offered : State -> Gui.Action(State)
 	compare_offered = |state| match state.offer {
 		Some(offered) => open_files(set_baseline({ ..state, offer: None }), [offered], Compare)
-		None => Gui.Action.none
+		None => Gui.Action.none()
 	}
 
 	dismiss_offer : State -> Gui.Action(State)
@@ -380,7 +406,7 @@ Observatory := [].{
 	## root's, since every view's charts are drawn for it, and the width it
 	## already has changes nothing.
 	size_charts : State, Gui.Event.CanvasSize -> Gui.Action(State)
-	size_charts = |current, laid_out| if laid_out.width == current.chart_width Gui.Action.none else Gui.Action.delegate({ ..current, chart_width: laid_out.width })
+	size_charts = |current, laid_out| if laid_out.width == current.chart_width Gui.Action.none() else Gui.Action.delegate({ ..current, chart_width: laid_out.width })
 
 	## The policy of a boundary directly under the root: perform the request,
 	## or accept the change as a root update.
@@ -504,7 +530,7 @@ Observatory := [].{
 }
 
 on_screen_tab : State -> [None, Some(U64)]
-on_screen_tab = |state| match state.tabs.find_first(|tab| tab.parked == OnScreen) {
+on_screen_tab = |state| match state.tabs.find_first(on_screen) {
 	Ok(tab) => Some(tab.key)
 	Err(_) => None
 }
@@ -538,7 +564,7 @@ stash = |state| match state.capture {
 	None => state
 	Some(opened) => {
 		parked = { capture: opened, source: state.source, place: here(state), cycles: state.cycles, steps: state.steps, strip: state.strip, clock: state.clock, trigger_sort: state.trigger_sort, budget: state.budget, history: state.history }
-		{ ..state, tabs: state.tabs.map(|tab| if tab.parked == OnScreen { ..tab, parked: Parked(parked) } else tab) }
+		{ ..state, tabs: state.tabs.map(|tab| if on_screen(tab) { ..tab, parked: Parked(parked) } else tab) }
 	}
 }
 
@@ -758,14 +784,14 @@ find_cycle = |state, ordinal| match state.capture {
 					NoCycle => Gui.Action.update({ ..latest, status: failure("No cycle ${ordinal.to_str()} in run ${run_id.to_str()}", "Cycles are numbered from 0 in each run; choose a run in Spec to look in another.") })
 					CycleFailed(message) => Gui.Action.update({ ..latest, status: failure(message, "This cycle could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
 }
 
-empty_window : Window(a)
-empty_window = { offset: 0, rows: [], read: 0 }
+empty_window : () -> Window(a)
+empty_window = || { offset: 0, rows: [], read: 0 }
 
 no_clock : Clock
 no_clock = { of: 0, window: Timeline.empty, read: 0 }
@@ -806,7 +832,7 @@ wanted = |window, reading, visible, total| {
 }
 
 listed_cycles : State -> Window(Capture.Cycle)
-listed_cycles = |state| if holds_cycles(state) state.cycles.window else empty_window
+listed_cycles = |state| if holds_cycles(state) state.cycles.window else empty_window()
 
 holds_cycles : State -> Bool
 holds_cycles = |state| state.cycles.phase == state.phase and state.cycles.filter == state.filter
@@ -985,7 +1011,7 @@ close_capture = |state| {
 		Busy(active) => Busy(active)
 		_ => Ready
 	}
-	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty, source: None, live: idle, changed: False, tabs: state.tabs.keep_if(|tab| tab.parked != OnScreen) }
+	{ ..state, capture: None, inspected: None, status, cycles_reading: None, steps_reading: None, strip_reading: None, frame: None, frame_hover: None, bucket_hover: None, clock: no_clock, clock_reading: None, clock_hover: None, history: History.empty(), source: None, live: idle, changed: False, tabs: state.tabs.keep_if(|tab| !on_screen(tab)) }
 }
 
 failure = |message, remedy| Failed({ message, remedy })
@@ -1000,13 +1026,78 @@ still_held_or_declined = |grant| match grant {
 is_capture : Gui.Files.Entry -> Bool
 is_capture = |entry| entry.kind == File and Str.ends_with(entry.name, ".rgstats")
 
+## How many captures are summarized before the folder is shown: more than a
+## screenful, so a folder of this many or fewer opens fully read, and a larger
+## one shows every name at once with its first screen summarized.
+first_page : U64
+first_page = 64
+
+## How many captures each later read summarizes. Each page that lands redraws
+## the list on the window thread, so the rest are read in few, large pages.
+summary_page : U64
+summary_page = 256
+
+## Every capture of the folder by name, in name order, with the first page
+## summarized and the rest listed unread.
 list_captures! : Gui.Files.Dir.Read, List(Gui.Files.Entry) => List(Capture.Listing)
 list_captures! = |directory, entries| {
+	names = entries.keep_if(is_capture).map(|entry| entry.name).sort_with(Format.compare_text)
+	summarized = summarize_names!(directory, names.take_first(first_page))
+	summarized.concat(names.drop_first(first_page).map(Capture.unread))
+}
+
+summarize_names! : Gui.Files.Dir.Read, List(Str) => List(Capture.Listing)
+summarize_names! = |directory, names| {
 	var $listed = []
-	for entry in entries.keep_if(is_capture) {
-		$listed = $listed.append(Capture.summarize!(directory, entry.name))
+	for name in names {
+		$listed = $listed.append(Capture.summarize!(directory, name))
 	}
 	$listed
+}
+
+summary_key : Str
+summary_key = "summaries"
+
+## Summarize the folder's next page of unread captures on a worker, and the
+## page after it once that lands, then watch the folder. The watch was started
+## with the listing, so a change made meanwhile is waited for, not lost. A
+## folder replaced meanwhile ends the chain; the new one runs its own.
+read_summaries : State, [None, Some(Gui.Files.Watch)], U64 -> Gui.Action(State)
+read_summaries = |state, watch, generation| match state.folder {
+	None => Gui.Action.update(state)
+	Some(folder) => {
+		# Unread captures follow the summarized ones in name order, so the
+		# next page is the run that starts at the first of them.
+		at = match folder.captures.find_first_index(|listing| listing.verdict == Unread) {
+			Ok(index) => index
+			Err(_) => folder.captures.len()
+		}
+		names = folder.captures.drop_first(at).take_first(summary_page).map(|listing| listing.name)
+		if names.is_empty() {
+			match watch {
+				Some(started) => wait_folder(state, started, generation)
+				None => Gui.Action.update({ ..state, folder_watch: 0 })
+			}
+		} else {
+			directory = folder.directory
+			revision = folder.revision
+			Gui.Action.keyed_task({
+				key: summary_key,
+				pending: state,
+				run: || summarize_names!(directory, names),
+				resolve: |latest, read| match latest.folder {
+					Some(current) if current.revision == revision => {
+						captures = current.captures.take_first(at).concat(read).concat(current.captures.drop_first(at + read.len()))
+						# A new revision, so every view of the folder draws the
+						# summaries read.
+						merged_at = latest.next_request
+						read_summaries({ ..latest, next_request: merged_at + 1, folder: Some({ ..current, revision: merged_at, captures }) }, watch, generation)
+					}
+					_ => Gui.Action.none()
+				},
+			})
+		}
+	}
 }
 
 choose : State -> Gui.Action(State)
@@ -1022,9 +1113,77 @@ choose = |state| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => folder_listed(latest, result, id)
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
+}
+
+## What a recent entry holds, read without opening it on screen.
+Glimpse : [Capture(Capture.Listing), Folder(U64)]
+Glance : { key : U64, glimpse : Glimpse }
+
+glance_key : Str
+glance_key = "glance"
+
+## Read what every available recent entry holds, on a worker, after the list
+## is shown: each is reopened as a grant of its own, summarized as a folder's
+## captures are, and released. An entry that cannot be reopened keeps the
+## reason the list gave it.
+glance : State -> Gui.Action(State)
+glance = |state| {
+	access = state.access
+	available = state.recent.keep_if(|entry| entry.status == Available)
+	if available.is_empty() {
+		Gui.Action.update(state)
+	} else {
+		Gui.Action.keyed_task({
+			key: glance_key,
+			pending: state,
+			run: || glance_all!(access, available),
+			resolve: |latest, read| Gui.Action.update({ ..latest, glances: merged(latest.glances, read) }),
+		})
+	}
+}
+
+glance_all! : Gui.Access, List(Gui.Files.Recent) => List(Glance)
+glance_all! = |access, entries| {
+	var $read = []
+	for entry in entries {
+		match glance_one!(access, entry) {
+			Some(glimpse) => {
+				$read = $read.append({ key: entry.key, glimpse })
+			}
+			None => {}
+		}
+	}
+	$read
+}
+
+glance_one! : Gui.Access, Gui.Files.Recent => [None, Some(Glimpse)]
+glance_one! = |access, entry| match entry.kind {
+	File => match access.reopen_file!(entry.key) {
+		Ok(selection) => Some(Capture(Capture.summarize_file!(selection.file, selection.name)))
+		Err(_) => None
+	}
+	Directory => match access.reopen_directory!(entry.key) {
+		Ok(selection) => match selection.directory.list!() {
+			Ok(listed) => Some(Folder(listed.keep_if(is_capture).len()))
+			Err(_) => None
+		}
+		Err(_) => None
+	}
+}
+
+## Newer glances replace older ones of the same entry.
+merged : List(Glance), List(Glance) -> List(Glance)
+merged = |held, read| held.drop_if(|old| read.any(|new| new.key == old.key)).concat(read)
+
+## The entry a capture or folder just remembered heads the list under its
+## name, so its glance comes from what opening it read.
+glanced : List(Glance), List(Gui.Files.Recent), Str, [File, Directory], Glimpse -> List(Glance)
+glanced = |held, recent, name, kind, glimpse| match recent.find_first(|entry| entry.name == name and entry.kind == kind) {
+	Ok(entry) => merged(held, [{ key: entry.key, glimpse }])
+	Err(_) => held
 }
 
 ## What choosing or reopening a folder found.
@@ -1057,12 +1216,10 @@ folder_listed : State, Listed, U64 -> Gui.Action(State)
 folder_listed = |latest, result, id| match result {
 	ChosenFolder(chosen) => {
 		folder = { revision: chosen.revision, name: chosen.name, directory: chosen.directory, captures: chosen.captures }
-		listed = { ..latest, folder: Some(folder), grant: Granted(chosen.name), capture: None, status: Ready, source: None, live: idle, changed: False, recent: chosen.recent }
-		match chosen.watch {
-			# Request identities start at zero, and zero means no watch.
-			Some(watch) => wait_folder(listed, watch, id + 1)
-			None => Gui.Action.update({ ..listed, folder_watch: 0 })
-		}
+		glances = glanced(latest.glances, chosen.recent, chosen.name, Directory, Folder(chosen.captures.len()))
+		listed = { ..latest, folder: Some(folder), grant: Granted(chosen.name), capture: None, status: Ready, source: None, live: idle, changed: False, recent: chosen.recent, glances }
+		# Request identities start at zero, and zero means no watch.
+		read_summaries(listed, chosen.watch, id + 1)
 	}
 	ChooseCanceled => Gui.Action.update({ ..latest, grant: still_held_or_declined(latest.grant), status: Ready })
 	ChooseFailed => Gui.Action.update({
@@ -1091,7 +1248,7 @@ reopen_folder = |state, key| {
 		},
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => folder_listed(latest, result, id)
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1114,7 +1271,7 @@ reopen = |state, key| {
 				Opened(opened) => shown_files(latest, opened, id, Overview)
 				Unopened(refused) => Gui.Action.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason(refused.reason)) })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1196,7 +1353,7 @@ open_files = |state, selections, view| {
 		run: || open_selections!(access, selections),
 		resolve: |latest, opened| match latest.status {
 			Busy(active) if active == id => shown_files({ ..latest, status: note }, opened, id, view)
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1206,7 +1363,14 @@ open_files = |state, selections, view| {
 ## leaves the others open.
 shown_files : State, OpenedFiles, U64, View -> Gui.Action(State)
 shown_files = |latest, opened, id, view| {
-	start = { state: { ..latest, recent: opened.recent }, live: None, failed: None, at: id }
+	glances = opened.opened.fold(
+		latest.glances,
+		|held, item| match item.loaded {
+			Ok(loaded) => glanced(held, opened.recent, loaded.opened.name, File, Capture(Capture.listing_of(loaded.opened)))
+			Err(_) => held
+		},
+	)
+	start = { state: { ..latest, recent: opened.recent, glances }, live: None, failed: None, at: id }
 	walked = opened.opened.fold(
 		start,
 		|held, item| match item.loaded {
@@ -1258,7 +1422,7 @@ choose_file = |state| {
 				FileCanceled => Gui.Action.update({ ..latest, status: Ready })
 				FileRefused(remedy) => Gui.Action.update({ ..latest, status: failure("Could not open the capture file", remedy) })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1328,7 +1492,7 @@ show = |latest, loaded, id| {
 		steps_reading: None,
 		step_scroll: None,
 		family_focus: None,
-		history: History.empty,
+		history: History.empty(),
 		status: Ready,
 		changed: False,
 	}
@@ -1356,7 +1520,7 @@ open_capture = |state, directory, name| {
 				Ok(loaded) => begin_live(enlist(show({ ..stash(latest), source: InFolder({ directory, name }) }, loaded, id), id), loaded.live, id)
 				Err(message) => Gui.Action.update({ ..latest, capture: None, source: None, live: idle, status: failure(message, unreadable_remedy) })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1364,7 +1528,7 @@ open_capture = |state, directory, name| {
 ## A cycle's detail is read through the connection the open capture holds.
 inspect : State, Capture.Cycle -> Gui.Action(State)
 inspect = |state, cycle| match state.capture {
-	None => Gui.Action.none
+	None => Gui.Action.none()
 	Some(opened) => {
 		id = state.next_request
 		Gui.Action.keyed_task({
@@ -1376,7 +1540,7 @@ inspect = |state, cycle| match state.capture {
 					Ok(inspected) => list_cycles({ ..latest, inspected: Some(inspected), status: Ready })
 					Err(message) => Gui.Action.update({ ..latest, status: failure(message, "This cycle's detail could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1390,7 +1554,7 @@ list_cycles = |state| if state.view == Interactions and !holds_cycles(state) {
 	read_cycles(state, 0)
 } else if state.view == Timeline and Some(state.clock.of) != opened_revision(state) and state.clock_reading == None {
 	read_clock(state, 0, 0)
-} else if state.view == Spec and state.spec_source.folder != None and Some(state.spec_source.of) != opened_revision(state) and state.spec_source.reading == None {
+} else if state.view == Spec and SpecSource.granted(state.spec_source) and Some(state.spec_source.of) != opened_revision(state) and state.spec_source.reading == None {
 	locate(state)
 } else {
 	Gui.Action.update(state)
@@ -1420,7 +1584,7 @@ read_clock = |state, start, span| match state.capture {
 					Ok(window) => Gui.Action.update({ ..latest, clock: { of, window, read: id }, clock_reading: None, clock_hover: None })
 					Err(message) => Gui.Action.update({ ..latest, clock_reading: None, status: failure(message, "The timeline could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1445,7 +1609,7 @@ read_cycles = |state, offset| match state.capture {
 					Ok(rows) => Gui.Action.update({ ..latest, cycles: { phase, filter, window: { offset, rows, read: id } }, cycles_reading: None })
 					Err(message) => Gui.Action.update({ ..latest, cycles_reading: None, status: failure(message, "These cycles could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1473,7 +1637,7 @@ read_steps = |state, run_id, offset, focus| match state.capture {
 					}
 					Err(message) => Gui.Action.update({ ..latest, steps_reading: None, status: failure(message, "The steps of this run could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1519,7 +1683,7 @@ choose_noise = |state, directory, name| {
 				Ok(member) => Gui.Action.update({ ..latest, noise: Some(read_by(member, id)), status: Ready })
 				Err(message) => Gui.Action.update({ ..latest, status: failure(message, "The A/A capture could not be read.") })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1538,7 +1702,7 @@ build_scaling = |state, directory| {
 				Ok(members) => Gui.Action.update({ ..latest, scaling: { chosen: names, members: members.map(|member| read_by(member, id)), read: id }, status: Ready })
 				Err(message) => Gui.Action.update({ ..latest, status: failure(message, "A capture of the scaling set could not be read.") })
 			}
-			_ => Gui.Action.none
+			_ => Gui.Action.none()
 		},
 	})
 }
@@ -1558,7 +1722,7 @@ read_frame = |state, bar| match state.capture {
 					Ok(detail) => Gui.Action.update({ ..latest, frame: Some(detail), status: Ready })
 					Err(message) => Gui.Action.update({ ..latest, status: failure(message, "This frame's work could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1581,7 +1745,7 @@ read_strip = |state, start, span| match state.capture {
 					Ok(strip) => Gui.Action.update({ ..latest, strip: { strip, read: id }, strip_reading: None, frame_hover: None })
 					Err(message) => Gui.Action.update({ ..latest, strip_reading: None, status: failure(message, "These frames could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1660,7 +1824,7 @@ open_sources = |state| match state.capture {
 					SourcesCanceled => Gui.Action.update({ ..latest, status: Ready })
 					SourcesRefused => Gui.Action.update({ ..latest, status: failure("Could not open the folder of specification sources", "The host granted no folder to read. Start Observatory with --host-cap-dir <folder>, or choose one this process may read.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1682,7 +1846,7 @@ locate = |state| match (state.capture, state.spec_source.folder) {
 					Ok(result) => Gui.Action.update({ ..latest, spec_source: located(latest, id, opened.revision, result) })
 					Err(message) => Gui.Action.update({ ..latest, spec_source: { ..latest.spec_source, reading: None }, status: failure(message, "The folder of specification sources could not be read.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1727,7 +1891,7 @@ annotate = |state, mode, focus| match state.capture {
 					}
 					Err(message) => Gui.Action.update({ ..latest, spec_source: { ..latest.spec_source, reading: None }, status: failure(message, "The steps of this run could not be read from the open capture.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
@@ -1768,7 +1932,7 @@ wait_capture = |state, watch, generation| Gui.Action.keyed_task({
 	pending: state,
 	run: || watch.next!(),
 	resolve: |latest, change| if latest.live.generation != generation {
-		Gui.Action.none
+		Gui.Action.none()
 	} else {
 		match change {
 			Changed(changes) => if changes.replaced or changes.overflowed recheck(latest, watch, generation) else grow(latest, watch, generation)
@@ -1799,8 +1963,11 @@ grow! = |held, read_to, at| {
 	} else {
 		opened = Capture.read!(database, held.name)?
 		cycles = Capture.cycles!(database, { phase: at.phase, only: at.only, offset: at.cycle_offset })?
-		steps = Capture.run_steps!(database, at.run, at.step_offset)?
-		Ok(Grew({ opened, progress, at, cycles, steps }))
+		# A capture opened before its recorder began a run follows the first
+		# run once one is committed.
+		followed = if at.run == 0 { ..at, run: first_run(opened), step_offset: 0 } else at
+		steps = Capture.run_steps!(database, followed.run, followed.step_offset)?
+		Ok(Grew({ opened, progress, at: followed, cycles, steps }))
 	}
 }
 
@@ -1819,7 +1986,7 @@ grow = |state, watch, generation| match state.capture {
 			pending: { ..state, next_request: id + 1 },
 			run: || grow!(held, read_to, at),
 			resolve: |latest, outcome| if latest.live.generation != generation {
-				Gui.Action.none
+				Gui.Action.none()
 			} else {
 				match outcome {
 					Ok(Same) => wait_capture(latest, watch, generation)
@@ -1842,7 +2009,7 @@ regrown = |latest, fresh, id| {
 	} else {
 		latest.cycles
 	}
-	steps = if latest.steps.run == fresh.at.run { run: fresh.at.run, window: { offset: fresh.at.step_offset, rows: fresh.steps, read: id } } else latest.steps
+	steps = if latest.steps.run == fresh.at.run or latest.steps.run == 0 { run: fresh.at.run, window: { offset: fresh.at.step_offset, rows: fresh.steps, read: id } } else latest.steps
 	{ ..latest, capture: Some(opened), cycles, steps, strip: { strip: opened.strip, read: id }, live: { ..latest.live, progress: fresh.progress } }
 }
 
@@ -1858,7 +2025,7 @@ recheck = |state, watch, generation| match state.capture {
 			pending: state,
 			run: || identity_at!(source),
 			resolve: |latest, outcome| if latest.live.generation != generation {
-				Gui.Action.none
+				Gui.Action.none()
 			} else {
 				match outcome {
 					Ok(found) if found == Capture.metadata(held, "capture_id") => grow(latest, watch, generation)
@@ -1904,7 +2071,7 @@ wait_folder = |state, watch, generation| Gui.Action.keyed_task({
 	pending: { ..state, folder_watch: generation },
 	run: || captures_changed!(watch),
 	resolve: |latest, outcome| if latest.folder_watch != generation {
-		Gui.Action.none
+		Gui.Action.none()
 	} else {
 		match outcome {
 			Relevant(changes) => relist(latest, watch, generation, changes)
@@ -1936,7 +2103,7 @@ relist = |state, watch, generation, changes| match state.folder {
 				Err(_) => Unlisted
 			},
 			resolve: |latest, outcome| if latest.folder_watch != generation {
-				Gui.Action.none
+				Gui.Action.none()
 			} else {
 				match (outcome, latest.folder) {
 					(Relisted(captures), Some(current)) => wait_folder(noticed({ ..latest, folder: Some({ ..current, revision: id, captures }) }), watch, generation)
@@ -1951,7 +2118,7 @@ relist_captures! : Gui.Files.Dir.Read, List(Gui.Files.Entry), List(Capture.Listi
 relist_captures! = |directory, entries, held, changes| {
 	var $listed = []
 	for entry in entries.keep_if(is_capture) {
-		kept = if changes.overflowed or changes.names.contains(entry.name) Err(NotFound) else held.find_first(|listing| listing.name == entry.name)
+		kept = if changes.overflowed or changes.names.contains(entry.name) Err(NotFound) else held.find_first(|listing| listing.name == entry.name and listing.verdict != Unread)
 		listing = match kept {
 			Ok(found) => found
 			Err(_) => Capture.summarize!(directory, entry.name)
@@ -2083,7 +2250,7 @@ reload = |state| match state.capture {
 					}
 					Err(message) => Gui.Action.update({ ..latest, status: failure(message, "The replaced capture could not be read. The capture on screen is the one read before.") })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}

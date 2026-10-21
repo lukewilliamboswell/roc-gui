@@ -14,7 +14,7 @@ import subprocess
 def inventory_digest(inventory):
     """Identify a DLL inventory exactly as the separation receipt records it.
 
-    The consumer re-derives this to decide whether a released host was
+    The consumer re-derives this to decide whether a host archive was
     separated against the inventory it is about to be linked with, so both
     sides must serialize identically or every host silently falls back to a
     source build.

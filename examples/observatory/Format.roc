@@ -2,6 +2,10 @@
 ## shown in milliseconds with three decimals, so a column of them lines up.
 Format := [].{
 
+	## Text in the order of its bytes, as every sortable column orders it.
+	compare_text : Str, Str -> [Before, Same, After]
+	compare_text = compare_text
+
 	## Nanoseconds as milliseconds, truncated to the microsecond.
 	ms : I64 -> Str
 	ms = ms
@@ -58,3 +62,20 @@ expect ms(530000) == "0.530 ms"
 expect ms(12345678) == "12.345 ms"
 expect ms(-250000) == "-0.250 ms"
 expect bytes(159744) == "156.0 KiB"
+
+compare_text : Str, Str -> [Before, Same, After]
+compare_text = |left, right| {
+	left_bytes = left.to_utf8()
+	right_bytes = right.to_utf8()
+	var $result = Same
+	for item in List.map2(left_bytes, right_bytes, |a, b| if a < b Before else if a > b After else Same) {
+		if $result == Same {
+			$result = item
+		}
+	}
+	if $result == Same {
+		if left_bytes.len() < right_bytes.len() Before else if left_bytes.len() > right_bytes.len() After else Same
+	} else {
+		$result
+	}
+}

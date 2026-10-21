@@ -1,0 +1,95 @@
+name: Nightly compatibility
+
+# Does the latest published release still work on the latest Roc nightly? Each
+# runner builds every application of the release's examples archive, as a user
+# would, against the published bundle. One tracking issue records a failure and
+# is closed by the next pass.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  resolve:
+    name: Resolve the nightly and the latest release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      nightly-tag: ${{ steps.resolve.outputs.nightly-tag }}
+      release-tag: ${{ steps.resolve.outputs.release-tag }}
+    steps:
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "nightly-tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)" >> "$GITHUB_OUTPUT"
+          # Linker-input releases share this repository; a platform release is
+          # tagged with its bare version, and a candidate is never tested here.
+          release=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' \
+            | grep -E '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | sort -V | tail -n 1 || true)
+          echo "release-tag=$release" >> "$GITHUB_OUTPUT"
+          if [ -z "$release" ]; then echo "::notice::No platform release has been published yet; nothing to test."; fi
+
+  examples:
+    name: Build the release's examples (${{ matrix.target }})
+    needs: resolve
+    if: needs.resolve.outputs.release-tag != ''
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x64glibc
+          - os: macos-15
+            target: arm64mac
+          - os: windows-2025
+            target: x64mingw
+    steps:
+      - uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
+        with:
+          version: nightly-new-compiler
+          nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
+      - name: Download the release's examples archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+        run: |
+          gh release download "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" -p "roc-gui-examples-$RELEASE_TAG.tar.gz" -D "$RUNNER_TEMP"
+          tar -xzf "$RUNNER_TEMP/roc-gui-examples-$RELEASE_TAG.tar.gz" -C "$RUNNER_TEMP"
+      - name: Build every example against the published bundle
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.release-tag }}
+        run: |
+          roc version
+          failed=0
+          for main in "$RUNNER_TEMP/roc-gui-examples-$RELEASE_TAG"/*/main.roc; do
+            echo "::group::$(basename "$(dirname "$main")")"
+            roc build --opt=dev --no-cache --output="$RUNNER_TEMP/app" "$main" || failed=1
+            echo "::endgroup::"
+          done
+          exit "$failed"
+
+  report:
+    name: Report to the tracking issue
+    needs: [resolve, examples]
+    if: always() && needs.resolve.outputs.release-tag != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      - uses: lukewilliamboswell/roc-automation/actions/nightly-report@8837e0fc99418b3fcbb04b25a0d789293858f15b
+        with:
+          outcome: ${{ needs.examples.result }}
+          nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
+          release-tag: ${{ needs.resolve.outputs.release-tag }}

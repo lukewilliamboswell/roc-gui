@@ -29,7 +29,7 @@
     (submit (role textbox :name "Terminal command"))
     (await-task)
     (await-task)
-    (expect-visible (text-prefix "echo:hello"))
+    (await-count (text-prefix "echo:hello") 1)
     (click (role button :name "Stop terminal"))
     (await-task)
     (await-task)

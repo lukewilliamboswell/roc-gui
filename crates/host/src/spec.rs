@@ -228,6 +228,9 @@ pub enum Command {
     /// Move an unpressed pointer to a point in canvas coordinates, through the
     /// canvas's production hover route.
     PointerMove(Locator, i32, i32),
+    /// Rest an unpressed pointer on the centre of one canvas primitive, named
+    /// by a canvas-item locator: `pointer-move` with no coordinates.
+    PointerOver(Locator),
     /// Take a hovering pointer off a canvas.
     PointerLeave(Locator),
     /// Scroll a wheel over a point of a canvas by a distance in pixels.
@@ -359,6 +362,9 @@ pub enum Command {
     ExpectBounds(Locator, BoundsExpectation),
     /// Photograph the window, or one region of it.
     Screenshot(Screenshot),
+    /// Photograph a located element and require that it drew ink: pixels
+    /// that differ from its ground, as a glyph does.
+    ExpectInk(Locator),
     /// Type text one real keystroke at a time into the focused element.
     Type(String),
     /// Press one key chord, such as "ctrl-k": through the window's real
@@ -492,7 +498,7 @@ impl Command {
             Self::MarkNativeWork => "mark-native-work",
             Self::ExpectNativeWork { .. } => "expect-native-work",
             Self::Drag(..) => "drag",
-            Self::PointerMove(..) => "pointer-move",
+            Self::PointerMove(..) | Self::PointerOver(_) => "pointer-move",
             Self::PointerLeave(_) => "pointer-leave",
             Self::Wheel(..) => "wheel",
             Self::ReplaceText(_, _) => "replace-text",
@@ -562,6 +568,7 @@ impl Command {
             Self::ExpectRenderedCount(_, _) => "expect-rendered-count",
             Self::ExpectBounds(_, _) => "expect-bounds",
             Self::Screenshot(_) => "screenshot",
+            Self::ExpectInk(_) => "expect-ink",
             Self::Type(_) => "type",
             Self::Key(_) => "key",
             Self::Resize { .. } => "resize",
@@ -589,6 +596,7 @@ impl Command {
             | Self::ExpectRenderedCount(_, _)
             | Self::ExpectBounds(_, _)
             | Self::Screenshot(_)
+            | Self::ExpectInk(_)
             | Self::Type(_)
             | Self::Resize { .. }
             // Feedback for files held over a target is something drawn.
@@ -605,6 +613,7 @@ impl Command {
             // pointer produces, through the same route; a window run moves
             // the pointer itself.
             | Self::PointerMove(..)
+            | Self::PointerOver(_)
             | Self::PointerLeave(_)
             | Self::Wheel(..)
             // Both runners measure a drag from the press through one shared
@@ -711,6 +720,7 @@ impl Command {
                 | Self::HoverExit(_)
                 | Self::Drag(..)
                 | Self::PointerMove(..)
+                | Self::PointerOver(_)
                 | Self::PointerLeave(_)
                 | Self::Wheel(..)
                 | Self::ReplaceText(_, _)
@@ -754,6 +764,9 @@ pub enum Locator {
     TooltipName(String),
     /// A presented region that answers a chord, in canonical spelling.
     Shortcut(String),
+    /// Text the host spelled from a chord, by that chord in canonical spelling,
+    /// so a specification names the keys and not one platform's rendering.
+    Chord(String),
     PanelName(String),
     RowName(String),
     ScrollName(String),
@@ -803,6 +816,7 @@ impl fmt::Display for Locator {
             Self::TabName(value) => ("(role tab :name", value),
             Self::DropTargetName(value) => ("(role drop-target :name", value),
             Self::Shortcut(value) => ("(shortcut", value),
+            Self::Chord(value) => ("(chord", value),
             Self::PanelName(value) => ("(role panel :name", value),
             Self::RowName(value) => ("(role row :name", value),
             Self::ScrollName(value) => ("(role scroll :name", value),
@@ -1439,6 +1453,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             parse_i32(&values[2], "pointer coordinate")?,
             parse_i32(&values[3], "pointer coordinate")?,
         ),
+        "pointer-move" if values.len() == 2 => Command::PointerOver(parse_locator(&values[1])?),
         "pointer-leave" if values.len() == 2 => Command::PointerLeave(parse_locator(&values[1])?),
         "wheel" if values.len() == 6 => Command::Wheel(
             parse_locator(&values[1])?,
@@ -1522,6 +1537,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
                 pad: keywords.u32_in(":pad", 0..=256)?.unwrap_or(0),
             })
         }
+        "expect-ink" if values.len() == 2 => Command::ExpectInk(parse_locator(&values[1])?),
         "expect-on-screen" if values.len() == 2 => {
             Command::ExpectOnScreen(parse_locator(&values[1])?)
         }
@@ -2387,6 +2403,14 @@ fn parse_locator(node: &SExpr) -> Result<Locator, ParseError> {
             crate::keyboard::canonical_chord(written)
                 .map(Locator::Shortcut)
                 .map_err(|detail| error(node, format!("shortcut locator: {detail}")))
+        }
+        Some("chord") if values.len() == 2 => {
+            let written = values[1]
+                .string()
+                .ok_or_else(|| error(node, "chord locator requires a chord string"))?;
+            crate::keyboard::displayed_chord(written)
+                .map(|(canonical, _)| Locator::Chord(canonical))
+                .map_err(|detail| error(node, format!("chord locator: {detail}")))
         }
         Some("button-prefix") if values.len() == 2 => values[1]
             .string()

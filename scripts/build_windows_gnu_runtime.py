@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RECIPE = ROOT / 'dependencies/windows-gnu-runtime.json'
 REPRODUCTION = (
     'dependencies/windows-gnu-runtime.json', 'dependencies/windows-gnu-runtime/default.nix',
-    'Blueprint.lock', 'scripts/nix_link_inputs.py',
+    'dependencies/nixpkgs-pin.nix', 'scripts/nix_link_inputs.py',
     'dependencies/windows-gnu-runtime/DISCLAIMER.PD', 'dependencies/windows-gnu-runtime/ucrt-inventory.json',
     'scripts/build_windows_gnu_runtime.py', 'scripts/windows_runtime_validation.py',
     'scripts/audit_windows_archive.py', 'scripts/build_glibc.py', 'scripts/dependency_archive.py',
@@ -131,7 +131,7 @@ def produce(output, toolchain, work, *, native=False):
     build = ({'builder_kind': 'native-windows-zig', 'toolchain_sha256': pin['sha256']} if native
              else nix_link_inputs.provenance('dependencies/windows-gnu-runtime/default.nix'))
     archive = write_archive(output / 'windows-gnu-runtime-x64mingw.tar', {
-        'schema_version': 3 if native else 2, 'name': recipe['name'], 'version': recipe['version'], 'target': recipe['target'],
+        'schema_version': 3 if native else 4, 'name': recipe['name'], 'version': recipe['version'], 'target': recipe['target'],
         'source': recipe, 'build': {**build,
                                   'recipe_sha256': digest(recipe_bytes),
                                   'reproduction_sha256': {name: sha256(ROOT / name) for name in REPRODUCTION}}}, files)

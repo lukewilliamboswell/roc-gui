@@ -88,7 +88,7 @@ wait_next = |state, session, generation| Gui.Action.task({
 			Err(err) => SampleFailed(err)
 		}
 	},
-	resolve: |latest, result| if latest.generation != generation Gui.Action.none else match result {
+	resolve: |latest, result| if latest.generation != generation Gui.Action.none() else match result {
 		Stopped => Gui.Action.update({ ..latest, run_state: Paused, status: Paused })
 		SampleFailed(err) => Gui.Action.update({ ..latest, run_state: Paused, status: sample_status(err) })
 		Sampled(snapshot) => match latest.run_state {

@@ -55,6 +55,28 @@ class DependencyTests(unittest.TestCase):
                     deps.unpack_verified(archive, entry, destination)
                 self.assertFalse(destination.exists())
 
+    def test_nix_manifest_schema_4_is_bound_to_the_nixpkgs_pin(self):
+        build = {"builder_derivation": "/nix/store/" + "a" * 32 + "-builder.drv",
+                 "nixpkgs_revision": "b" * 40, "nixpkgs_nar_hash": "sha256-" + "A" * 43 + "=",
+                 "nixpkgs_pin_sha256": hashlib.sha256(b"pin").hexdigest(),
+                 "nix_recipe_sha256": hashlib.sha256(b"recipe").hexdigest()}
+        entry = {"name": "alsa", "target": "x64glibc"}
+        lock_bound = {key: value for key, value in build.items() if key != "nixpkgs_pin_sha256"}
+        lock_bound["blueprint_lock_sha256"] = hashlib.sha256(b"lock").hexdigest()
+        for index, provenance in enumerate((build, lock_bound, dict(build, nixpkgs_pin_sha256="c" * 64))):
+            archive = write_archive(self.root / f"pin-{index}.tar", {
+                "schema_version": 4, **entry, "build": provenance,
+            }, {"targets/x64glibc/libasound.so": b"interface",
+                "sources/alsa/dependencies/nixpkgs-pin.nix": b"pin",
+                "sources/alsa/dependencies/linux/default.nix": b"recipe"})
+            destination = self.root / f"pin-{index}"
+            if index == 0:
+                deps.unpack_verified(archive, entry, destination)
+            else:
+                with self.assertRaisesRegex(ValueError, "Nix dependency provenance|Nix provenance differs"):
+                    deps.unpack_verified(archive, entry, destination)
+                self.assertFalse(destination.exists())
+
     def test_native_windows_provenance_is_bound_to_toolchain_and_sources(self):
         entry = {"name": "windows-gnu-runtime", "target": "x64mingw"}
         recipe_path = "dependencies/windows-gnu-runtime.json"

@@ -6,6 +6,8 @@
   (grants
     (directory "fixture/compare"))
   (steps
+    ; The smallest window the suite supports, as a small laptop or CI display gives.
+    (resize 1024 656)
     (settle)
     (click (role button :name "Open folder"))
     (await-task)
@@ -15,6 +17,8 @@
     (settle)
     (click (role button :name "Set as baseline"))
     (click (role button :name "Interactions"))
+    (scroll (role scroll :name "Interactions scroll") :to (role button :name "Cycle r4 #7"))
+    (settle)
     (click (role button :name "Cycle r4 #7"))
     (await-task)
     (settle)
@@ -41,7 +45,7 @@
     ; narrower, so after the frame the duration distribution hears its new
     ; width, and that last turn renders the Interactions view and the
     ; distribution and keeps the triggers table and the cycle list
-    (expect-canvas-size (role canvas :name "Duration distribution") 712 164)
+    (expect-canvas-size (role canvas :name "Duration distribution") 300 164)
     (expect-component-work :rendered 2 :skipped 2 :mounted 0 :retired 0)
     (screenshot "wide-inspector")
     (focus (role separator :name "Inspector divider"))

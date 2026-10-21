@@ -159,7 +159,7 @@ def inside_builder(output, toolchain):
         files["sources/glibc/dependencies/glibc/" + name] = data
     files.update(nix_link_inputs.sources("glibc"))
     archive = write_archive(work / "glibc-x64glibc.tar", {
-        "schema_version": 2, "name": "glibc", "version": recipe["version"], "target": recipe["target"],
+        "schema_version": 4, "name": "glibc", "version": recipe["version"], "target": recipe["target"],
         "source": recipe["toolchain"], "build": {**nix_link_inputs.provenance(),
         "recipe_sha256": digest(recipe_bytes),
         "producer_sha256": sha256(Path(__file__)), "probe_sha256": sha256(PROBE),

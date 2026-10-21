@@ -27,6 +27,18 @@ pub(crate) fn canonical_chord(written: &str) -> Result<String, String> {
     Ok(canonical)
 }
 
+/// One chord as text: its canonical spelling, for locators, and the spelling
+/// a person reads on this platform, which is GPUI's own (`⌘K` on macOS,
+/// `ctrl-K` elsewhere). Unlike a shortcut, a displayed chord may name one the
+/// host's root takes, such as Escape, since saying what it does is honest.
+pub(crate) fn displayed_chord(written: &str) -> Result<(String, String), String> {
+    if written.is_empty() || written.contains(char::is_whitespace) {
+        return Err(format!("{written:?} is not one key chord"));
+    }
+    let keystroke = Keystroke::parse(written).map_err(|error| error.to_string())?;
+    Ok((keystroke.unparse(), keystroke.to_string()))
+}
+
 /// A keystroke as the window's platform delivers it for a chord: a printable
 /// key with no command modifier carries the character it types.
 pub(crate) fn delivered(chord: &str) -> Result<Keystroke, String> {
@@ -124,6 +136,18 @@ mod tests {
         assert_eq!(canonical_chord("secondary-k").unwrap(), "ctrl-k");
         assert_eq!(canonical_chord("down").unwrap(), "down");
         assert_eq!(canonical_chord("[").unwrap(), "[");
+    }
+
+    #[test]
+    fn a_chord_is_shown_as_the_platform_spells_it() {
+        let (canonical, shown) = displayed_chord("secondary-k").unwrap();
+        #[cfg(target_os = "macos")]
+        assert_eq!((canonical.as_str(), shown.as_str()), ("cmd-k", "⌘K"));
+        #[cfg(not(target_os = "macos"))]
+        assert_eq!((canonical.as_str(), shown.as_str()), ("ctrl-k", "ctrl-K"));
+        // A chord the host takes may still be named.
+        assert!(displayed_chord("escape").is_ok());
+        assert!(displayed_chord("ctrl-k ctrl-j").is_err());
     }
 
     #[test]

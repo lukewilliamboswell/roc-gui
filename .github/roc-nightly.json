@@ -1,7 +1,0 @@
-{
-  "workflows": [
-    "ci.yml",
-    "release.yml"
-  ],
-  "auto_merge": true
-}

@@ -83,6 +83,13 @@ SpecSource := [].{
 	none : Shown
 	none = { folder: None, of: 0, found: Unchecked, annotation: None, chosen: None, scroll: None, reading: None }
 
+	## Whether a folder of specification sources has been granted.
+	granted : Shown -> Bool
+	granted = |shown| match shown.folder {
+		Some(_) => True
+		None => False
+	}
+
 	## An annotation of marks read by one request.
 	annotation : List(Str), Mode, List(Mark), U64 -> Annotation
 	annotation = |lines, mode, marks, read| {

@@ -137,13 +137,13 @@ Settings := [].{
 					LoadFailed(message) => Gui.Action.update({ ..latest, status: Failed(message) })
 					LoadSucceeded(profile) => Gui.Action.update({ ..latest, draft_name: profile.name, saved_name: profile.name, draft_notes: profile.notes, saved_notes: profile.notes, status: Loaded })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}
 
 	apply_name = |state| if state.draft_name.is_empty() or (state.draft_name == state.saved_name and state.draft_notes == state.saved_notes) {
-		Gui.Action.none
+		Gui.Action.none()
 	} else {
 		id = state.next_request
 		name_to_save = state.draft_name
@@ -165,7 +165,7 @@ Settings := [].{
 					SaveFailed(message) => Gui.Action.update({ ..latest, status: Failed(message) })
 					SaveSucceeded => Gui.Action.update({ ..latest, saved_name: latest.draft_name, saved_notes: latest.draft_notes, status: Applied })
 				}
-				_ => Gui.Action.none
+				_ => Gui.Action.none()
 			},
 		})
 	}

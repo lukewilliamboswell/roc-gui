@@ -6,17 +6,14 @@ from pathlib import Path
 import subprocess
 import tempfile
 import shutil
-from contextlib import contextmanager
 
 from dependency_archive import write_archive
-from dependency_artifacts import materialize, read_lock, unpack_verified
+from dependency_artifacts import unpack_verified
 from host_notice_payload import NOTICE_FILES, SOURCE_KIND, validate_notices, validate_sources
 from toolchain import app_platform_span, replace_platform
 
 ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY = "lukewilliamboswell/roc-gui"
-WORKFLOW = REPOSITORY + "/.github/workflows/gui-hosts.yml"
-from host_build_identity import HOST_FILES, SOURCE_PATHS, compatible_source, source_fingerprint
+from host_build_identity import HOST_FILES, source_fingerprint
 
 
 def pack_host(target, source, output, root=ROOT, notices=None):
@@ -42,7 +39,7 @@ def pack_host(target, source, output, root=ROOT, notices=None):
     }, files)
 
 
-def validate_host(tree, target, expected_fingerprint, root=ROOT, source_sha=None):
+def validate_host(tree, target, expected_fingerprint, root=ROOT):
     """Check the verified archive's inventory and checkout compatibility."""
     manifest = json.loads((tree / "dependency.json").read_text())
     expected = {f"targets/{target}/{name}" for name in HOST_FILES[target]}
@@ -53,11 +50,8 @@ def validate_host(tree, target, expected_fingerprint, root=ROOT, source_sha=None
     if set(manifest["files"]) != expected:
         raise ValueError("incomplete or unexpected GUI host archive inventory")
     fingerprint = manifest.get("source_fingerprint")
-    if source_sha is None:
-        if fingerprint != expected_fingerprint:
-            raise ValueError("GUI host archive does not match this checkout's source inputs")
-    else:
-        fingerprint = compatible_source(root, source_sha, fingerprint)
+    if fingerprint != expected_fingerprint:
+        raise ValueError("GUI host archive does not match this checkout's source inputs")
     if has_notices:
         validate_notices(tree / "licenses/gui-host", target,
                          (tree / "targets" / target / HOST_FILES[target][0]).read_bytes(), fingerprint,
@@ -76,64 +70,6 @@ def validate_publication_notices(tree, source_tree=None, root=ROOT):
                                       root / "dependencies/gui-host-notices",
                                       {name: (tree / "targets" / target / name).read_bytes() for name in HOST_FILES[target]})
     validate_sources(source_tree, manifest, data, host, (root / "Cargo.lock").read_bytes())
-
-
-def lock_matches_sources(lock_path, root=ROOT):
-    """Whether a host lock describes the host inputs in this checkout.
-
-    A reviewed host release can only be published from `main`, so a change to
-    the host sources cannot have a matching release until it has landed. Asking
-    this question separately lets ordinary GUI CI build the host it is actually
-    testing in that case, instead of refusing the checkout outright and leaving
-    the change unmergeable. It reads the lock only; nothing is downloaded.
-    """
-    try:
-        fingerprint = source_fingerprint(root)
-    except ValueError:
-        # Uncommitted host sources have no fingerprint at all, so no published
-        # release can describe them. That is an answer, not a failure.
-        return False
-    return all(entry.get("input_fingerprint") == fingerprint
-               for entry in read_lock(lock_path)["artifacts"].values())
-
-
-@contextmanager
-def verified_hosts(lock_path, cache, root=ROOT, targets=None):
-    """Verify provenance and compatibility before exposing any prebuilt host."""
-    lock = read_lock(lock_path)
-    for identity, entry in lock["artifacts"].items():
-        if (entry["name"] not in ("gui-host", SOURCE_KIND) or entry["target"] not in HOST_FILES
-                or identity != entry["name"] + "-" + entry["target"]
-                or entry["repository"] != REPOSITORY or entry["signer_workflow"] != WORKFLOW):
-            raise ValueError("host lock must select this repository's GUI host producer")
-    hosts = {identity: entry for identity, entry in lock["artifacts"].items() if entry["name"] == "gui-host"}
-    if not hosts or set(lock["artifacts"]) != set(hosts) | {SOURCE_KIND + "-" + e["target"] for e in hosts.values()}:
-        raise ValueError("host lock must include exactly one source companion per host")
-    current_fingerprint = source_fingerprint(root)
-    if any(entry.get("input_fingerprint") != current_fingerprint for entry in lock["artifacts"].values()):
-        raise ValueError("GUI host lock does not match this checkout's host inputs")
-    selected = hosts
-    if targets is not None:
-        targets = frozenset(targets)
-        selected = {identity: entry for identity, entry in hosts.items() if entry["target"] in targets}
-        if {entry["target"] for entry in selected.values()} != targets:
-            raise ValueError("host lock does not contain every selected target")
-    with tempfile.TemporaryDirectory(prefix="roc-gui-verified-hosts-") as temporary:
-        destination = Path(temporary) / "inputs"
-        materialize(lock_path, tuple(selected), cache, destination)
-        for identity, entry in selected.items():
-            manifest = json.loads((destination / identity / "dependency.json").read_text())
-            validate_host(destination / identity, entry["target"], manifest.get("source_fingerprint"), root)
-            notice = json.loads((destination / identity / "licenses/gui-host/NOTICE.json").read_text())
-            companion = lock["artifacts"][SOURCE_KIND + "-" + entry["target"]]
-            if (any(companion[k] != notice["source_companion"][k] for k in ("name", "target", "asset", "sha256", "size"))
-                    or any(companion[k] != entry[k] for k in
-                           ("repository", "release", "source_sha", "source_ref", "signer_workflow"))):
-                raise ValueError("host source companion differs from its attested release identity")
-        # Preserve source download identities without adding source archives to
-        # the application's platform bundle or fetching them during every build.
-        (destination / "dependencies.lock.json").write_text(json.dumps(lock, indent=2) + "\n")
-        yield destination
 
 
 def stage_candidate_dependencies(target, destination, root=ROOT):

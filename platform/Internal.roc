@@ -483,7 +483,7 @@ Internal := [].{
 	}
 
 	lower! : Elem(a), a, U64, Index(Route(a)), BuildingOwners(a), U64, (Building(a) -> Work) => Work
-	lower! = |elem, state, active_boundary, routes, boundaries, position, done!| lower_work!(WorkStack.empty.push(Visit(Box.box({ elem, position }))), state, active_boundary, routes, boundaries, 0, done!)
+	lower! = |elem, state, active_boundary, routes, boundaries, position, done!| lower_work!(WorkStack.empty().push(Visit(Box.box({ elem, position }))), state, active_boundary, routes, boundaries, 0, done!)
 
 	lower_work! = |work, state, active_boundary, routes, boundaries, root, done!| {
 		var $work = work
@@ -838,7 +838,7 @@ Internal := [].{
 	rows_event! : Elem.RowProvider(a), a => Action(a)
 	rows_event! = |provider, current| {
 		event = Host.virtual_rows_event!()
-		fallback = if event.refresh Action.refresh else Action.none
+		fallback = if event.refresh Action.refresh() else Action.none()
 		match provider.on_range {
 			Some(handler) if event.report => {
 				proposed = handler(current, { start: event.start, end: event.end })
@@ -880,6 +880,16 @@ Internal := [].{
 			id = Host.node_styled_text!({ value: value.value, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face), runs })
 			{ root: id, routes, boundaries }
 		}
+		Chord(value) => {
+			if value.style.font_size > max_style_value {
+				crash "Gui style dimensions, spacing, borders, radii, and font sizes are at most 16384 logical pixels"
+			}
+			if value.style.font_weight != 0 and (value.style.font_weight < 100 or value.style.font_weight > 900) {
+				crash "Gui font_weight is 0 for the native default, or 100 through 900"
+			}
+			id = Host.node_chord!({ keys: value.keys, fg: color(value.style.fg), font_size: value.style.font_size, font_weight: value.style.font_weight, font_face: font_face(value.style.font_face) })
+			{ root: id, routes, boundaries }
+		}
 		ActionButton(button_value) => {
 			style = style_args(button_value.style)
 			hover_enter = match button_value.on_hover_enter {
@@ -903,7 +913,7 @@ Internal := [].{
 				fire: |current, _| if button_value.enabled {
 					(button_value.on_press)(current, {})
 				} else {
-					Action.none
+					Action.none()
 				},
 			}
 			var $routes = Index.set(routes, route.id, route)
@@ -912,7 +922,7 @@ Internal := [].{
 				None => {}
 				Some(handler) => {
 					enter_route : Route(a)
-					enter_route = { id: ids.hover_enter, boundary: active_boundary, revision: route.revision, fire: |current, _| if button_value.enabled handler(current, {}) else Action.none }
+					enter_route = { id: ids.hover_enter, boundary: active_boundary, revision: route.revision, fire: |current, _| if button_value.enabled handler(current, {}) else Action.none() }
 					$routes = Index.set($routes, enter_route.id, enter_route)
 					$boundaries = record_route($boundaries, active_boundary, enter_route.id)
 				}
@@ -921,7 +931,7 @@ Internal := [].{
 				None => {}
 				Some(handler) => {
 					exit_route : Route(a)
-					exit_route = { id: ids.hover_exit, boundary: active_boundary, revision: route.revision, fire: |current, _| if button_value.enabled handler(current, {}) else Action.none }
+					exit_route = { id: ids.hover_exit, boundary: active_boundary, revision: route.revision, fire: |current, _| if button_value.enabled handler(current, {}) else Action.none() }
 					$routes = Index.set($routes, exit_route.id, exit_route)
 					$boundaries = record_route($boundaries, active_boundary, exit_route.id)
 				}
@@ -989,7 +999,7 @@ Internal := [].{
 				fire: |current, _| if checkbox_value.enabled {
 					(checkbox_value.on_change)(current, { checked: !checkbox_value.checked })
 				} else {
-					Action.none
+					Action.none()
 				},
 			}
 			{ root: id, routes: Index.set(routes, route.id, route), boundaries: record_route(boundaries, active_boundary, route.id) }
@@ -1004,7 +1014,7 @@ Internal := [].{
 				fire: |current, input| if textarea_value.enabled and !textarea_value.read_only {
 					(textarea_value.on_input)(current, { value: input })
 				} else {
-					Action.none
+					Action.none()
 				},
 			}
 			{ root: id, routes: Index.set(routes, route.id, route), boundaries: record_route(boundaries, active_boundary, route.id) }
@@ -1108,7 +1118,7 @@ Internal := [].{
 				fire: |current, input| if input_value.enabled {
 					(input_value.on_change)(current, { value: input })
 				} else {
-					Action.none
+					Action.none()
 				},
 			}
 			submit_route : Route(a)
@@ -1119,7 +1129,7 @@ Internal := [].{
 				fire: |current, input| if input_value.enabled {
 					(input_value.on_submit)(current, { value: input })
 				} else {
-					Action.none
+					Action.none()
 				},
 			}
 			{ root: ids.id, routes: Index.set(Index.set(routes, change_route.id, change_route), submit_route.id, submit_route), boundaries: record_route(record_route(boundaries, active_boundary, change_route.id), active_boundary, submit_route.id) }
@@ -1195,7 +1205,7 @@ Internal := [].{
 			}
 			Err(_) => {
 				Host.component_work!(3, 1)
-				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty, keyed: None }
+				{ key: resolved.instance, parent: Some(parent), path: parent_info.path.append(resolved.instance), render: bound.render, root: 0, bound: Some(bound), memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty(), keyed: None }
 			}
 		}
 		with_parent = Box.box({ ..parent_info, children: parent_info.children.append(resolved.instance) })
@@ -1431,7 +1441,7 @@ Internal := [].{
 	keyed_fallback_steps = |old_items, keys, children| {
 		# Index the surviving keys once; scanning the key list per resident
 		# item made the snapshot fallback quadratic in collection size.
-		var $survivors = Index.empty
+		var $survivors = Index.empty()
 		for key in keys {
 			bucket = key_bucket(key)
 			entries = Index.get($survivors, bucket) ?? []
@@ -1571,7 +1581,7 @@ Internal := [].{
 
 	finish_rebuild! = |owner, cleared, state, lowered, done!| {
 		completed = Box.unbox(lowered.boundaries.active)
-		var $keyed_items = KeyedSeq.empty
+		var $keyed_items = KeyedSeq.empty()
 		var $keyed_index = 0.U64
 		for key in completed.keyed_keys {
 			instance = completed.children.get($keyed_index) ?? crash "keyed item boundary missing"
@@ -1604,7 +1614,7 @@ Internal := [].{
 		# actually be missing; an initial mount or an unchanged child list —
 		# the common full-root case — retires nothing and builds no index.
 		if !owner.children.is_empty() and owner.children != current.children {
-			var $live = Index.empty
+			var $live = Index.empty()
 			for child in current.children {
 				$live = Index.set($live, child, True)
 			}
@@ -1899,14 +1909,14 @@ Internal := [].{
 			Some(_) => True
 		}
 		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground), opens)
-		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty, keyed: None }
+		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty(), keyed: None }
 		Host.begin_render!(0)
 		run_work!(
 			rebuild!(
 				root,
 				initial,
-				Index.empty,
-				Index.empty,
+				Index.empty(),
+				Index.empty(),
 				|lowered| Work.flush(
 					|| {
 						Host.apply!(Mount({ root: lowered.root }))

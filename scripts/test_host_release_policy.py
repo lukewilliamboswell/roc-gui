@@ -8,19 +8,9 @@ import gui_host_artifacts
 import host_notice_payload
 from cargo_build_evidence import reject_private_paths, sanitized_json, sanitized_messages
 from host_build_identity import HOST_FILES, validate_outputs
-from release_host_artifacts import POLICY
 
 
 class HostReleasePolicyTests(unittest.TestCase):
-    def test_every_host_requires_notice_payload_and_source_companion(self):
-        self.assertEqual(set(POLICY["targets"]), set(HOST_FILES))
-        self.assertEqual(
-            set(POLICY["licenses"]),
-            {"LICENSE", "LICENSE-GPUI", "NOTICE.md", "NOTICE.json", "third-party-notices.tar.xz"},
-        )
-        for target, names in POLICY["files_by_target"].items():
-            self.assertEqual(tuple(names), HOST_FILES[target])
-
     def test_packaged_output_must_equal_captured_cargo_output(self):
         data = b"host"
         cargo = {"name": "libhost.a", "sha256": host_notice_payload.digest(data), "size": len(data)}

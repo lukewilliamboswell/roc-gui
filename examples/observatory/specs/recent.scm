@@ -4,7 +4,9 @@
 ;; private copy of a folder, so a step can delete one and move another capture
 ;; over a second, as a person tidying a benchmark folder does. Reopening
 ;; either is refused with the reason the host found, the list is read again
-;; with both reasons shown, and an entry can be forgotten. An entry that is
+;; with both reasons shown, and an entry can be forgotten. Once the list is
+;; shown, each entry is read on a worker: a capture shows its application,
+;; specification, backend, and verdict, and a folder how many captures it holds. An entry that is
 ;; still what was remembered reopens as a new grant, remembered again.
 (test "recent captures and folders reopen, and say why when they cannot"
   (grants
@@ -20,6 +22,10 @@
     (expect-before (role button :name "Recent counter-counting.rgstats") (role button :name "Recent compare"))
     (expect-visible (within (role row :name "Recent row compare") (text "folder")))
     (expect-visible (within (role row :name "Recent row counter-counting.rgstats") (text "capture")))
+    (await-task)
+    (expect-visible (within (role row :name "Recent row counter-counting.rgstats") (text "counter · Counter buttons dispatch through their local components · semantic-headless")))
+    (expect-visible (within (role row :name "Recent row counter-counting.rgstats") (text "✓ complete")))
+    (expect-visible (within (role row :name "Recent row compare") (text "6 captures")))
     (remove-file "database-browser-browse.rgstats")
     (replace-file "counter-independence.rgstats" "fixture/captures/counter-counting.rgstats")
     ; the list was read as the window opened; reopening checks again
@@ -30,7 +36,8 @@
     (expect-visible (within (role row :name "Recent row database-browser-browse.rgstats") (text "Nothing is at its place any more.")))
     (expect-visible (within (role row :name "Recent row counter-independence.rgstats") (text "Another file has taken its place, so it is not the one you opened.")))
     (expect-grants)
-    (expect-recent-counters 0 0 1 0 4)
+    ; each of the four entries was reopened once to be summarized
+    (expect-recent-counters 0 4 1 0 4)
     (click (role button :name "Forget database-browser-browse.rgstats"))
     (expect-rows (role virtual-list :name "Recent") :count 3)
     (expect-not-visible (role row :name "Recent row database-browser-browse.rgstats"))
@@ -49,4 +56,4 @@
       "document provisioned/consent-only root read,derive remembered"
       "sqlite provisioned/consent-only derived read,derive remembered"
       "watch provisioned/consent-only derived read remembered")
-    (expect-recent-counters 2 2 1 1 3)))
+    (expect-recent-counters 2 6 1 1 3)))

@@ -1,4 +1,4 @@
-# TODO(GLUE): Delete this platform root and point regenerate_glue.py back at
+# TODO(GLUE): Delete this platform root and point regenerate_glue.roc back at
 # main.roc once `roc glue` can analyze a platform whose required application
 # type remains abstract. The real platform binds `[State : state]` from the
 # application, and State does not occur in any hosted or provided ABI type, but
@@ -17,6 +17,7 @@ platform ""
 	hosted {
 		"roc_gui_node_text": HostGlue.node_text!,
 		"roc_gui_node_styled_text": HostGlue.node_styled_text!,
+		"roc_gui_node_chord": HostGlue.node_chord!,
 		"roc_gui_children_begin": HostGlue.children_begin!,
 		"roc_gui_children_push": HostGlue.children_push!,
 		"roc_gui_keyed_seed": HostGlue.keyed_seed!,
@@ -133,7 +134,8 @@ platform ""
 	targets: {
 		inputs_dir: "targets/",
 		x64glibc: { inputs: ["crt1.o", "libhost.a", app, "libasound.so", "libfreetype.so", "libxkbcommon.so", "libxkbcommon-x11.so", "libunwind.a", "libc_nonshared.a", "libm.so", "libc.so"] },
-		arm64mac: { inputs: ["libhost.a", app, "../macos-sysroot/usr/lib/libSystem.tbd", "../macos-sysroot/usr/lib/libobjc.tbd", "../macos-sysroot/usr/lib/libc++.tbd"] },
+		arm64mac: { inputs: ["libhost.a", app, "macos-sysroot/System/Library/Frameworks/AppKit.framework/AppKit.tbd", "macos-sysroot/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices.tbd", "macos-sysroot/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox.tbd", "macos-sysroot/System/Library/Frameworks/Carbon.framework/Carbon.tbd", "macos-sysroot/System/Library/Frameworks/CoreAudio.framework/CoreAudio.tbd", "macos-sysroot/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation.tbd", "macos-sysroot/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics.tbd", "macos-sysroot/System/Library/Frameworks/CoreMedia.framework/CoreMedia.tbd", "macos-sysroot/System/Library/Frameworks/CoreServices.framework/CoreServices.tbd", "macos-sysroot/System/Library/Frameworks/CoreText.framework/CoreText.tbd", "macos-sysroot/System/Library/Frameworks/CoreVideo.framework/CoreVideo.tbd", "macos-sysroot/System/Library/Frameworks/Foundation.framework/Foundation.tbd", "macos-sysroot/System/Library/Frameworks/IOKit.framework/IOKit.tbd", "macos-sysroot/System/Library/Frameworks/IOSurface.framework/IOSurface.tbd", "macos-sysroot/System/Library/Frameworks/Metal.framework/Metal.tbd", "macos-sysroot/System/Library/Frameworks/QuartzCore.framework/QuartzCore.tbd", "macos-sysroot/System/Library/Frameworks/ScreenCaptureKit.framework/ScreenCaptureKit.tbd", "macos-sysroot/System/Library/Frameworks/Security.framework/Security.tbd", "macos-sysroot/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration.tbd", "macos-sysroot/System/Library/Frameworks/UserNotifications.framework/UserNotifications.tbd", "macos-sysroot/usr/lib/libSystem.tbd", "macos-sysroot/usr/lib/libobjc.tbd", "macos-sysroot/usr/lib/libc++.tbd"] },
+		x64mingw: { inputs: ["crt2.obj", "libhost.a", "roc-gui.res", app, "api-ms-win-crt-conio-l1-1-0.lib", "api-ms-win-crt-convert-l1-1-0.lib", "api-ms-win-crt-environment-l1-1-0.lib", "api-ms-win-crt-filesystem-l1-1-0.lib", "api-ms-win-crt-heap-l1-1-0.lib", "api-ms-win-crt-locale-l1-1-0.lib", "api-ms-win-crt-math-l1-1-0.lib", "api-ms-win-crt-multibyte-l1-1-0.lib", "api-ms-win-crt-private-l1-1-0.lib", "api-ms-win-crt-process-l1-1-0.lib", "api-ms-win-crt-runtime-l1-1-0.lib", "api-ms-win-crt-stdio-l1-1-0.lib", "api-ms-win-crt-string-l1-1-0.lib", "api-ms-win-crt-time-l1-1-0.lib", "api-ms-win-crt-utility-l1-1-0.lib", "compiler_rt.lib", "libmingw32.lib", "ubsan_rt.lib", "unwind.lib", "zigc.lib", "windows-imports.lib"] },
 	}
 
 import HostGlue

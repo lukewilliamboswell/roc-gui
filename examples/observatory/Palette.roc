@@ -6,7 +6,7 @@
 
 ## One thing the palette can find: what kind of thing it is, what it is
 ## called, a line about it, and what choosing it asks for.
-Candidate(a) : { kind : Str, title : Str, detail : Str, act : a }
+Candidate(a) : { kind : Str, title : Str, detail : Str, keys : Str, act : a }
 
 Palette := [].{
 	Candidate(a) : Candidate(a)
@@ -132,9 +132,9 @@ expect numbered("cycle") == None
 expect numbered("cycles 4") == None
 expect {
 	candidates = [
-		{ kind: "Trigger", title: "input", detail: "", act: 1.I64 },
-		{ kind: "View", title: "Interactions", detail: "", act: 2 },
-		{ kind: "View", title: "Overview", detail: "", act: 3 },
+		{ kind: "Trigger", title: "input", detail: "", keys: "", act: 1.I64 },
+		{ kind: "View", title: "Interactions", detail: "", keys: "", act: 2 },
+		{ kind: "View", title: "Overview", detail: "", keys: "", act: 3 },
 	]
 	rank("int", candidates, 5).map(|found| found.act) == [2, 1] and rank("", candidates, 2).map(|found| found.act) == [1, 2]
 }

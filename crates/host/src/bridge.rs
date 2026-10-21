@@ -810,6 +810,9 @@ pub enum NodeKind {
         font_weight: u32,
         font_face: FontFace,
         runs: Vec<TextRun>,
+        /// The chord this text shows, in canonical spelling, when the host
+        /// spelled it from a declared chord rather than the application.
+        chord: Option<String>,
     },
     Text(String),
 }

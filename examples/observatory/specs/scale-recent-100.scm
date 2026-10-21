@@ -1,6 +1,7 @@
 ;; The recent list's scaling case: a start page remembering a benchmark
 ;; folder's 100 captures. Reopening the most recent opens it, remembers it
-;; again, and reads the list, the host checking every entry against what is
+;; again, and reads the list, after every entry has been summarized on a
+;; worker, the host checking every entry against what is
 ;; at its place; only the rows near the list's viewport are built. The list is
 ;; the host's, so it outlives each benchmark lifecycle, and reopening leaves it
 ;; as it found it.
@@ -10,6 +11,8 @@
   (benchmark :warmups 1 :samples 3 :iterations 1 :scale 100 :initial-size 100 :change-size 0)
   (steps
     (expect-rows (role virtual-list :name "Recent") :count 100 :first 0)
+    (await-task)
+    (expect-visible (within (role row :name "Recent row run-0000.rgstats") (text "✓ complete")))
     (mark-metrics)
     (click (role button :name "Recent run-0000.rgstats"))
     (await-task)

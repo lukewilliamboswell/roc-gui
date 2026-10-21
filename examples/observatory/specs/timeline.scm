@@ -20,7 +20,7 @@
     (expect-value (role canvas-item :name "Lane frames") "frames")
     (expect-value (role canvas-item :name "Lane lists") "lists")
     (expect-value (role canvas-item :name "Window start") "0.000 ms")
-    (expect-value (role canvas-item :name "Timeline readout") "Hover a mark for its detail; press a frame for the cycles it drew, or a cycle to inspect it; scroll to zoom.")
+    (expect-value (role canvas-item :name "Timeline readout") "Hover a mark for its detail; press a frame for the cycles it drew, a cycle to inspect it, or a list pass for the frame or cycle that produced it; scroll to zoom.")
     (expect-visible (role canvas-item :name "Cycle r1 #0"))
     (expect-visible (canvas-item-prefix "Frame r1 #"))
     (expect-visible (canvas-item-prefix "List "))

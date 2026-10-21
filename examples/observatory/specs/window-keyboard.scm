@@ -8,11 +8,15 @@
     (directory "fixture/captures")
     (clipboard fixture))
   (steps
+    ; The smallest window the suite supports, as a small laptop or CI display gives.
+    (resize 1024 656)
     (settle)
     (click (role button :name "Open folder"))
     (await-task)
     (settle)
-    (key "ctrl-k")
+    ; The host spells the palette's chord in the header, and it must draw.
+    (expect-ink (within (role row :name "Palette hint") (chord "secondary-k")))
+    (key "secondary-k")
     (settle)
     (expect-on-screen (role dialog :name "Command palette"))
     (expect-focused (role textbox :name "Palette query"))
@@ -26,7 +30,10 @@
     (settle)
     (expect-not-visible (role dialog :name "Command palette"))
     (expect-on-screen (role row :name "Capture bar"))
-    (key "ctrl-2")
+    (key "secondary-2")
+    (settle)
+    (screenshot "small-interactions")
+    (scroll (role scroll :name "Interactions scroll") :to (role virtual-list :name "Cycles"))
     (settle)
     (expect-on-screen (role virtual-list :name "Cycles"))
     (key "j")

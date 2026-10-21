@@ -103,7 +103,7 @@ def inside_builder(output, toolchain):
         files["sources/unwind/" + name] = (ROOT / name).read_bytes()
     files.update(nix_link_inputs.sources("unwind"))
     archive = write_archive(work / "unwind-x64glibc.tar", {
-        "schema_version": 2, "name": "unwind", "version": recipe["version"], "target": recipe["target"],
+        "schema_version": 4, "name": "unwind", "version": recipe["version"], "target": recipe["target"],
         "source": recipe["toolchain"], "build": {**nix_link_inputs.provenance(),
         "recipe_sha256": digest(recipe_bytes),
         "producer_sha256": sha256(Path(__file__)), "probe_sha256": sha256(PROBE),

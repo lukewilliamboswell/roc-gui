@@ -13,8 +13,8 @@
 Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
 
 	## An index containing no entries.
-	empty : Index(a)
-	empty = Empty
+	empty : () -> Index(a)
+	empty = || Empty
 
 	## Look up an identifier, returning `Err(Missing)` if it is absent.
 	get : Index(a), U64 -> Try(a, [Missing])
@@ -66,7 +66,7 @@ Index(a) :: [Empty, Branch(List(Box(Index(a)))), Value(U64, a)].{
 }
 
 expect {
-	one = Index.set(Index.empty, 0, "zero")
+	one = Index.set(Index.empty(), 0, "zero")
 	two = Index.set(one, 18446744073709551615, "last")
 	three = Index.set(two, 16, "sixteen")
 	Index.get(three, 0) == Ok("zero") and Index.get(three, 16) == Ok("sixteen") and Index.get(three, 18446744073709551615) == Ok("last") and Index.get(Index.remove(three, 0), 0) == Err(Missing) and Index.get(one, 16) == Err(Missing)
@@ -75,7 +75,7 @@ expect {
 expect {
 	# These keys collide through fifteen low nibbles before their last split.
 	high = 1152921504606846976.U64
-	one = Index.set(Index.empty, 0, "zero")
+	one = Index.set(Index.empty(), 0, "zero")
 	two = Index.set(one, high, "high")
 	three = Index.set(two, high * 2, "higher")
 	updated = Index.set(three, high, "changed")
@@ -91,7 +91,7 @@ expect {
 }
 
 expect {
-	var $index = Index.empty
+	var $index = Index.empty()
 	var $key = 0.U64
 	for _ in List.repeat({}, 64) {
 		$index = Index.set($index, $key * 16, $key)

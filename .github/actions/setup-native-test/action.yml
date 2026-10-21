@@ -12,7 +12,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev
+        sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev sway grim libvulkan1 mesa-vulkan-drivers
     - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
       with:
         name: ci-host-${{ inputs.target }}

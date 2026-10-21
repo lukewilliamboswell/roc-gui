@@ -87,11 +87,12 @@ append_bytes = |state, bytes| match Str.from_utf8(plain_text(bytes)) {
 	Ok(text) => { ..state, lines: state.lines.concat(Str.split_on(text, "\n")), status: "Session active", tone: Attached }
 }
 
+read_next : State, Gui.Process.Pty, U64 -> Gui.Action(State)
 read_next = |state, pty, generation| Gui.Action.task({
 	pending: { ..state, phase: Live({ pty, reading: True }) },
 	run: || pty.read!({ max_bytes: 65536 }),
 	resolve: |latest, result| if latest.generation != generation {
-		Gui.Action.none
+		Gui.Action.none()
 	} else {
 		match result {
 			Err(err) => Gui.Action.update({ ..latest, phase: Stopped, status: err_message(err), tone: Refused })
@@ -115,7 +116,7 @@ start = |state| {
 			}
 		},
 		resolve: |latest, result| if latest.generation != next_generation {
-			Gui.Action.none
+			Gui.Action.none()
 		} else {
 			match result {
 				StartFailed(err) => Gui.Action.update({ ..latest, phase: Idle, status: err_message(err), tone: Refused })
