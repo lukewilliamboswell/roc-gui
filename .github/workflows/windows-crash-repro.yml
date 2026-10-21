@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   loop:
@@ -29,6 +30,13 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: nightly-2026-10-20-7a8a800
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ci-host-x64mingw
+          path: ${{ runner.temp }}/ci-host
+          run-id: 39548468637
+          github-token: ${{ github.token }}
+      - run: python3 scripts/ci_host.py admit "$RUNNER_TEMP/ci-host"
       - name: Build 40 times with roc build
         env:
           APP: ${{ matrix.app }}
