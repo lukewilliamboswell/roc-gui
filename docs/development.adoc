@@ -254,23 +254,8 @@ Each target's tests wait only for that target's host.
 When the host sources change, a candidate job composes the notice payload,
 source companion, and release archive from the same sealed build, so the
 archive a release would publish is the one the specifications exercised.
-
-Hosts are published the way linker inputs are. The unprivileged producer,
-`gui-hosts.yml`, runs on the pull request that changes the host: it builds and
-tests every target's host with the same reusable workflows, composes each
-target's archive and source companion, and attests them with a manifest of
-their digests. The trusted default-branch publisher, `publish-gui-hosts.yml`,
-verifies that producer run and its attestations, publishes those same bytes
-under the SHA-256 of the manifest, and adds a GitHub-signed commit of
-`host.lock.json` to the pull request. A host change therefore merges with the
-release it was tested as, and the platform release that follows it bundles
-that release.
-
-`host.lock.json` has the same shape as `link-inputs.lock.json`: the immutable
-release, the manifest digest, the source revision, branch, signer workflow and
-host source fingerprint, and the digest and size of every host and source
-companion. A lock whose fingerprint differs from the checkout's host sources
-is stale; CI then builds the host it tests, and a platform release refuses it.
+Publishing a host release dispatches the same host workflow; its publish job
+remains the attested signer.
 
 === Host source companions
 

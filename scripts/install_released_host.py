@@ -30,7 +30,10 @@ def released_available(lock: Path = HOST_LOCK, root: Path = ROOT) -> bool:
             or not lock_matches_sources(lock, root)):
         return False
     from link_input_artifacts import development_requires_source_inputs
-    return not development_requires_source_inputs(root)
+    if development_requires_source_inputs(root):
+        return False
+    # A target's first host is built from source until its release lands.
+    return f"gui-host-{native_target()}" in json.loads(lock.read_text())["artifacts"]
 
 
 def stage(target: str, hosts: Path, cache: Path = CACHE, root: Path = ROOT) -> None:

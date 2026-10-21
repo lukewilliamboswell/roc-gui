@@ -15,9 +15,9 @@ an entry below or is a maintainer action.
   BLOCKER: Observatory's window Timeline fails on hosted macOS and Windows
   runners".
 - [ ] Publish GUI hosts for this checkout. The host source changed with the
-  regenerated bindings. Land `publish-gui-hosts.yml` on the default branch
-  first, since GitHub dispatches only workflows the default branch has, then
-  dispatch it with this pull request's number; it adds `host.lock.json` here.
+  regenerated bindings, and `gui-hosts.yml` builds from the default branch, so
+  this follows the merge of #40: dispatch it from the default branch and commit
+  the new `host.lock.json` in a follow-up pull request.
 - [ ] Build on Windows without the compiler crashing; see "RELEASE BLOCKER:
   the compiler intermittently crashes on Windows".
 - [ ] Make Observatory's folder rewatch deterministic and unskip it; see
@@ -1449,12 +1449,6 @@ names the reproduction so the workaround can be removed when the fix lands.
   required host and notice inputs.
 
 ## Continuous integration
-
-- [ ] **Host lock commits are titled as linker inputs.** The trusted publisher
-  names every lock-only commit "Adopt linker inputs <tag>", so a
-  `publish-gui-hosts.yml` adoption of `host.lock.json` is mislabelled in
-  history. https://github.com/lukewilliamboswell/roc-automation/issues/65 asks
-  for the headline to follow the lock; move the action pin once it lands.
 
 - [ ] **Drop the hand-passed Blueprint checksums.** `ci.yml`, `release.yml` and
   `link-inputs.yml` pass the 0.6.0 `sha256-*` inputs to `setup-blueprint`

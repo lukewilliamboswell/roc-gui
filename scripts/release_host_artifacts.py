@@ -1,22 +1,15 @@
 #!/usr/bin/env python3
-"""Compose the tested native GUI hosts and their source companions into one candidate.
-
-The candidate is what the trusted default-branch publisher releases unchanged:
-each target's host and source companion, and a manifest naming their digests.
-"""
+"""Admit and publish native GUI hosts with their matching source companions."""
 
 import argparse
 import json
 import os
 from pathlib import Path
-import shutil
-import subprocess
 import tempfile
 
-from dependency_artifacts import sha256, unpack_verified, verify_archive
+from dependency_artifacts import sha256, unpack_verified, verify_archive, read_lock
+from release_dependencies import REPOSITORY, publish_assets, tested_source
 
-ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY = "lukewilliamboswell/roc-gui"
 POLICY = {"targets": ("x64glibc", "arm64mac", "x64mingw"),
                  "files_by_target": {
                      "x64glibc": ("libhost.a",),
@@ -25,66 +18,75 @@ POLICY = {"targets": ("x64glibc", "arm64mac", "x64mingw"),
                  },
                  "licenses": ("LICENSE", "LICENSE-GPUI", "NOTICE.md", "NOTICE.json", "third-party-notices.tar.xz"),
                  "workflow": "gui-hosts.yml",
-                 "inventory_error": "host release must include every eligible host and its tested source companion"}
+                 "inventory_error": "host release must include both eligible hosts and their tested source companions",
+                 "validation": "Each extracted host candidate passed native GUI application specs with the pinned Roc compiler."}
 
 
-def compose(candidates, output, root=ROOT, source=None):
-    """Admit every target's tested candidate pair and write the release manifest."""
-    from gui_host_artifacts import KIND, source_fingerprint, validate_host, validate_publication_notices
+def prepare(directory, tag, environment, targets=None):
     kind = "gui-host"
-    expected = {f"{name}-{target}.tar" for target in POLICY["targets"] for name in (kind, "gui-host-sources")}
-    if {path.name for path in candidates.glob("*.tar")} != expected:
-        raise ValueError(POLICY["inventory_error"])
-    fingerprint = source_fingerprint(root)
-    output.mkdir(parents=True, exist_ok=False)
+    policy = POLICY
+    if targets is not None and (not targets or len(set(targets)) != len(targets)
+                                or not set(targets) <= set(policy["targets"])):
+        raise ValueError("explicit targets must select eligible GUI host targets exactly once")
+    selected = tuple(targets) if targets is not None else policy["targets"]
+    source = tested_source(environment, tag, rf"deps-{kind}-[0-9][A-Za-z0-9.-]*", "host")
+    expected = {f"{kind}-{target}.tar" for target in selected}
+    expected.update(f"gui-host-sources-{target}.tar" for target in selected)
+    if {path.name for path in directory.glob("*.tar")} != expected:
+        raise ValueError(policy["inventory_error"])
+    artifacts = {}
+    from gui_host_artifacts import source_fingerprint
+    input_fingerprint = source_fingerprint()
     with tempfile.TemporaryDirectory(prefix="roc-gui-release-hosts-") as temporary:
-        for target in POLICY["targets"]:
-            archive = candidates / f"{kind}-{target}.tar"
-            entry = {"name": kind, "target": target, "sha256": sha256(archive), "size": archive.stat().st_size}
+        for target in selected:
+            archive = directory / f"{kind}-{target}.tar"
+            entry = {
+                "name": kind, "target": target, "repository": REPOSITORY,
+                "release": tag, "asset": archive.name,
+                "sha256": sha256(archive), "size": archive.stat().st_size,
+                "source_sha": source, "source_ref": "refs/heads/main",
+                "signer_workflow": REPOSITORY + "/.github/workflows/" + policy["workflow"],
+                "input_fingerprint": input_fingerprint,
+            }
             verify_archive(archive, entry)
-            tree = Path(temporary) / target
-            manifest = unpack_verified(archive, entry, tree)
-            required = {f"targets/{target}/{name}" for name in POLICY["files_by_target"][target]}
-            required.update(f"licenses/{kind}/{name}" for name in POLICY["licenses"])
+            manifest = unpack_verified(archive, entry, Path(temporary) / target)
+            names = policy["files_by_target"][target]
+            required = {f"targets/{target}/{name}" for name in names}
+            required.update(f"licenses/{kind}/{name}" for name in policy["licenses"])
             if set(manifest["files"]) != required:
                 raise ValueError(f"{kind} release has an incomplete or unexpected file set")
-            validate_host(tree, target, fingerprint, root)
-            source_archive = candidates / f"gui-host-sources-{target}.tar"
-            source_entry = {"name": "gui-host-sources", "target": target, "asset": source_archive.name,
-                            "sha256": sha256(source_archive), "size": source_archive.stat().st_size}
-            notice = json.loads((tree / "licenses/gui-host/NOTICE.json").read_text())
+            from gui_host_artifacts import validate_host, validate_publication_notices
+            validate_host(Path(temporary) / target, target, input_fingerprint)
+            source_archive = directory / f"gui-host-sources-{target}.tar"
+            source_entry = dict(entry, name="gui-host-sources", asset=source_archive.name,
+                                sha256=sha256(source_archive), size=source_archive.stat().st_size)
+            notice = json.loads((Path(temporary) / target / "licenses/gui-host/NOTICE.json").read_text())
             if any(source_entry[k] != notice["source_companion"][k]
                    for k in ("name", "target", "asset", "sha256", "size")):
                 raise ValueError("host release source companion differs from the tested notice binding")
             verify_archive(source_archive, source_entry)
             sources = Path(temporary) / (target + "-sources")
             unpack_verified(source_archive, source_entry, sources)
-            validate_publication_notices(tree, sources, root)
-    for name in sorted(expected):
-        shutil.copyfile(candidates / name, output / name)
-    source = source or {
-        "repository": os.environ.get("GITHUB_REPOSITORY", REPOSITORY),
-        "sha": os.environ.get("GITHUB_SHA", subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()),
-        "ref": os.environ.get("GITHUB_REF", "refs/heads/main"),
-        "workflow": REPOSITORY + "/.github/workflows/" + POLICY["workflow"],
-        "input_fingerprint": fingerprint,
-    }
-    manifest = {
-        "schema_version": 1, "kind": KIND, "source": source,
-        "assets": {name.removesuffix(".tar"): {"asset": name, "sha256": sha256(output / name),
-                                               "size": (output / name).stat().st_size}
-                   for name in sorted(expected)},
-    }
-    (output / "build-input-release.json").write_text(
-        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n")
-    return manifest
+            validate_publication_notices(Path(temporary) / target, sources)
+            artifacts[f"gui-host-sources-{target}"] = source_entry
+            artifacts[f"{kind}-{target}"] = entry
+    lock = directory / "dependencies.lock.json"
+    with lock.open("x") as output:
+        output.write(json.dumps({"schema_version": 1, "artifacts": artifacts}, indent=2) + "\n")
+    read_lock(lock)
+    return source, [directory / name for name in sorted(expected)] + [lock]
+
+
+def publish(directory, tag, targets=None):
+    source, assets = prepare(directory, tag, os.environ, targets)
+    publish_assets(directory, tag, "gui-host", source, assets, POLICY["validation"],
+                   "This release contains platform host code; external link dependencies are released separately.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--candidates", type=Path, required=True,
-                        help="Directory holding every target's tested host and source companion")
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--directory", type=Path, required=True)
+    parser.add_argument("--tag", required=True)
+    parser.add_argument("--target", action="append", help="Eligible GUI host target (repeat to select several)")
     args = parser.parse_args()
-    compose(args.candidates.resolve(), args.output.resolve())
+    publish(args.directory, args.tag, args.target)
