@@ -5339,7 +5339,11 @@ impl Runtime {
                 self.focus_root_after_render = self.focus_after_render.is_none();
             }
             _ => {
-                if let Some((id, identity)) = self.focused_identity.clone()
+                // A completion before the next paint must not replace the
+                // dialog's pending return to window focus with a control at
+                // the retired field's old position.
+                if !self.focus_root_after_render
+                    && let Some((id, identity)) = self.focused_identity.clone()
                     && self.graph.node(id).is_none()
                 {
                     // The same control under a new id keeps focus. A
@@ -5549,7 +5553,10 @@ impl Runtime {
                 self.focus_root_after_render = self.focus_after_render.is_none();
             }
             _ => {
-                if let Some((id, identity)) = self.focused_identity.clone()
+                // Preserve a dialog's return to window focus until painted,
+                // including when the next patch edits a keyed container.
+                if !self.focus_root_after_render
+                    && let Some((id, identity)) = self.focused_identity.clone()
                     && self.graph.node(id).is_none()
                 {
                     self.focus_after_render = self.find_native_identity(&identity).or_else(|| {
@@ -10800,6 +10807,77 @@ mod tests {
         nodes.push(button(base + 6, first));
         nodes.push(button(base + 7, second));
         nodes
+    }
+
+    fn closing_dialog_before_paint(cx: &mut TestAppContext, keyed: bool) {
+        let _events = recording_dispatcher();
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(
+                initial_mount(Patch::Mount {
+                    root: 1001,
+                    nodes: dialog_with_input(1000, ""),
+                }),
+                cx,
+            )
+        });
+        cx.run_until_parked();
+        runtime.update_in(cx, |runtime, window, cx| {
+            assert!(runtime.focus_handles[&1003].is_focused(window));
+            runtime.apply_unrecorded(
+                Patch::Replace {
+                    old_root: 1001,
+                    root: 2000,
+                    nodes: if keyed {
+                        vec![keyed_column_root(2000)]
+                    } else {
+                        two_hover_buttons(2000)
+                    },
+                },
+                cx,
+            );
+            // A task completes after the palette closes, before the next
+            // paint. Its patch must not relocate the retired query's focus
+            // onto a control at its old position on the underlying page.
+            runtime.apply_unrecorded(
+                if keyed {
+                    Patch::Keyed {
+                        container: 2000,
+                        base_revision: 0,
+                        new_revision: 1,
+                        operations: vec![KeyedGraphOperation::Insert {
+                            key: keyed_key(1),
+                            before: None,
+                            root: 3000,
+                            nodes: keyed_button_fragment(3000, 3001, 77, "Result"),
+                        }],
+                    }
+                } else {
+                    Patch::Replace {
+                        old_root: 2000,
+                        root: 3000,
+                        nodes: two_hover_buttons(3000),
+                    }
+                },
+                cx,
+            );
+        });
+        cx.run_until_parked();
+        runtime.update_in(cx, |runtime, window, _| {
+            assert!(runtime.root_focus.is_focused(window));
+            assert_eq!(runtime.focused_control(window), None);
+        });
+    }
+
+    #[gpui::test]
+    fn closing_a_dialog_keeps_window_focus_across_patches_before_paint(cx: &mut TestAppContext) {
+        closing_dialog_before_paint(cx, false);
+    }
+
+    #[gpui::test]
+    fn closing_a_dialog_keeps_window_focus_across_keyed_patches_before_paint(
+        cx: &mut TestAppContext,
+    ) {
+        closing_dialog_before_paint(cx, true);
     }
 
     #[gpui::test]

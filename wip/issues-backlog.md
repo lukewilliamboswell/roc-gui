@@ -490,14 +490,6 @@ built on top of them; none is a defect in what is there.
 
 ## Observatory example
 
-- [ ] **Confirm `window-keyboard.scm`'s keyboard counters on Linux.** The
-  window runner's `click` activates a button without focusing it, so the
-  palette's opener is the window, and a chord with no focus inside a region is
-  compared with the window's twelve shortcuts first, as `shortcuts.scm`
-  states. Windows counts 36 comparisons, which is the expectation now; Linux
-  recorded 12, as if focus sat inside Interactions when J and I were pressed.
-  Run the specification on Linux and find which is true there and why.
-
 - [ ] **Run the Windows changes on Linux and macOS.** A dialog whose opener is
   gone now returns focus to the window, SQLite opens files sharing delete on
   Windows only, the Observatory fixture takes its contended run from the
@@ -1034,7 +1026,15 @@ names the evidence so a fix can be verified against the same case.
 - [ ] **RELEASE BLOCKER: the default backend does not finish building
   Observatory.** `roc build --opt=speed examples/observatory/main.roc` on
   `nightly-2026-10-20-7a8a800` was killed after 17 minutes of CPU at 6.9 GB
-  resident. `nightly-2026-09-27-a3ce7f1` built it in 16 s and
+  resident. On Linux, `nightly-2026-10-21-5349569` with
+  `--no-cache --opt=speed`, after explicitly typing the themes' `face` as `Gui.FontFace`,
+  was killed by signal 9 after 37.69 s wall time at 25,582,912 KiB peak RSS
+  (24.4 GiB), without producing an executable. Its `--opt=dev` build, with
+  the font-face annotations and dialog focus repair, passes all 79 enabled
+  specifications on Linux (64 semantic and 15 window) with regenerated
+  fixtures; the separately invoked folder-rewatch specification passes
+  locally too.
+  `nightly-2026-09-27-a3ce7f1` built it in 16 s and
   `nightly-2026-09-28-9927ba8` in 21 min 45 s; on those nightlies the result
   segfaulted as a capture opened (roc-lang/roc#11830, since closed). `--opt=dev`
   builds it in 11 s and every specification passes. The specification runner

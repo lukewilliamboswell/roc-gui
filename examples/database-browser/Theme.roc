@@ -47,6 +47,7 @@ Theme := [].{
 
 	## Schema names, file names, SQL, and every cell of a result are structured
 	## text, so they are all set at a fixed pitch.
+	face : Gui.FontFace
 	face = Monospace
 
 	## Body type, dense enough to read a hundred rows without scrolling twice.
