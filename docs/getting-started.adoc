@@ -26,7 +26,7 @@ already pointing at that platform, so they build without a checkout.
 
 Contributors build the platform locally. Install a current Roc nightly as
 `roc` and the `blueprint` binary from the
-https://github.com/lukewilliamboswell/roc-blueprint/releases/tag/0.6.0[roc-blueprint 0.6.0 release].
+https://github.com/lukewilliamboswell/roc-blueprint/releases/tag/0.8.0[roc-blueprint 0.8.0 release].
 On Linux x86-64 or Apple silicon macOS, install Nix with flakes enabled for the
 native toolchain, then enter the development shell from the repository root:
 

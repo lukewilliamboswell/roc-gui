@@ -33,7 +33,6 @@ let
       ../../test/dependencies/unwind.cpp ../../test/dependencies/unwind.rs ../../test/dependencies/unwind-rust.c
     ] else [ (root + "/test/dependencies/${name}.c") ])
     ++ lib.optionals (name == "glibc") [ ../glibc ]
-    ++ lib.optionals (name == "freetype") [ ./zig-toolchain.cmake ]
     ++ lib.optionals (name == "xkbcommon") [ ../xkbcommon ]);
   };
   fetch = item: pkgs.fetchurl { inherit (item) url sha256; };
@@ -62,7 +61,6 @@ let
   '';
 in {
   alsa = mk "alsa" "build_alsa_interface" null;
-  freetype = mk "freetype" "build_freetype" (recipe "freetype").source;
   glibc = mk "glibc" "build_glibc" (recipe "glibc").toolchain;
   unwind = mk "unwind" "build_unwind" (recipe "unwind").toolchain;
   xkbcommon = mk "xkbcommon" "build_xkbcommon" (recipe "xkbcommon").source;

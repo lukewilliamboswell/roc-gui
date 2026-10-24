@@ -12,6 +12,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_glibc
 import release_dependencies
+from test_native_archive_fixture import current_native
 from dependency_archive import digest, write_archive
 
 
@@ -95,15 +96,14 @@ class GlibcDependencyTests(unittest.TestCase):
         files = {"targets/x64glibc/" + name: b"generated input" for name in policy["files"]}
         files.update({"licenses/glibc/" + name: b"notice" for name in policy["licenses"]})
         files.update({name: b"corresponding source" for name in policy["extra_files"]})
+        metadata, files = current_native("glibc", files)
         environment = {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
                        "GITHUB_REPOSITORY": release_dependencies.REPOSITORY, "GITHUB_SHA": "a" * 40}
         for missing in (None, "sources/glibc/source.tar.xz", *("licenses/glibc/" + name for name in policy["licenses"])):
             with self.subTest(missing=missing):
                 directory = self.root / ("complete" if missing is None else Path(missing).name)
                 payload = {name: data for name, data in files.items() if name != missing}
-                write_archive(directory / "glibc-x64glibc.tar", {
-                    "schema_version": 1, "name": "glibc", "target": "x64glibc", "version": "test",
-                }, payload)
+                write_archive(directory / "glibc-x64glibc.tar", metadata, payload)
                 with patch.object(release_dependencies.subprocess, "check_output", return_value="a" * 40), patch.object(
                         release_dependencies, "verify_archive"):
                     if missing:

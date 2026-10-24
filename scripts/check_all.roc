@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
 	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.25.0/CZsY7tYZwR3rj9kYbpaCfxki2yVAaRL8bBwMLvB2xkbA.tar.zst",
-	roc: "nightly-2026-10-18-1df370f",
+	roc: "nightly-2026-10-23-18478ff",
 }
 
 import cli.Cmd
@@ -15,7 +15,7 @@ import src/Pins
 ## Everything `blueprint run check` checks of the repository's Roc.
 ##
 ##     blueprint run check              # every section below
-##     scripts/check_all.roc --staged   # the machine-code section, over the Git index
+##     scripts/check_all.roc -- --staged   # the machine-code section, over the Git index
 ##
 ## `roc-stable`, which Blueprint.roc fetches, runs this script and checks the
 ## others. Bare `roc` is the latest nightly: the platform, its applications and
@@ -78,10 +78,10 @@ main! = |args| {
 	# nixpkgs revision, held twice so that a Blueprint change never alters a
 	# linker input's provenance.
 	Stdout.line!("\n== Nix package set")?
-	nixpkgs = match (Pins.blueprint_nixpkgs(read!("Blueprint.roc")?), Pins.pinned_nixpkgs(read!("dependencies/nixpkgs-pin.nix")?)) {
+	nixpkgs = match (Pins.blueprint_nixpkgs(read!("dependencies/FreeType.roc")?), Pins.pinned_nixpkgs(read!("dependencies/nixpkgs-pin.nix")?)) {
 		(Ok(blueprint), Ok(pinned)) if blueprint == pinned => pinned
 		(Ok(blueprint), Ok(pinned)) => return fail!("Blueprint.roc takes Nix tools from nixpkgs ${blueprint}, but dependencies/nixpkgs-pin.nix pins ${pinned}; move both together")
-		_ => return fail!("Blueprint.roc and dependencies/nixpkgs-pin.nix must each name one nixpkgs revision")
+		_ => return fail!("dependencies/FreeType.roc and dependencies/nixpkgs-pin.nix must each name one nixpkgs revision")
 	}
 	Stdout.line!("PASS Blueprint.roc and the linker inputs build from nixpkgs ${nixpkgs}")?
 

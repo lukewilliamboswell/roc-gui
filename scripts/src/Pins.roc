@@ -91,17 +91,17 @@ header = |lines|
 	}
 
 script : Str
-script = "#!/usr/bin/env roc-stable\napp [main!] {\n\tcli: platform \"https://example.com/cli.tar.zst\",\n\troc: \"nightly-2026-10-18-1df370f\",\n}\n\nmain! = |_| { roc: \"not a header\" }\n"
+script = "#!/usr/bin/env roc-stable\napp [main!] {\n\tcli: platform \"https://example.com/cli.tar.zst\",\n\troc: \"nightly-2026-10-23-18478ff\",\n}\n\nmain! = |_| { roc: \"not a header\" }\n"
 
 example : Str
 example = "app [State, main] {\n\tpf: platform \"../../platform/main.roc\",\n\tredis: \"https://example.com/redis.tar.zst\",\n}\n"
 
-expect Pins.stable_tag("\t\tPrograms([Fetch(\"roc-stable\", Recipes.roc_nightly(\"nightly-2026-10-18-1df370f\"))]),\n") == Ok("nightly-2026-10-18-1df370f")
+expect Pins.stable_tag("\t\tPrograms([Fetch(\"roc-stable\", Recipes.roc_nightly(\"nightly-2026-10-23-18478ff\"))]),\n") == Ok("nightly-2026-10-23-18478ff")
 expect Pins.stable_tag("# `roc-stable` is fetched below\n") == Err(NoStableCompiler)
 expect Pins.stable_tag("Fetch(\"roc-stable\", Recipes.roc_nightly(\"\"))") == Err(NoStableCompiler)
 expect Pins.is_app(script) and Pins.is_app("app [main!] {}\n")
 expect !Pins.is_app("Pins := [].{\n\tapp = 1\n}\n") and !Pins.is_app("package [A] {}\n")
-expect Pins.roc_pin(script) == Ok("nightly-2026-10-18-1df370f")
+expect Pins.roc_pin(script) == Ok("nightly-2026-10-23-18478ff")
 expect Pins.roc_pin(example) == Err(NoPin)
 expect Pins.roc_pin("app [main!] { heroc: \"nightly-1\" }\n") == Err(NoPin)
 expect Pins.roc_pin("app [main!] { roc: \"a\", roc: \"b\" }\n") == Err(NoPin)

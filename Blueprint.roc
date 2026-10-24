@@ -10,18 +10,18 @@
 # `roc-stable` is the nightly named below; it runs the scripts under scripts/.
 # Bare `roc` is the latest nightly, which the machine provides: the platform,
 # its applications and its benchmarks name no compiler.
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.6.0/BenWAmrQp3qFLJPgGerHFPzzAn7ouXDew69CCg2LTtQX.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.8.0/FbJymjYdCxx9vqMcau7r4tQfeAbnVGqqJoYrLGqPCqKu.tar.zst" }
 
 import pf.Recipes
+import dependencies/FreeType
 
 config = [
 	Name("roc-gui"),
 	Systems(["x86_64-linux", "aarch64-darwin"]),
-	Packages("nix", From(NixPackages("github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc"))),
 	Environment(
 		"scripts",
 		[
-			Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-10-18-1df370f"))]),
+			Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-10-23-18478ff"))]),
 			# Every bundle the scripts depend on, including dependencies of
 			# dependencies: `roc-stable deps scripts/check_all.roc` lists them.
 			RocPackages([
@@ -50,16 +50,19 @@ config = [
 				"nix#curl",
 				"nix#zstd",
 			]),
-			ToolsFor("x86_64-linux", [
-				"nix#freetype",
-				"nix#fontconfig",
-				"nix#wayland",
-				"nix#libglvnd",
-				"nix#libxkbcommon",
-				"nix#alsa-lib",
-				"nix#vulkan-loader",
-				"nix#vulkan-headers",
-			]),
+			ToolsFor(
+				"x86_64-linux",
+				[
+					"nix#freetype",
+					"nix#fontconfig",
+					"nix#wayland",
+					"nix#libglvnd",
+					"nix#libxkbcommon",
+					"nix#alsa-lib",
+					"nix#vulkan-loader",
+					"nix#vulkan-headers",
+				],
+			),
 		],
 	),
 	Shell("default", [Use("dev")]),
@@ -73,4 +76,4 @@ config = [
 	Task("release-notes", [Use("scripts"), Run(["scripts/release_notes.roc"])]),
 	# The tooling compiler, as release notes record it.
 	Task("compiler-version", [Use("scripts"), Run(["roc-stable", "version"])]),
-]
+].concat(FreeType.settings)

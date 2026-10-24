@@ -41,13 +41,10 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8837e0fc99418b3fcbb04b25a0d789293858f15b
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
         with:
           cache: 'true'
           cache-workload: check
-          sha256-x86_64-linux: 027b2c4d48084d7f6a49b60a378b14dc19920de78c245db3ddffb1db034c74e0
-          sha256-aarch64-linux: f328879d0121f97bce52456dacd9a52a3f50f8dde68056797bb0163d02180a43
-          sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
       - run: blueprint run compiler-version
       - run: blueprint run check
 
@@ -67,11 +64,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8837e0fc99418b3fcbb04b25a0d789293858f15b
-        with:
-          sha256-x86_64-linux: 027b2c4d48084d7f6a49b60a378b14dc19920de78c245db3ddffb1db034c74e0
-          sha256-aarch64-linux: f328879d0121f97bce52456dacd9a52a3f50f8dde68056797bb0163d02180a43
-          sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
       - name: Download the nightly's source and verify its published digest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,14 +94,11 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8837e0fc99418b3fcbb04b25a0d789293858f15b
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
         with:
           install-nix: 'true'
           cache: 'true'
           cache-workload: dev
-          sha256-x86_64-linux: 027b2c4d48084d7f6a49b60a378b14dc19920de78c245db3ddffb1db034c74e0
-          sha256-aarch64-linux: f328879d0121f97bce52456dacd9a52a3f50f8dde68056797bb0163d02180a43
-          sha256-aarch64-darwin: a8dc735d1f022ba80eb835b31888149cd7ac9ec4c9e8d085ba94bfcb5d128857
       - name: Install native Linux runtime libraries
         run: |
           sudo apt-get update
@@ -190,6 +180,8 @@ jobs:
             scripts/test_compiler_environment.py \
             scripts/test_alsa_dependencies.py \
             scripts/test_link_input_artifacts.py \
+            scripts/test_blueprint_link_inputs.py \
+            scripts/test_blueprint_admission.py \
             scripts/test_dependency_artifacts.py \
             scripts/test_prepare_windows_gnu.py \
             scripts/test_host_release_policy.py \

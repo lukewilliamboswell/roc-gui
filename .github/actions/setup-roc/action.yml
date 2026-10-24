@@ -7,13 +7,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: roc-lang/setup-roc@cbe782d6f165b89c87d99f50a59ac4f5f73b4427
+    - uses: roc-lang/setup-roc@f5a74bf90aa694b43ab4a7cbfdb19273bc6aa697
       with:
         version: nightly-new-compiler
         nightly-tag: ${{ inputs.nightly-tag }}
     - name: Keep downloaded compiler outside release source
       shell: bash
       run: python3 scripts/toolchain.py --relocate-for-ci
-    - name: Reject compiler pins and report the compiler
+    - name: Report the compiler
       shell: bash
-      run: python3 scripts/toolchain.py --check --roc-bin roc
+      run: roc version
