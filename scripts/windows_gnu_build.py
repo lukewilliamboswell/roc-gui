@@ -13,10 +13,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 TRIPLE = "x86_64-pc-windows-gnullvm"
 SDK = "10.0.26100.0"
-# Reviewed inventory run 34343278660: Microsoft-signed 10.0.26100.8249.
-FXC_SHA = "005eff830845789c7efb2831a0b41950ee6954e9bcd93baf50de67ad537728b2"
-COMPILER_SHA = "1557adab24404308657d7902fdac82ce07a120987a849acab690ab402fecf449"
-SIGNER = "F6EECCC7FF116889C2D5466AE7243D7AA7698689"
+# Reviewed from CI run 40051784606 on the hosted windows-2025 image of
+# 2026-10-24: both files carry a valid Authenticode signature whose subject is
+# CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington,
+# C=US. Earlier pins came from inventory run 34343278660 (10.0.26100.8249).
+FXC_SHA = "3c1d8f3aa0d1c970732f14d61d3a4b5dfa8ca4b7c81d567643f39f6cef412010"
+COMPILER_SHA = "8d48f0096f75c46d9c2180ed0fb12c1cb8124b3f3cc6e1262538819cbb23404c"
+SIGNER = "B835FC295FFB94EA2FCA23B0E9C1EDA3FBA4E07D"
 ZIG_URL = "https://ziglang.org/download/0.16.0/zig-x86_64-windows-0.16.0.zip"
 ZIG_SHA = "68659eb5f1e4eb1437a722f1dd889c5a322c9954607f5edcf337bc3684a75a7e"
 ZIG_SIZE = 97217739
@@ -136,6 +139,35 @@ def pins_required(environ=None):
     return bool(environ.get("CI")) or environ.get("ROC_GUI_PINNED_SHADER_TOOLS") == "1"
 
 
+def admit_shader_tools(sdk, fxc, dll, inventory, signatures, pinned):
+    """Admit the measured FXC pair, or refuse naming every identity examined.
+
+    Unpinned, the signature still has to be Microsoft's own: a valid signature
+    alone would admit anything chaining to a trusted root. Pinned, the signer
+    and both digests must be the reviewed ones. A refusal states what the SDK
+    directory held, so a servicing update can be re-reviewed from the log.
+    """
+    records = {Path(record["Path"]).resolve(): record for record in signatures} if isinstance(signatures, list) else {}
+    examined = []
+    for path in (fxc, dll):
+        measured = inventory[path.name]
+        record = records.get(path.resolve())
+        signature = ("status={} thumbprint={} subject={!r}".format(
+            record.get("Status"), record.get("Thumbprint"), record.get("Subject")) if record else "signature=unreported")
+        examined.append(f"{path.name} sha256={measured['sha256']} size={measured['size']} {signature}")
+    valid = (len(signatures) == 2 and set(records) == {fxc.resolve(), dll.resolve()}
+             and all(record.get("Status") == 0 and "O=Microsoft Corporation" in (record.get("Subject") or "")
+                     for record in records.values()))
+    reviewed = (valid and all(record.get("Thumbprint") == SIGNER for record in records.values())
+                and inventory[fxc.name]["sha256"] == FXC_SHA and inventory[dll.name]["sha256"] == COMPILER_SHA)
+    if not valid or (pinned and not reviewed):
+        raise ValueError(
+            f"Windows shader tools in {sdk} require valid Microsoft Authenticode signatures"
+            + (", matching the reviewed pins this build requires" if pinned else "")
+            + "; examined: " + "; ".join(examined)
+            + f"; reviewed: signer={SIGNER} fxc.exe={FXC_SHA} d3dcompiler_47.dll={COMPILER_SHA}")
+
+
 def shader_tools(output, pinned=True):
     """Admit the reviewed, Microsoft-signed FXC pair and record what loaded.
 
@@ -154,20 +186,7 @@ def shader_tools(output, pinned=True):
         + "@{n='Subject';e={$_.SignerCertificate.Subject}} | ConvertTo-Json"],
         text=True))
     inventory["authenticode"] = signatures
-    # Unpinned, the signature still has to be Microsoft's own: a valid signature
-    # alone would admit anything chaining to a trusted root.
-    if (len(signatures) != 2
-            or {Path(record["Path"]).resolve() for record in signatures} != {fxc.resolve(), dll.resolve()}
-            or any(record["Status"] != 0
-                   or "O=Microsoft Corporation" not in (record.get("Subject") or "")
-                   or (pinned and record["Thumbprint"] != SIGNER) for record in signatures)):
-        raise ValueError(
-            f"Windows shader tools in {sdk} require valid Microsoft Authenticode signatures"
-            + (", matching the reviewed pins this build requires" if pinned else "")
-        )
-    if pinned:
-        verify(fxc, FXC_SHA)
-        verify(dll, COMPILER_SHA)
+    admit_shader_tools(sdk, fxc, dll, inventory, signatures, pinned)
     loaded = json.loads(subprocess.check_output([
         "pwsh", "-NoProfile", "-File", str(ROOT / "scripts/windows_fxc_inventory.ps1"),
         "-Fxc", str(fxc), "-OutputDirectory", str(output)], text=True))
