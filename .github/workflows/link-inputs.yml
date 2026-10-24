@@ -63,7 +63,7 @@ jobs:
         run: python3 scripts/blueprint_admission.py "$RUNNER_TEMP/candidate/freetype-x64glibc.tar" --output "$RUNNER_TEMP/candidate/freetype-x64glibc.tar.blueprint.json"
       - name: Reproduce derivations from corresponding sources
         run: python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate/*
@@ -84,7 +84,7 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate
@@ -126,7 +126,7 @@ jobs:
           python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300 --exclude "examples/clipboard-history/specs/window-*.scm" --exclude "examples/system-monitor/specs/window-plot-width.scm" --exclude "examples/observatory/specs/window-timeline.scm"
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: link-input-components-macos
           path: ${{ runner.temp }}/candidate/*.tar
@@ -145,7 +145,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
@@ -160,7 +160,7 @@ jobs:
         with:
           version: nightly-new-compiler
           nightly-tag: ${{ steps.probe.outputs.tag }}
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: link-input-components-windows
           path: ${{ runner.temp }}/candidate
@@ -212,7 +212,7 @@ jobs:
           mkdir "$RUNNER_TEMP/windows-components"
           cp "$RUNNER_TEMP/candidate"/*.tar "$RUNNER_TEMP/windows-components/"
           cp "$RUNNER_TEMP/resource-candidate/roc-gui.res" "$RUNNER_TEMP/windows-components/"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: link-input-components-windows
           path: ${{ runner.temp }}/windows-components/*
@@ -236,7 +236,7 @@ jobs:
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
         run: test -n "$EXPECTED_SHA" && test "$EXPECTED_SHA" = "$GITHUB_SHA"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: link-input-components-*
           merge-multiple: true
@@ -248,7 +248,7 @@ jobs:
         if: inputs.release_candidate
         with:
           subject-path: ${{ runner.temp }}/release/*
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: link-input-release
           path: ${{ runner.temp }}/release/*
