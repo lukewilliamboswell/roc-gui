@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_xkbcommon as producer
 from dependency_archive import digest, write_archive
 import release_dependencies
+from test_native_archive_fixture import current_native
 
 
 class XkbcommonDependencyTests(unittest.TestCase):
@@ -36,13 +37,13 @@ class XkbcommonDependencyTests(unittest.TestCase):
         files = {"targets/x64glibc/" + name: b"tested shared library" for name in policy["files"]}
         for name in policy["licenses"]:
             files["licenses/xkbcommon/" + name] = b"license text"
+        metadata, files = current_native("xkbcommon", files)
         if missing_license:
             del files["licenses/xkbcommon/LICENSE"]
         if missing_x11:
             del files["targets/x64glibc/libxkbcommon-x11.so"]
         return write_archive(self.root / producer.ARCHIVE_NAME,
-                             {"schema_version": 1, "name": "xkbcommon", "version": "test",
-                              "target": "x64glibc"}, files)
+                             metadata, files)
 
     def prepare(self):
         environment = {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",

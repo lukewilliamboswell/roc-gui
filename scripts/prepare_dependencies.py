@@ -14,87 +14,53 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from dependency_artifacts import materialize, component_inventory
+from dependency_artifacts import materialize, component_inventory, unpack_verified
+from link_input_artifacts import install as install_link_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "dependencies.lock.json"
 CACHE = Path.home() / ".cache/roc-gui/dependencies"
 WEB_ARTIFACTS = ("musl-x64musl", "musl-arm64musl")
 WINDOWS_IMPORTS = "windows-imports-x64win"
-FREETYPE = "freetype-x64glibc"
-GLIBC = "glibc-x64glibc"
-GLIBC_LIBRARIES = ("crt1.o", "libc.so", "libm.so", "libc_nonshared.a")
-GLIBC_LINUX_LICENSES = tuple("LICENSE-LINUX-" + name for name in (
-    "GPL-2.0", "GPL-1.0", "LGPL-2.0", "LGPL-2.1", "Linux-syscall-note", "MIT", "BSD-3-Clause",
-))
-GLIBC_LICENSES = ("COPYING.LIB", "LICENSES", "LICENSE-ZIG", "LICENSE-LLVM", *GLIBC_LINUX_LICENSES)
-GLIBC_SOURCE_FILES = (
-    "source.tar.xz", "dependencies/glibc.json", "dependencies/glibc/COPYING.LIB",
-    "dependencies/glibc/Dockerfile", "test/dependencies/glibc.c",
-    "scripts/build_glibc.py", "scripts/dependency_archive.py", "scripts/dependency_artifacts.py",
-    *("dependencies/glibc/" + name for name in GLIBC_LINUX_LICENSES),
-)
 
-
-UNWIND = "unwind-x64glibc"
-UNWIND_SOURCE_FILES = (
-    "source.tar.xz", "dependencies/unwind.json", "dependencies/unwind/Dockerfile",
-    "test/dependencies/unwind.cpp", "test/dependencies/unwind.rs", "test/dependencies/unwind-rust.c",
-    "scripts/build_unwind.py", "scripts/build_glibc.py", "scripts/test_unwind_rust.py",
-    "scripts/dependency_archive.py", "scripts/dependency_artifacts.py",
-)
 
 MACOS_INTERFACES = "macos-interfaces-macos-sysroot"
-ALSA = "alsa-x64glibc"
-ALSA_SOURCE_FILES = (
-    "dependencies/alsa-interface.json",
-    "test/dependencies/alsa.c",
-    "scripts/build_alsa_interface.py",
-    "scripts/dependency_archive.py",
-    "scripts/dependency_artifacts.py",
-    "PROVENANCE.md",
-)
 
 
 @contextmanager
-def verified_alsa(lock=LOCK, cache=CACHE):
-    """Admit the generated ALSA interface without assuming a provider path."""
+def admitted_alsa(candidate=None):
+    """The ALSA linker interface the host is built against.
+
+    By default it is the unified linker-input release's, installed exactly as
+    the final link sees it. A linker-input producer validating its own fresh
+    components passes its candidate `alsa-x64glibc.tar`, admitted by the same
+    archive policy before any lock names it.
+    """
     with tempfile.TemporaryDirectory(prefix="roc-gui-verified-alsa-") as temporary:
-        destination = Path(temporary) / "inputs"
-        materialize(lock, (ALSA,), cache, destination)
-        manifest = json.loads((destination / ALSA / "dependency.json").read_text())
-        expected = {"targets/x64glibc/libasound.so"}
-        expected.update("sources/alsa/" + name for name in ALSA_SOURCE_FILES)
-        if set(manifest["files"]) != component_inventory(expected, manifest):
-            raise ValueError("incomplete or unexpected ALSA interface inputs")
-        yield destination
-
-
-def install_alsa(destination, lock=LOCK, cache=CACHE):
-    """Stage the verified path-independent ALSA linker interface."""
-    with verified_alsa(lock, cache) as inputs:
-        source = inputs / ALSA / "targets/x64glibc/libasound.so"
-        destination.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=destination, delete=False) as pending:
-            path = Path(pending.name)
-        try:
-            shutil.copyfile(source, path)
-            path.replace(destination / "libasound.so")
-        finally:
-            path.unlink(missing_ok=True)
-        return json.loads((inputs / "dependencies.lock.json").read_text())
+        tree = Path(temporary) / "inputs"
+        if candidate is None:
+            install_link_inputs("x64glibc", tree)
+            library = tree / "libasound.so"
+        else:
+            unpack_verified(Path(candidate), {"name": "alsa", "target": "x64glibc"}, tree)
+            library = tree / "targets/x64glibc/libasound.so"
+        if library.is_symlink() or not library.is_file():
+            raise ValueError("admitted linker inputs hold no ALSA interface")
+        yield library
 
 
 @contextmanager
-def cargo_environment(environment, target, lock=LOCK, cache=CACHE):
-    """Expose locked build-time interfaces to every Cargo entry point."""
+def cargo_environment(environment, target, alsa_candidate=None):
+    """Expose the admitted build-time ALSA interface to every Cargo entry point."""
     if target != "x64glibc":
         yield environment
         return
-    with tempfile.TemporaryDirectory(prefix="roc-gui-cargo-inputs-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="roc-gui-cargo-inputs-") as temporary, \
+            admitted_alsa(alsa_candidate) as interface:
         root = Path(temporary)
         library = root / "lib"
-        install_alsa(library, lock=lock, cache=cache)
+        library.mkdir()
+        shutil.copyfile(interface, library / "libasound.so")
         pkgconfig = library / "pkgconfig"
         pkgconfig.mkdir()
         (pkgconfig / "alsa.pc").write_text(
@@ -149,124 +115,6 @@ def install_macos_interfaces(destination, lock=LOCK, cache=CACHE):
             stage = Path(temporary) / destination.name
             shutil.copytree(source, stage)
             stage.rename(destination)
-        return json.loads((inputs / "dependencies.lock.json").read_text())
-
-
-@contextmanager
-def verified_unwind(lock=LOCK, cache=CACHE):
-    """Admit the complete independently released LLVM unwinder and source payload."""
-    with tempfile.TemporaryDirectory(prefix="roc-gui-verified-unwind-") as temporary:
-        destination = Path(temporary) / "inputs"
-        materialize(lock, (UNWIND,), cache, destination)
-        manifest = json.loads((destination / UNWIND / "dependency.json").read_text())
-        expected = {"targets/x64glibc/libunwind.a", "licenses/unwind/LICENSE.TXT", "licenses/unwind/LICENSE-ZIG"}
-        expected.update("sources/unwind/" + name for name in UNWIND_SOURCE_FILES)
-        if set(manifest["files"]) != component_inventory(expected, manifest):
-            raise ValueError("incomplete or unexpected LLVM unwinder inputs")
-        yield destination
-
-
-def install_unwind(destination, lock=LOCK, cache=CACHE):
-    """Replace the development unwinder only after verifying its release identity."""
-    with verified_unwind(lock, cache) as inputs:
-        source = inputs / UNWIND / "targets/x64glibc/libunwind.a"
-        destination.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=destination, delete=False) as pending:
-            path = Path(pending.name)
-        try:
-            shutil.copyfile(source, path)
-            path.replace(destination / "libunwind.a")
-        finally:
-            path.unlink(missing_ok=True)
-        return json.loads((inputs / "dependencies.lock.json").read_text())
-
-
-@contextmanager
-def verified_glibc(lock=LOCK, cache=CACHE):
-    """Require the release's startup objects, stubs, notices and reproduction sources."""
-    with tempfile.TemporaryDirectory(prefix="roc-gui-verified-glibc-") as temporary:
-        destination = Path(temporary) / "inputs"
-        materialize(lock, (GLIBC,), cache, destination)
-        manifest = json.loads((destination / GLIBC / "dependency.json").read_text())
-        expected = {"targets/x64glibc/" + name for name in GLIBC_LIBRARIES}
-        expected.update("licenses/glibc/" + name for name in GLIBC_LICENSES)
-        expected.update("sources/glibc/" + name for name in GLIBC_SOURCE_FILES)
-        if set(manifest["files"]) != component_inventory(expected, manifest):
-            raise ValueError("incomplete or unexpected glibc inputs")
-        yield destination
-
-
-def install_glibc(destination, lock=LOCK, cache=CACHE):
-    """Verify and stage every input before replacing development copies."""
-    with verified_glibc(lock, cache) as inputs:
-        source = inputs / GLIBC / "targets/x64glibc"
-        destination.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=destination, prefix=".glibc-") as temporary:
-            stage = Path(temporary)
-            for name in GLIBC_LIBRARIES:
-                shutil.copyfile(source / name, stage / name)
-            for name in GLIBC_LIBRARIES:
-                (stage / name).replace(destination / name)
-        return json.loads((inputs / "dependencies.lock.json").read_text())
-XKBCOMMON = "xkbcommon-x64glibc"
-XKBCOMMON_LIBRARIES = ("libxkbcommon.so", "libxkbcommon-x11.so")
-
-
-@contextmanager
-def verified_xkbcommon(lock=LOCK, cache=CACHE):
-    """Admit both keyboard libraries and their upstream redistribution notice."""
-    with tempfile.TemporaryDirectory(prefix="roc-gui-verified-xkbcommon-") as temporary:
-        destination = Path(temporary) / "inputs"
-        materialize(lock, (XKBCOMMON,), cache, destination)
-        manifest = json.loads((destination / XKBCOMMON / "dependency.json").read_text())
-        expected = {"targets/x64glibc/" + name for name in XKBCOMMON_LIBRARIES}
-        expected.add("licenses/xkbcommon/LICENSE")
-        if set(manifest["files"]) != component_inventory(expected, manifest):
-            raise ValueError("incomplete or unexpected xkbcommon inputs")
-        yield destination
-
-
-def install_xkbcommon(destination, lock=LOCK, cache=CACHE):
-    """Verify the release and stage both development inputs before replacement."""
-    with verified_xkbcommon(lock, cache) as inputs:
-        source = inputs / XKBCOMMON / "targets/x64glibc"
-        destination.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=destination, prefix=".xkbcommon-") as temporary:
-            staged = Path(temporary)
-            for name in XKBCOMMON_LIBRARIES:
-                shutil.copyfile(source / name, staged / name)
-            for name in XKBCOMMON_LIBRARIES:
-                (staged / name).replace(destination / name)
-        return json.loads((inputs / "dependencies.lock.json").read_text())
-
-
-@contextmanager
-def verified_freetype(lock=LOCK, cache=CACHE):
-    """Admit only the complete FreeType library and license inventory."""
-    with tempfile.TemporaryDirectory(prefix="roc-gui-verified-freetype-") as temporary:
-        destination = Path(temporary) / "inputs"
-        materialize(lock, (FREETYPE,), cache, destination)
-        manifest = json.loads((destination / FREETYPE / "dependency.json").read_text())
-        expected = {"targets/x64glibc/libfreetype.so"}
-        expected.update("licenses/freetype/" + name for name in
-                        ("LICENSE.TXT", "FTL.TXT", "GPLv2.TXT", "NOTICE"))
-        if set(manifest["files"]) != component_inventory(expected, manifest):
-            raise ValueError("incomplete or unexpected FreeType inputs")
-        yield destination
-
-
-def install_freetype(destination, lock=LOCK, cache=CACHE):
-    """Replace the development link input only after release verification."""
-    with verified_freetype(lock, cache) as inputs:
-        source = inputs / FREETYPE / "targets/x64glibc/libfreetype.so"
-        destination.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=destination, delete=False) as pending:
-            path = Path(pending.name)
-        try:
-            shutil.copyfile(source, path)
-            path.replace(destination / "libfreetype.so")
-        finally:
-            path.unlink(missing_ok=True)
         return json.loads((inputs / "dependencies.lock.json").read_text())
 
 
@@ -380,7 +228,6 @@ def install_web_dependencies(lock=LOCK, cache=CACHE, platform=ROOT / "platform-w
                     path.replace(destination)
                 finally:
                     path.unlink(missing_ok=True)
-
 
 
 if __name__ == "__main__":

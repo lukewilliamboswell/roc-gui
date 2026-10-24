@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Keep compiler pins out of the platform and report the compiler in use."""
+"""Rewrite an application's platform dependency and report the compiler in use.
+
+Compiler pins are policy of `scripts/check_all.roc`, run by `blueprint run check`;
+nothing here repeats that check.
+"""
 
 import argparse
 import os
@@ -8,9 +12,10 @@ import re
 import shutil
 import subprocess
 
-from compiler_pins import TOKEN, header_pin
-
 ROOT = Path(__file__).resolve().parents[1]
+# Roc source as comments, string literals, names and single marks: a narrow
+# reader for an app header. The compiler remains the grammar authority.
+TOKEN = re.compile(r'#[^\n]*|"(?:\\.|[^"\\])*"|[A-Za-z_][A-Za-z_0-9!]*|[^\s]', re.DOTALL)
 
 
 def app_platform_span(source: str):
@@ -57,19 +62,6 @@ def replace_platform(source: str, reference: str) -> str:
     return source[:start] + reference + source[end:]
 
 
-def check_unpinned(root: Path = ROOT) -> None:
-    """Reject a compiler pin anywhere outside scripts/: branches float on the latest nightly."""
-    for name in (".roc-version", ".github/roc-nightly.json"):
-        if (root / name).exists():
-            raise ValueError(f"the platform and its applications carry no compiler pin: remove {name}")
-    roots = [root / "Blueprint.roc"]
-    for directory in ("platform", "examples", "benchmarks"):
-        roots.extend((root / directory).rglob("*.roc"))
-    for path in roots:
-        if header_pin(path.read_text(encoding="utf-8")) is not None:
-            raise ValueError(f"remove the roc header field from {path.relative_to(root)}")
-
-
 def compiler_version(roc: str) -> str:
     """The compiler's own report of which build it is, as release notes record it."""
     return subprocess.check_output([roc, "version"], text=True).strip()
@@ -105,14 +97,6 @@ def relocate_for_ci():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true")
-    parser.add_argument("--roc-bin")
-    parser.add_argument("--relocate-for-ci", action="store_true")
-    args = parser.parse_args()
-    if args.relocate_for_ci:
-        relocate_for_ci()
-    else:
-        if args.check:
-            check_unpinned()
-        if args.roc_bin:
-            print(compiler_version(args.roc_bin))
+    parser.add_argument("--relocate-for-ci", action="store_true", required=True)
+    parser.parse_args()
+    relocate_for_ci()

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_alsa_interface as producer
 from dependency_archive import digest, write_archive
 import release_dependencies
+from test_native_archive_fixture import current_native
 
 
 class AlsaDependencyTests(unittest.TestCase):
@@ -38,16 +39,17 @@ class AlsaDependencyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "invalid ALSA interface recipe"):
                 producer.recipe()
 
-    def test_cargo_uses_a_private_verified_alsa_interface(self):
+    def test_cargo_links_the_unified_release_alsa_interface(self):
         import prepare_dependencies
 
-        def install(destination, **_kwargs):
+        def install(target, destination):
+            self.assertEqual(target, "x64glibc")
             destination.mkdir(parents=True)
             (destination / "libasound.so").write_bytes(b"verified interface")
 
         environment = {"PKG_CONFIG_PATH": "/nix/fontconfig/lib/pkgconfig",
                        "LIBRARY_PATH": "/nix/fontconfig/lib"}
-        with patch.object(prepare_dependencies, "install_alsa", side_effect=install), \
+        with patch.object(prepare_dependencies, "install_link_inputs", side_effect=install), \
                 prepare_dependencies.cargo_environment(environment, "x64glibc") as configured:
             pkgconfig_paths = configured["PKG_CONFIG_PATH"].split(os.pathsep)
             pkgconfig = Path(pkgconfig_paths[0])
@@ -58,15 +60,30 @@ class AlsaDependencyTests(unittest.TestCase):
             self.assertEqual((pkgconfig.parent / "libasound.so").read_bytes(), b"verified interface")
         self.assertFalse(pkgconfig.exists())
 
+    def test_cargo_admits_a_producer_candidate_by_the_current_archive_policy(self):
+        import prepare_dependencies
+        metadata, files = current_native("alsa", {"targets/x64glibc/libasound.so": b"candidate interface"})
+        candidate = write_archive(self.root / "alsa-x64glibc.tar", metadata, files)
+        with prepare_dependencies.cargo_environment({}, "x64glibc", alsa_candidate=candidate) as configured:
+            library = Path(configured["LIBRARY_PATH"]) / "libasound.so"
+            self.assertEqual(library.read_bytes(), b"candidate interface")
+        obsolete = write_archive(self.root / "obsolete.tar",
+                                 {"schema_version": 1, "name": "alsa", "target": "x64glibc"},
+                                 {"targets/x64glibc/libasound.so": b"obsolete interface"})
+        with self.assertRaisesRegex(ValueError, "producer's current format"):
+            with prepare_dependencies.cargo_environment({}, "x64glibc", alsa_candidate=obsolete):
+                pass
+
     def make_archive(self, missing=None):
         policy = release_dependencies.KINDS["alsa"]
         files = {"targets/x64glibc/libasound.so": b"tested ELF interface"}
         files.update({name: b"reviewed reproduction input" for name in policy["extra_files"]})
+        metadata, files = current_native("alsa", files)
         if missing:
             del files[missing]
         return write_archive(
             self.root / producer.ARCHIVE_NAME,
-            {"schema_version": 1, "name": "alsa", "version": "2", "target": "x64glibc"},
+            metadata,
             files,
         )
 

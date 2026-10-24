@@ -10,7 +10,7 @@ import subprocess
 import tarfile
 
 import dependency_archive
-import nix_link_inputs
+import blueprint_link_inputs
 from dependency_archive import digest, write_archive
 from dependency_artifacts import sha256, unpack_verified
 
@@ -24,6 +24,22 @@ def verify_source(path, source):
     if (path.is_symlink() or path.stat().st_size != source["size"]
             or sha256(path) != source["sha256"]):
         raise ValueError("FreeType source differs from the reviewed recipe")
+
+
+def blueprint_source(inputs):
+    """The original upstream archive Blueprint provides to the build.
+
+    `$BLUEPRINT_INPUTS/freetype-source` is Blueprint's link into the Nix store;
+    the regular file it names holds the bytes Blueprint verified against the
+    declared hash, and the recipe verifies them again before unpacking.
+    """
+    link = Path(inputs) / "freetype-source"
+    if not link.is_symlink() and not link.is_file():
+        raise ValueError("Blueprint provided no FreeType source")
+    source = link.resolve(strict=True)
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("Blueprint FreeType source is not a regular file")
+    return source
 
 
 def check_candidate(archive, source, output, compiler):
@@ -49,11 +65,14 @@ def check_candidate(archive, source, output, compiler):
     environment = os.environ.copy()
     environment.pop("LD_LIBRARY_PATH", None)
     environment.pop("LD_PRELOAD", None)
-    subprocess.run(nix_link_inputs.probe_command(executable), check=True, env=environment, timeout=15)
+    subprocess.run(blueprint_link_inputs.probe_command(executable), check=True, env=environment, timeout=15)
 
 
 def inside_builder(source_archive, output):
     """Compile with networking disabled inside the Nix sandbox."""
+    blueprint_link_inputs.configure_environment(Path.cwd() / ".producer")
+    output.mkdir(parents=True, exist_ok=True)
+    evidence, evidence_bytes = blueprint_link_inputs.input_evidence()
     recipe_bytes = RECIPE.read_bytes()
     recipe = json.loads(recipe_bytes)
     zig = "zig"
@@ -62,6 +81,8 @@ def inside_builder(source_archive, output):
         raise ValueError("FreeType producer requires the recipe's exact Zig version")
     compiler = [zig, *recipe["cc_args"]]
     verify_source(source_archive, recipe["source"])
+    if evidence["files"][0]["sha256"] != recipe["source"]["sha256"]:
+        raise ValueError("Blueprint source pin differs from FreeType descriptor")
     source_root = Path.cwd() / "source"
     with tarfile.open(source_archive) as packed:
         packed.extractall(source_root, filter="data")
@@ -72,7 +93,7 @@ def inside_builder(source_archive, output):
                     *recipe["cmake_options"]], check=True, timeout=120)
     subprocess.run(["cmake", "--build", str(build), "--parallel", "2"],
                    check=True, timeout=900)
-    nix_link_inputs.portable_library(build / "libfreetype.so")
+    blueprint_link_inputs.portable_library(build / "libfreetype.so")
     files = {"targets/x64glibc/libfreetype.so": (build / "libfreetype.so").read_bytes()}
     for name in ("LICENSE.TXT", "docs/FTL.TXT", "docs/GPLv2.TXT"):
         files["licenses/freetype/" + Path(name).name] = (source / name).read_bytes()
@@ -80,24 +101,22 @@ def inside_builder(source_archive, output):
         "This software is based in part on the work of the FreeType Team.\n"
         "FreeType is distributed here under the FreeType License (FTL.TXT).\n"
     ).encode()
-    files.update(nix_link_inputs.sources("freetype"))
+    files["sources/freetype/blueprint-input-evidence.json"] = evidence_bytes
     files["sources/freetype/source.tar.xz"] = source_archive.read_bytes()
-    for path in (
-        'dependencies/freetype.json',
-        'scripts/build_freetype.py',
-        'scripts/dependency_archive.py',
-        'scripts/dependency_artifacts.py',
-        'test/dependencies/freetype.c',
-        'dependencies/linux/zig-toolchain.cmake',
-    ):
+    for path in blueprint_link_inputs.SELECTED_FILES:
         files["sources/freetype/" + path] = (ROOT / path).read_bytes()
     metadata = {
-        "schema_version": 4, "name": recipe["name"], "version": recipe["version"],
+        "schema_version": 5, "name": recipe["name"], "version": recipe["version"],
         "target": recipe["target"], "source": recipe["source"],
         "build": {
-            **nix_link_inputs.provenance(),
+            "builder_kind": "blueprint-nix",
+            "input_evidence_sha256": digest(evidence_bytes),
+            "reproduction_sha256": {path: sha256(ROOT / path)
+                                    for path in blueprint_link_inputs.SELECTED_FILES},
+            "reproduction_modes": {path: 0o755 if (ROOT / path).stat().st_mode & 0o100 else 0o644
+                                   for path in blueprint_link_inputs.SELECTED_FILES},
             "toolchain_sha256": sha256(ROOT / "dependencies/linux/zig-toolchain.cmake"),
-           "recipe_sha256": digest(recipe_bytes),
+            "recipe_sha256": digest(recipe_bytes),
             "producer_sha256": sha256(Path(__file__)),
             "archive_writer_sha256": sha256(Path(dependency_archive.__file__)),
             "probe_sha256": sha256(ROOT / "test/dependencies/freetype.c"),
@@ -115,7 +134,7 @@ def inside_builder(source_archive, output):
 
 
 def build(output, *, rebuild=False):
-    return nix_link_inputs.build("freetype", output, rebuild=rebuild)
+    return blueprint_link_inputs.build(output, rebuild=rebuild)
 
 
 if __name__ == "__main__":
@@ -125,6 +144,6 @@ if __name__ == "__main__":
     parser.add_argument("--rebuild", action="store_true", help="force Nix to rebuild and check reproducibility")
     args = parser.parse_args()
     if args.inside:
-        inside_builder(Path(os.environ["NIX_COMPONENT_SOURCE"]), args.output)
+        inside_builder(blueprint_source(os.environ["BLUEPRINT_INPUTS"]), args.output)
     else:
         build(args.output.resolve(), rebuild=args.rebuild)

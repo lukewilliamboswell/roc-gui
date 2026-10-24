@@ -68,10 +68,13 @@ Fontconfig and Wayland, to Linux. The build helper prepends its verified ALSA
 interface to the shell search paths. Executables use the native desktop runtime
 libraries selected by the system ELF loader.
 
-Development builds select the unified linker-input release when its producer
-inputs match the checkout. Missing or stale releases select the development
-recipes and their verified component inputs. Invalid locks and failed artifact
-verification stop the build. Release packaging requires a matching unified lock.
+Development builds take the unified linker-input release when its producer
+inputs match the checkout. A missing or stale release stops the build rather
+than selecting other inputs. `--source-inputs` selects the recipe inputs a
+target still has: generated interfaces on macOS and the released GNU runtime on
+Windows; Linux has none outside a producer run. Invalid locks and failed
+artifact verification stop the build. Release packaging requires a matching
+unified lock.
 
 CI runs the same Clippy command as the local pre-commit hook, including test
 targets, with `-D warnings`. Install the `clippy` component from the repository
@@ -321,12 +324,29 @@ aggregate manifest digest. Ordinary pull requests have no linker-input build
 job. They restore the archive cache, verify its locked size and SHA-256 even on
 a cache hit, and download the immutable release only on a miss.
 
+Schema-2 unified locks also carry FreeType's reviewed component build identity,
+selected snapshot binding and original component archive digest. Linux admission
+CI verifies the component bytes and compares the exact prepared build identity.
+It may refresh the binding only when that identity is unchanged. A different
+published artifact requires an explicit repository admission decision.
+
+Consumers use `blueprint plan build freetype --json` for the selected snapshot,
+without Nix preparation. Missing, incompatible or changed evidence cannot pass
+freshness checks. These checks require the `blueprint` executable of the release
+`Blueprint.roc` names on `PATH`; CI installs that release's binary on every
+supported system after verifying it against its reviewed SHA-256.
+The other producers retain their shared-file and standalone package-pin
+fingerprint; only FreeType-exclusive paths move to component admission.
+
 Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
-must never fall back to a local build. Development builds select native source
-inputs when the unified lock is absent or its producer fingerprint is stale.
-`./build.py --source-inputs` also selects this path explicitly; the linker-input
-producer stages its exact candidate archives before final-link validation.
+must never fall back to a local build. Development builds require current reviewed authority.
+`./build.py --source-inputs` selects the macOS source interfaces explicitly. A Linux host
+build takes its build-time ALSA interface from the admitted linker inputs: the unified
+release, or the producer's own candidate through
+`./build.py --skip-inputs --candidate-inputs <directory>` while it validates fresh
+components; the producer then stages its exact candidate archives before final-link
+validation.
 Final platform releases accept only locked, released, and attested inputs.
 
 Change a linker input through its owning recipe and tests, then dispatch the
@@ -336,12 +356,17 @@ platform and host changes reuse the locked release and never invoke a producer.
 
 === Linux producers with Nix
 
-The five Linux component producers use `dependencies/linux/default.nix` and the
-nixpkgs revision pinned in `dependencies/nixpkgs-pin.nix`. Zig 0.16.0 and the
-build tools come from that package set. `Blueprint.roc` names the same revision
-for the development shell and `blueprint run check` requires the two to agree,
-but the producers never read `Blueprint.lock`: a Blueprint change does not
-change a linker input. Meson uses the recipe's fixed-hash 1.12.0 source with the same
+FreeType uses Blueprint's managed Build contract declared by
+`dependencies/FreeType.roc`. Its dedicated environment names its compiler,
+headers, libraries and tools. `dependencies/freetype.json` is the reviewed
+upstream URL/checksum authority. Selected files exclude the whole project
+configuration, whole Lock and unrelated component producers. The Python script
+retains compilation, packaging and its native glyph probe.
+
+The other four Linux component producers use `dependencies/linux/default.nix`
+and the reviewed `dependencies/nixpkgs-pin.nix`. Blueprint uses the same
+reviewed revision for its shared package source. Zig 0.16.0 and the build tools
+come from that package set. Meson uses the recipe's fixed-hash 1.12.0 source with the same
 nixpkgs packaging. Upstream source downloads are fixed-output derivations;
 compilation and native probes run inside the network-isolated Nix sandbox.
 
@@ -356,11 +381,28 @@ cmp /tmp/candidate/freetype-x64glibc.tar /tmp/rebuild/freetype-x64glibc.tar
 
 `--rebuild` executes Nix's reproducibility check, even when the first result is
 cached. CI requires sandboxing and repeats this for every Linux component.
-Schema-4 archives identify the builder tool derivation, the nixpkgs revision
-and content hash, the nixpkgs pin, and the Nix recipe. Corresponding source
-includes the upstream source bytes and reproduction inputs. Consumers also
-accept the schema-1 archives used by other targets and the schema-2 archives
-of existing reviewed releases, which bound the same build to `Blueprint.lock`.
+Schema-5 FreeType archives include selected native reproduction evidence:
+package revision/NAR hash, original-file hash, captured source identity and tool
+roots. Its native format 1 also explicitly lists source trees, dependency-build
+outputs and Roc package paths. This FreeType profile requires all three lists
+to be present and empty; unexpected inputs are rejected rather than silently
+omitted from its reproduction contract. The evidence is checked against its
+checksum and shipped corresponding
+source files. Selected source modes are recorded for faithful reconstruction.
+The final build identity is external, in
+`freetype-x64glibc.tar.blueprint.json`, bound to the measured archive digest and
+Blueprint's selected snapshot. It is never embedded into its own recipe inputs.
+
+`python3 scripts/check_linux_reproduction.py /tmp/candidate` rebuilds a minimal
+configuration around the shipped unchanged FreeType module, verifies resolved
+pins against shipped evidence and prepares the exact same build identity.
+Reproduction explicitly permits fetching the immutable pinned inputs; ordinary
+consumers do not run the producer.
+
+The other Linux producers use schema-4 archives with builder derivation,
+standalone package-pin checksum and Nix recipe. FreeType accepts only its Blueprint schema-5 contract; other producers retain
+their own native archive contracts. Producers do not embed the whole Blueprint
+Lock; unrelated lock edits do not alter their input bytes.
 
 Published shared libraries have no build search paths or store-qualified
 runtime dependencies. Producer probes use the sandbox's private loader and
@@ -396,7 +438,7 @@ python scripts/build_windows_resource.py --output resource
 
 Native builds use fresh compiler caches on every invocation; `--cache` stores
 only the verified Zig download. Schema-3 native archives record the Windows
-toolchain digest and reproduction source digests. Schema-2 Nix archives record
+toolchain digest and reproduction source digests. Schema-4 Nix archives record
 the pinned Nix build environment. Neither archive records the builder's local
 paths or machine identity.
 

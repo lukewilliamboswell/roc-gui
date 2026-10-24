@@ -18,11 +18,6 @@ an entry below or is a maintainer action.
   the compiler intermittently crashes on Windows".
 - [ ] Make Observatory's folder rewatch deterministic and unskip it; see
   "RELEASE BLOCKER: Observatory's folder rewatch sometimes counts a change".
-- [ ] After #40 merges, rerun roc-automation's `check-settings` with
-  `--platform`. Its last three failures need this branch on the default
-  branch: `SECURITY.md`, `.github/dependabot.yml`, and a merged pull request
-  whose jobs produced the required `CI` check. Then confirm with a pull request
-  whose `CI` fails that the merge is blocked.
 - [ ] Dry-run `release.yml` on a pull request, then dispatch it with
   `0.1.0-rc1`.
 
@@ -1024,9 +1019,14 @@ names the evidence so a fix can be verified against the same case.
   `nightly-2026-10-20-7a8a800`; it needs a Windows machine.
 
 - [ ] **RELEASE BLOCKER: the default backend does not finish building
-  Observatory.** `roc build --opt=speed examples/observatory/main.roc` on
-  `nightly-2026-10-20-7a8a800` was killed after 17 minutes of CPU at 6.9 GB
-  resident. On Linux, `nightly-2026-10-21-5349569` with
+  Observatory.** On `nightly-2026-10-23-18478ff`, `roc build --opt=speed
+  --no-cache examples/observatory/main.roc` on Linux crashes the compiler
+  with a segmentation fault after 9.1 s wall time at 1.43 GiB peak RSS, in
+  `post-check lambda_solve` on the main thread, before any executable is
+  written; the same nightly's `--opt=dev` build and `roc check`/`roc test`
+  of Observatory pass. Earlier nightlies failed differently: on
+  `nightly-2026-10-20-7a8a800` the build was killed after 17 minutes of CPU
+  at 6.9 GB resident. On Linux, `nightly-2026-10-21-5349569` with
   `--no-cache --opt=speed`, after explicitly typing the themes' `face` as `Gui.FontFace`,
   was killed by signal 9 after 37.69 s wall time at 25,582,912 KiB peak RSS
   (24.4 GiB), without producing an executable. Its `--opt=dev` build, with
@@ -1459,37 +1459,40 @@ names the reproduction so the workaround can be removed when the fix lands.
   Metal and DirectX renderers and verify it on each platform.
 
 - [ ] **Remove superseded linker-input migration machinery.** The unified
-  `link-inputs.lock.json` is published and adopted. Remove the superseded
-  component lock, migration fallback, and legacy publication helpers after
-  migrating every remaining build-time consumer; retain the independently
-  required host and notice inputs.
+  `link-inputs.lock.json` is published and adopted, and every Linux component
+  archive that `dependencies.lock.json` names is an obsolete format the
+  archive policy refuses, so Linux has no development inputs outside a
+  producer run. The component lock's remaining consumers are the Windows
+  runtime and import installers, the macOS interfaces and the web musl inputs
+  in `scripts/prepare_dependencies.py`, with `scripts/release_dependencies.py`
+  and `scripts/release_windows_inputs.py` as their publication helpers. Move
+  each onto the unified release, then delete the component lock and those
+  helpers; retain the independently required host and notice inputs.
 
 ## Continuous integration
-
-- [ ] **Drop the hand-passed Blueprint checksums.** `ci.yml`, `release.yml` and
-  `link-inputs.yml` pass the 0.6.0 `sha256-*` inputs to `setup-blueprint`
-  because its recorded releases stop at 0.6.0-rc1.
-  https://github.com/lukewilliamboswell/roc-automation/pull/58 records them;
-  once it merges, move the action pin and delete the inputs.
 
 - [ ] **Take the host toolchain from Blueprint on every runner.** The host and
   linker-input jobs install Zig 0.16 and Rust 1.95.0 through
   `.github/actions/setup-toolchain`, repeating versions `Blueprint.roc` and
-  `rust-toolchain.toml` declare, with nothing checking they agree. Blueprint
-  runs no Windows CI tasks through `setup-blueprint`:
+  `rust-toolchain.toml` declare, with nothing checking they agree. The same
+  action installs the Windows `blueprint.exe` itself, admitted by a SHA-256
+  recorded beside the step, because roc-automation's shared `setup-blueprint`
+  installs no Windows binary and Blueprint runs no Windows CI tasks:
   https://github.com/lukewilliamboswell/roc-automation/issues/59. When it
   does, add `x86_64-windows` to `Systems`, fetch Zig with a recipe there, and
   delete `setup-toolchain`.
 
-- [ ] **Read the linker inputs' nixpkgs pin from Blueprint once it can be
-  read.** `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash`
-  that `Blueprint.lock` locks, and `scripts/check_all.roc` compares only the
-  revision `Blueprint.roc` declares, so a disagreement in `narHash` goes
-  unnoticed. https://github.com/lukewilliamboswell/roc-blueprint/issues/51
-  asks for `blueprint lock show --json` with a per-entry identity. When it
-  ships, derive the pin from it, fingerprint that entry alone, and delete the
-  duplicate. Moving the producers onto Blueprint `Build` waits on
-  https://github.com/lukewilliamboswell/roc-blueprint/issues/52.
+- [ ] **Read the linker inputs' nixpkgs pin from Blueprint.**
+  `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash` that
+  `Blueprint.lock` locks, and `scripts/check_all.roc` compares only the
+  revision `dependencies/FreeType.roc` declares, so a disagreement in
+  `narHash` goes unnoticed. `blueprint lock show --json nix` reports both
+  (https://github.com/lukewilliamboswell/roc-blueprint/issues/51 is closed),
+  and `scripts/check_linux_reproduction.py` already reads it. Derive the pin
+  from that report, fingerprint that entry alone, and delete the duplicate.
+  FreeType is produced through Blueprint `Build`; move the ALSA, glibc, unwind
+  and xkbcommon producers onto it the same way
+  (https://github.com/lukewilliamboswell/roc-blueprint/issues/52 is closed).
 
 - [ ] **Port the remaining automation to Roc scripts.** roc-automation keeps
   repository automation in `scripts/*.roc` run by `roc-stable`. The checks,
@@ -1510,8 +1513,17 @@ names the reproduction so the workaround can be removed when the fix lands.
   to prepare the diagrams yet:
   https://github.com/lukewilliamboswell/roc-automation/issues/60.
 
-- [ ] **Run the archived examples' specifications in `nightly.yml`.** The
-  nightly compatibility workflow builds every application of the latest
-  release's examples archive against the published bundle on each target, but
-  does not run their specifications. Run them through the release's own
-  runner, as `release.yml` does for the bundle it is about to publish.
+- [ ] **Call roc-automation's shared nightly and run the archived examples'
+  specifications.** roc-automation's reusable
+  `.github/workflows/nightly-compatibility.yml` owns selection, archive
+  admission, compilation, execution and reporting, and its manual asks each
+  repository to call it rather than keep a local copy. `nightly.yml` here is
+  that local copy without execution: it builds every application of the
+  latest release's examples archive against the published bundle on each
+  target, but runs no specification. The shared runner reads
+  `<package-name>-examples-<tag>.zip` with a `spec.json` of
+  stdout/stderr/exit-code cases, and a GUI application needs a `run` runtime
+  helper there that drives its specifications headlessly and exits. Publish
+  the examples archive in that shape, run the specifications through the
+  release's own runner as `release.yml` does for the bundle it is about to
+  publish, and replace `nightly.yml` with the one-job caller.

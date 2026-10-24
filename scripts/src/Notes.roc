@@ -40,12 +40,12 @@ markdown = |adoc| {
 }
 
 compilers : { roc : Str, roc_stable : Str }
-compilers = { roc: "Roc compiler version nightly-2026-10-20-7a8a800", roc_stable: "Roc compiler version nightly-2026-10-18-1df370f" }
+compilers = { roc: "Roc compiler version nightly-2026-10-20-7a8a800", roc_stable: "Roc compiler version nightly-2026-10-23-18478ff" }
 
 expect {
 	source = "= roc-gui 0.1.0\n\nThe first release.\n\n== Use this release\n\n[source,roc]\n----\napp [State, main] { pf: platform \"{package-url}\" }\n----\n"
 	notes = Notes.render(source, { version: "0.1.0", bundle: "abc.tar.zst", compilers })
-	notes == Ok("# roc-gui 0.1.0\n\nThe first release.\n\n## Use this release\n\n```roc\napp [State, main] { pf: platform \"https://github.com/lukewilliamboswell/roc-gui/releases/download/0.1.0/abc.tar.zst\" }\n```\n\n## Compilers\n\n```\nRoc compiler version nightly-2026-10-20-7a8a800\nRoc compiler version nightly-2026-10-18-1df370f\n```\n")
+	notes == Ok("# roc-gui 0.1.0\n\nThe first release.\n\n## Use this release\n\n```roc\napp [State, main] { pf: platform \"https://github.com/lukewilliamboswell/roc-gui/releases/download/0.1.0/abc.tar.zst\" }\n```\n\n## Compilers\n\n```\nRoc compiler version nightly-2026-10-20-7a8a800\nRoc compiler version nightly-2026-10-23-18478ff\n```\n")
 }
 
 expect Notes.render("= roc-gui 0.1.0\n", { version: "0.1.0", bundle: "abc.tar.zst", compilers }) == Err(UnusedPlaceholder)
