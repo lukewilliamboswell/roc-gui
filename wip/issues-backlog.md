@@ -4,10 +4,11 @@ Gaps between the documented ideal state in `docs/` and the repository as it is.
 Each entry names its effect and the change that closes it. Remove an entry when
 the change lands; do not soften the docs to match the gap.
 
-## Before 0.1.0-rc1
+## Before 0.1.0
 
-What must happen before the first release candidate. Each item either links
-an entry below or is a maintainer action.
+What must happen before the final release. `0.1.0-rc1` was published on
+2026-10-24 with the four defects below named as known issues in its notes.
+Each item either links an entry below or is a maintainer action.
 
 - [ ] Build Observatory with the default backend; see "RELEASE BLOCKER: the
   default backend does not finish building Observatory".
@@ -18,8 +19,8 @@ an entry below or is a maintainer action.
   the compiler intermittently crashes on Windows".
 - [ ] Make Observatory's folder rewatch deterministic and unskip it; see
   "RELEASE BLOCKER: Observatory's folder rewatch sometimes counts a change".
-- [ ] Dry-run `release.yml` on a pull request, then dispatch it with
-  `0.1.0-rc1`.
+- [ ] Dispatch `release.yml` with `0.1.0` once the items above are closed,
+  from the commit of the candidate that stood without change.
 
 ## Linux producer toolchain verification
 
