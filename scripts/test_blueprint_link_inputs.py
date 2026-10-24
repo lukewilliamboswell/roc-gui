@@ -36,32 +36,52 @@ class BlueprintLinkInputTests(unittest.TestCase):
         output = self.root / "store"
         output.mkdir(exist_ok=True)
         (output / "freetype-x64glibc.tar").write_bytes(b"tested archive")
-        return {"schema_version": schema, "name": "freetype", "system": "x86_64-linux",
-                "provider": "nix", "build_identity": "/nix/store/" + "a" * 32 + "-freetype.drv",
-                "prepared": True, "snapshot_digest": "sha256:" + "b" * 64, "snapshot": {"nodes": []},
-                "outputs": [{"name": "out", "path": str(output)}]}
+        # A plan carries the snapshot; a build result (schema 2) names it by
+        # digest only, as Blueprint's build result schema states.
+        value = {"schema_version": schema, "name": "freetype", "system": "x86_64-linux",
+                 "provider": "nix", "build_identity": "/nix/store/" + "a" * 32 + "-freetype.drv",
+                 "prepared": True, "snapshot_digest": "sha256:" + "b" * 64,
+                 "outputs": [{"name": "out", "path": str(output)}]}
+        if schema == 1:
+            value["snapshot"] = {"nodes": [{"name": "freetype"}]}
+        return value
 
-    def test_build_consumes_typed_result_and_binds_measured_archive(self):
-        result = self.result()
-        with patch.object(adapter, "command", return_value=result) as command:
+    def commands(self, build, prepared):
+        def command(arguments, **_kwargs):
+            return build if arguments[0] == "build" else prepared
+        return command
+
+    def test_build_consumes_typed_result_and_binds_the_prepared_snapshot(self):
+        result, prepared = self.result(), self.result(schema=1)
+        with patch.object(adapter, "command", side_effect=self.commands(result, prepared)) as command:
             archive = adapter.build(self.root / "candidate", rebuild=True)
-        command.assert_called_once_with(["build", "freetype", "--json", "--rebuild"])
+        self.assertEqual([call.args[0] for call in command.call_args_list],
+                         [["build", "freetype", "--json", "--rebuild"], ["plan", "build", "freetype", "--json", "--prepare"]])
         record = json.loads(archive.with_suffix(".tar.blueprint.json").read_text())
         self.assertEqual(record["build_identity"], result["build_identity"])
         self.assertEqual(record["snapshot_digest"], result["snapshot_digest"])
+        self.assertEqual(record["snapshot"], prepared["snapshot"])
         self.assertEqual(record["artifact"], {"name": archive.name, "size": 14,
                                              "sha256": digest(b"tested archive")})
         with self.assertRaises(FileExistsError):
             adapter.build(archive.parent)
 
-    def test_wrong_schema_identity_or_output_never_publishes_candidate(self):
+    def test_wrong_schema_identity_output_or_plan_never_publishes_candidate(self):
         for field, value in (("schema_version", 1), ("provider", "other"),
                              ("build_identity", "opaque"), ("snapshot_digest", "missing"),
                              ("outputs", [])):
             result = self.result()
             result[field] = value
-            with self.subTest(field=field), patch.object(adapter, "command", return_value=result):
+            with self.subTest(field=field), patch.object(adapter, "command", side_effect=self.commands(result, self.result(schema=1))):
                 with self.assertRaises(ValueError):
+                    adapter.build(self.root / "candidate")
+                self.assertFalse((self.root / "candidate").exists())
+        for field, value in (("snapshot_digest", "sha256:" + "c" * 64),
+                             ("build_identity", "/nix/store/" + "e" * 32 + "-freetype.drv")):
+            prepared = self.result(schema=1)
+            prepared[field] = value
+            with self.subTest(plan=field), patch.object(adapter, "command", side_effect=self.commands(self.result(), prepared)):
+                with self.assertRaisesRegex(ValueError, "differs from the FreeType build"):
                     adapter.build(self.root / "candidate")
                 self.assertFalse((self.root / "candidate").exists())
 

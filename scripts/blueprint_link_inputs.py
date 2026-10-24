@@ -35,10 +35,15 @@ def command(arguments, *, root=ROOT):
 
 
 def validate_binding(result, schema):
+    """Admit a plan (schema 1) or build result (schema 2) for the FreeType build.
+
+    Both name the captured input snapshot by its digest; only a plan carries
+    the snapshot itself, as Blueprint's build result schema 2 states.
+    """
     if (result.get("schema_version") != schema or result.get("name") != "freetype"
             or result.get("system") != "x86_64-linux" or result.get("provider") != "nix"
             or not re.fullmatch(r"sha256:[0-9a-f]{64}", result.get("snapshot_digest", ""))
-            or not isinstance(result.get("snapshot"), dict)):
+            or (schema == 1 and not isinstance(result.get("snapshot"), dict))):
         raise ValueError("invalid Blueprint FreeType build binding")
     if schema == 2 or result.get("prepared"):
         if not re.fullmatch(r"/nix/store/[a-z0-9]{32}-[^/]+\.drv", result.get("build_identity", "")):
@@ -69,11 +74,19 @@ def build(output, *, rebuild=False):
     archive = Path(outputs[0]["path"]) / destination.name
     if archive.is_symlink() or not archive.is_file():
         raise ValueError("Blueprint FreeType output is not an ordinary archive")
+    # The build result names its snapshot by digest alone. The prepared plan
+    # of the same request carries the snapshot and must name the same exact
+    # build identity, which binds that snapshot to the build that ran.
+    prepared = plan(prepare=True)
+    if (prepared["snapshot_digest"] != result["snapshot_digest"]
+            or (prepared["provider"], prepared["build_identity"]) != (result["provider"], result["build_identity"])):
+        raise ValueError("Blueprint plan differs from the FreeType build it prepared")
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output, prefix=".blueprint-candidate-") as temporary:
         pending = Path(temporary) / destination.name
         shutil.copyfile(archive, pending)
-        binding = {key: result[key] for key in ("provider", "build_identity", "snapshot_digest", "snapshot")}
+        binding = {key: result[key] for key in ("provider", "build_identity", "snapshot_digest")}
+        binding["snapshot"] = prepared["snapshot"]
         binding.update(schema_version=1, artifact={
             "name": destination.name, "sha256": sha256(pending), "size": pending.stat().st_size})
         record = Path(temporary) / sidecar.name
