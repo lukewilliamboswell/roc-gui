@@ -1459,10 +1459,15 @@ names the reproduction so the workaround can be removed when the fix lands.
   Metal and DirectX renderers and verify it on each platform.
 
 - [ ] **Remove superseded linker-input migration machinery.** The unified
-  `link-inputs.lock.json` is published and adopted. Remove the superseded
-  component lock, migration fallback, and legacy publication helpers after
-  migrating every remaining build-time consumer; retain the independently
-  required host and notice inputs.
+  `link-inputs.lock.json` is published and adopted, and every Linux component
+  archive that `dependencies.lock.json` names is an obsolete format the
+  archive policy refuses, so Linux has no development inputs outside a
+  producer run. The component lock's remaining consumers are the Windows
+  runtime and import installers, the macOS interfaces and the web musl inputs
+  in `scripts/prepare_dependencies.py`, with `scripts/release_dependencies.py`
+  and `scripts/release_windows_inputs.py` as their publication helpers. Move
+  each onto the unified release, then delete the component lock and those
+  helpers; retain the independently required host and notice inputs.
 
 ## Continuous integration
 

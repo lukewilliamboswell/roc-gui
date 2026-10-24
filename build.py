@@ -34,7 +34,6 @@ def stage_external_inputs(target: str, destination: Path, profile: str, source: 
         return install(target, destination)
     # Built from their recipes only when asked: a linker-input producer must
     # final-link the inputs it changes before a publisher can lock them.
-    from scripts.prepare_dependencies import install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon
     if target == "arm64mac":
         from scripts.build_macos_stubs import generate
         generated = destination.parent / "macos-sysroot"
@@ -42,11 +41,13 @@ def stage_external_inputs(target: str, destination: Path, profile: str, source: 
         destination.mkdir(parents=True)
         shutil.copytree(generated, destination / "macos-sysroot")
         return {"schema_version": 1, "bootstrap": manifest}
-    destination.mkdir(parents=True)
-    artifacts = {}
-    for installer in (install_alsa, install_freetype, install_glibc, install_unwind, install_xkbcommon):
-        artifacts.update(installer(destination)["artifacts"])
-    return {"schema_version": 1, "artifacts": artifacts}
+    # Every Linux component is produced through link-inputs.yml and admitted
+    # only in its producer's current archive format, so a checkout whose
+    # inputs the published release does not match has no development inputs.
+    raise SystemExit(
+        "Linux has no development linker inputs: publish this checkout's producer candidates "
+        "through link-inputs.yml, or build the host with --skip-inputs --candidate-inputs <directory> "
+        "and stage the candidates with scripts/test_linux_link_inputs.py")
 
 def build_windows(debug: bool, source: bool = False) -> None:
     """Build the GNU host with pinned tools, stage the verified runtime, and
@@ -91,8 +92,12 @@ def main() -> None:
     parser.add_argument("--skip-inputs", action="store_true", help="reuse already staged external inputs")
     parser.add_argument("--source-inputs", action="store_true",
                         help="build external inputs from their recipes instead of the locked release")
+    parser.add_argument("--candidate-inputs", type=Path, metavar="DIRECTORY",
+                        help="a linker-input producer's candidate archives; build the host against their ALSA interface")
     args = parser.parse_args()
     target = native_target()
+    if args.candidate_inputs is not None and (not args.skip_inputs or target != "x64glibc"):
+        parser.error("--candidate-inputs needs --skip-inputs and a Linux host")
     if not args.skip_inputs and not args.source_inputs:
         from scripts.link_input_artifacts import development_requires_source_inputs
         args.source_inputs = development_requires_source_inputs(ROOT)
@@ -109,7 +114,8 @@ def main() -> None:
     if not args.debug:
         command.append("--release")
     from scripts.prepare_dependencies import cargo_environment
-    with cargo_environment(environment, target):
+    alsa_candidate = args.candidate_inputs / "alsa-x64glibc.tar" if args.candidate_inputs else None
+    with cargo_environment(environment, target, alsa_candidate):
         subprocess.run(command, cwd=ROOT, env=environment, check=True)
     profile = "debug" if args.debug else "release"
     platform_targets = ROOT / "platform/targets"

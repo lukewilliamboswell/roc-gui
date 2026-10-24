@@ -89,8 +89,8 @@ jobs:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate
       - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
-      - name: Build the production host
-        run: blueprint run build -- --skip-inputs
+      - name: Build the production host against the candidate ALSA interface
+        run: blueprint run build -- --skip-inputs --candidate-inputs "$RUNNER_TEMP/candidate"
       - name: Install native desktop runtime for portability validation
         run: |
           sudo apt-get update
