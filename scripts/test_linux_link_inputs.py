@@ -12,13 +12,12 @@ import tempfile
 from dependency_artifacts import component_inventory, unpack_verified
 from link_input_artifacts import COMPONENTS
 from release_dependencies import KINDS
-from toolchain import check_unpinned, compiler_version
+from toolchain import compiler_version
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def validate(components, output, roc):
-    check_unpinned(ROOT)
     print(f"Roc compiler: {compiler_version(roc)}", flush=True)
     if os.environ.get("IN_NIX_SHELL") or os.environ.get("LD_LIBRARY_PATH"):
         raise ValueError("portability validation must run outside the Nix shell and library overrides")

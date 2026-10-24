@@ -329,8 +329,9 @@ published artifact requires an explicit repository admission decision.
 
 Consumers use `blueprint plan build freetype --json` for the selected snapshot,
 without Nix preparation. Missing, incompatible or changed evidence cannot pass
-freshness checks. These checks require the Blueprint 0.7.0 executable on `PATH`;
-CI installs its checksum-verified release binary on every supported system.
+freshness checks. These checks require the `blueprint` executable of the release
+`Blueprint.roc` names on `PATH`; CI installs that release's binary on every
+supported system after verifying it against its reviewed SHA-256.
 The other producers retain their shared-file and standalone package-pin
 fingerprint; only FreeType-exclusive paths move to component admission.
 

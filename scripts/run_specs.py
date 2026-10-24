@@ -218,8 +218,7 @@ INTERMITTENT = {
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
-    from toolchain import check_unpinned, compiler_version
-    check_unpinned(ROOT)
+    from toolchain import compiler_version
     print(f"Roc compiler: {compiler_version(roc)}", flush=True)
     print(f"Roc application build mode: {roc_opt}", flush=True)
     if not skip_host_build:

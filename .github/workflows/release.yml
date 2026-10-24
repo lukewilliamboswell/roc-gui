@@ -87,7 +87,10 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: ./.github/actions/setup-blueprint
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+        with:
+          cache: 'true'
+          cache-workload: check
       - run: blueprint run check
 
   # Each target's host is built fresh on its own system from the release
@@ -146,7 +149,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: ./.github/actions/setup-blueprint
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
       - name: Verify the locked linker inputs' attestations
         env:
           GH_TOKEN: ${{ github.token }}
@@ -268,7 +271,7 @@ jobs:
             candidate/*.pdf
             candidate/*.zip
             candidate/release-manifest.json
-      - uses: lukewilliamboswell/roc-automation/actions/publish-release@8837e0fc99418b3fcbb04b25a0d789293858f15b
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@7aff4132691ad4fc348abe9df146a57512b49bd6
         with:
           version: ${{ needs.validate.outputs.version }}
           prerelease: ${{ needs.validate.outputs.prerelease }}

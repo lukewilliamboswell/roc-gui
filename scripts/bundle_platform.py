@@ -13,7 +13,7 @@ from gui_host_artifacts import validate_host, validate_publication_notices
 from host_build_identity import HOST_FILES, source_fingerprint
 from link_input_artifacts import TARGETS as LINK_TARGETS, _entry as link_entry, install as install_link_inputs, read_lock as read_link_lock
 
-from toolchain import check_unpinned, compiler_version
+from toolchain import compiler_version
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST_TARGETS = ("x64glibc", "arm64mac", "x64mingw")
@@ -30,7 +30,6 @@ def host_archives(directory: Path) -> dict:
 
 
 def assemble(output: Path, roc: str, link_lock: Path, host_directory: Path, cache: Path) -> Path:
-    check_unpinned(ROOT)
     compiler = compiler_version(roc)
     external_lock = read_link_lock(link_lock)
     if external_lock["repository"] != "lukewilliamboswell/roc-gui":

@@ -41,7 +41,10 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: ./.github/actions/setup-blueprint
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+        with:
+          cache: 'true'
+          cache-workload: check
       - run: blueprint run compiler-version
       - run: blueprint run check
 
@@ -61,7 +64,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: ./.github/actions/setup-blueprint
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
       - name: Download the nightly's source and verify its published digest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -91,8 +94,11 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: ./.github/actions/setup-blueprint
-      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+        with:
+          install-nix: 'true'
+          cache: 'true'
+          cache-workload: dev
       - name: Install native Linux runtime libraries
         run: |
           sudo apt-get update

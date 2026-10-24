@@ -1466,30 +1466,28 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Continuous integration
 
-- [ ] **Drop the hand-passed Blueprint checksums.** `ci.yml`, `release.yml` and
-  `link-inputs.yml` pass the 0.6.0 `sha256-*` inputs to `setup-blueprint`
-  because its recorded releases stop at 0.6.0-rc1.
-  https://github.com/lukewilliamboswell/roc-automation/pull/58 records them;
-  once it merges, move the action pin and delete the inputs.
-
 - [ ] **Take the host toolchain from Blueprint on every runner.** The host and
   linker-input jobs install Zig 0.16 and Rust 1.95.0 through
   `.github/actions/setup-toolchain`, repeating versions `Blueprint.roc` and
-  `rust-toolchain.toml` declare, with nothing checking they agree. Blueprint
-  runs no Windows CI tasks through `setup-blueprint`:
+  `rust-toolchain.toml` declare, with nothing checking they agree. The same
+  action installs the Windows `blueprint.exe` itself, admitted by a SHA-256
+  recorded beside the step, because roc-automation's shared `setup-blueprint`
+  installs no Windows binary and Blueprint runs no Windows CI tasks:
   https://github.com/lukewilliamboswell/roc-automation/issues/59. When it
   does, add `x86_64-windows` to `Systems`, fetch Zig with a recipe there, and
   delete `setup-toolchain`.
 
-- [ ] **Read the linker inputs' nixpkgs pin from Blueprint once it can be
-  read.** `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash`
-  that `Blueprint.lock` locks, and `scripts/check_all.roc` compares only the
-  revision `Blueprint.roc` declares, so a disagreement in `narHash` goes
-  unnoticed. https://github.com/lukewilliamboswell/roc-blueprint/issues/51
-  asks for `blueprint lock show --json` with a per-entry identity. When it
-  ships, derive the pin from it, fingerprint that entry alone, and delete the
-  duplicate. Moving the producers onto Blueprint `Build` waits on
-  https://github.com/lukewilliamboswell/roc-blueprint/issues/52.
+- [ ] **Read the linker inputs' nixpkgs pin from Blueprint.**
+  `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash` that
+  `Blueprint.lock` locks, and `scripts/check_all.roc` compares only the
+  revision `dependencies/FreeType.roc` declares, so a disagreement in
+  `narHash` goes unnoticed. `blueprint lock show --json nix` reports both
+  (https://github.com/lukewilliamboswell/roc-blueprint/issues/51 is closed),
+  and `scripts/check_linux_reproduction.py` already reads it. Derive the pin
+  from that report, fingerprint that entry alone, and delete the duplicate.
+  FreeType is produced through Blueprint `Build`; move the ALSA, glibc, unwind
+  and xkbcommon producers onto it the same way
+  (https://github.com/lukewilliamboswell/roc-blueprint/issues/52 is closed).
 
 - [ ] **Port the remaining automation to Roc scripts.** roc-automation keeps
   repository automation in `scripts/*.roc` run by `roc-stable`. The checks,
@@ -1510,8 +1508,17 @@ names the reproduction so the workaround can be removed when the fix lands.
   to prepare the diagrams yet:
   https://github.com/lukewilliamboswell/roc-automation/issues/60.
 
-- [ ] **Run the archived examples' specifications in `nightly.yml`.** The
-  nightly compatibility workflow builds every application of the latest
-  release's examples archive against the published bundle on each target, but
-  does not run their specifications. Run them through the release's own
-  runner, as `release.yml` does for the bundle it is about to publish.
+- [ ] **Call roc-automation's shared nightly and run the archived examples'
+  specifications.** roc-automation's reusable
+  `.github/workflows/nightly-compatibility.yml` owns selection, archive
+  admission, compilation, execution and reporting, and its manual asks each
+  repository to call it rather than keep a local copy. `nightly.yml` here is
+  that local copy without execution: it builds every application of the
+  latest release's examples archive against the published bundle on each
+  target, but runs no specification. The shared runner reads
+  `<package-name>-examples-<tag>.zip` with a `spec.json` of
+  stdout/stderr/exit-code cases, and a GUI application needs a `run` runtime
+  helper there that drives its specifications headlessly and exits. Publish
+  the examples archive in that shape, run the specifications through the
+  release's own runner as `release.yml` does for the bundle it is about to
+  publish, and replace `nightly.yml` with the one-job caller.

@@ -39,12 +39,6 @@ class ApplicationBuildTests(unittest.TestCase):
                     run_specs.build(cases, "selected-roc", True)
             self.assertEqual(raised.exception.returncode, 2)
 
-    def test_pinned_branch_fails_before_building(self) -> None:
-        with patch("toolchain.check_unpinned", side_effect=ValueError("remove .roc-version")), patch.object(run_specs.subprocess, "run") as run:
-            with self.assertRaisesRegex(ValueError, "remove .roc-version"):
-                run_specs.build([], "selected-roc", True)
-            run.assert_not_called()
-
     def test_application_backend_is_explicit_and_does_not_depend_on_app_name(self) -> None:
         for requested, expected in ((None, "dev"), ("speed", "speed")):
             with self.subTest(mode=requested), tempfile.TemporaryDirectory() as temporary:
