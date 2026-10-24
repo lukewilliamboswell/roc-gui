@@ -15,7 +15,7 @@ FreeType :: [].{
 		url = Url.from_quote(input.source.url) ?? crash "Invalid FreeType source URL"
 		[
 			Packages("nix", From(NixPackages("github:NixOS/nixpkgs/6774f7bc253789b113a4f39285dc0fa100abeacc"))),
-			Executor("freetype-native", "nix", "nix"),
+			Executor("freetype-native", Nix("nix")),
 			SourceFile("freetype-source", url, input.source.sha256),
 			Environment(
 				"freetype-producer",

@@ -4,7 +4,7 @@ repos:
       # Roc scripts run with roc-stable; run hooks inside `blueprint shell`.
       - id: no-tracked-machine-code
         name: Reject staged machine code
-        entry: scripts/check_all.roc --staged
+        entry: scripts/check_all.roc -- --staged
         language: system
         pass_filenames: false
       - id: cargo-fmt
