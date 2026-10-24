@@ -13,7 +13,7 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libfreetype6-dev libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev sway grim libvulkan1 mesa-vulkan-drivers
-    - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
       with:
         name: ci-host-${{ inputs.target }}
         path: ${{ runner.temp }}/ci-host
