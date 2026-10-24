@@ -1,34 +1,136 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "kind": "roc-gui-link-inputs",
   "repository": "lukewilliamboswell/roc-gui",
-  "release": "link-inputs-sha256-5db5017d12a565d80845394e1bd426cbc792dc38538ab6d4560e76eedc5f4913",
+  "release": "link-inputs-sha256-6337f6acdcc661ef8e1460b1edcf0d9315ac54016912839fd73b223af0297db0",
   "manifest": {
     "asset": "build-input-release.json",
-    "sha256": "5db5017d12a565d80845394e1bd426cbc792dc38538ab6d4560e76eedc5f4913"
+    "sha256": "6337f6acdcc661ef8e1460b1edcf0d9315ac54016912839fd73b223af0297db0"
   },
   "source": {
-    "input_fingerprint": "ed1b3f1757f5e8f0ff611e06ff9a5f65c5d35c68b7bdd52f46cb0e68627b6f35",
-    "ref": "refs/heads/observatory/macos-parity",
+    "input_fingerprint": "b25b256891cf35e9e5a67fda7784129f961792ba4a36a8618524971a6784a2ad",
+    "ref": "refs/heads/refactor/blueprint-0.7-freetype",
     "repository": "lukewilliamboswell/roc-gui",
-    "sha": "c5a19ff5f59cb8e69341a92e1b49a59cc20b1c22",
+    "sha": "94c85d27d4b8a7839fb90e1937f1e125294a767c",
     "workflow": "lukewilliamboswell/roc-gui/.github/workflows/link-inputs.yml"
   },
   "targets": {
     "arm64mac": {
       "asset": "link-inputs-arm64mac.tar",
-      "sha256": "38d604b8c59c6cedb2b1f72200c95a104fdce719ca683b43ff69310a6142701d",
+      "sha256": "adc0df9aa8bb22c5441eadd93a66f214e25637afda3b5cffbf9eba6a3b520056",
       "size": 573440
     },
     "x64glibc": {
       "asset": "link-inputs-x64glibc.tar",
-      "sha256": "eeac4e3b9c28a0be9c817ca36f5fdf7fd821659803ad72c6939f98f332874090",
-      "size": 13127680
+      "sha256": "88616fc0639098b59570b328a9c855402b5d319ab2db04f8d86f259c89207615",
+      "size": 13168640
     },
     "x64mingw": {
       "asset": "link-inputs-x64mingw.tar",
-      "sha256": "ff44d31076824f199c1a97bfd9b3fa245fa82545cb1cab7eb3b8779774ee20df",
-      "size": 15605760
+      "sha256": "f7b24dcc2c46afba48ab8ea6234f592164f2be16954b5414289b17bf8905a11d",
+      "size": 15626240
+    }
+  },
+  "component_builds": {
+    "freetype": {
+      "artifact": {
+        "name": "freetype-x64glibc.tar",
+        "sha256": "5dddbf5f81d025fb21b49bb4b8dcd917408269c69f3d050d415326529aa94b26",
+        "size": 6492160
+      },
+      "build_identity": "/nix/store/ipcnhkfpdvsm2h1dsb8jxc3c4f59dyfw-blueprint-freetype.drv",
+      "provider": "nix",
+      "schema_version": 1,
+      "snapshot": {
+        "name": "freetype",
+        "nodes": [
+          {
+            "command": [
+              "python3",
+              "scripts/build_freetype.py",
+              "--inside",
+              "--output",
+              "dist"
+            ],
+            "declarations": "(\n\t(build (\n\t\t(environment \"freetype-producer\")\n\t\t(inputs (\"freetype-source\"))\n\t\t(name \"freetype\")\n\t\t(needs ())\n\t\t(output \"dist\")\n\t\t(run (\"python3\" \"scripts/build_freetype.py\" \"--inside\" \"--output\" \"dist\"))))\n\t(build_executors ((\n\t\t(build \"freetype\")\n\t\t(executor \"freetype-native\"))))\n\t(build_files ((\n\t\t(build \"freetype\")\n\t\t(paths (\"dependencies/FreeType.roc\" \"dependencies/freetype.json\" \"dependencies/linux/zig-toolchain.cmake\" \"scripts/build_freetype.py\" \"scripts/blueprint_link_inputs.py\" \"scripts/dependency_archive.py\" \"scripts/dependency_artifacts.py\" \"test/dependencies/freetype.c\")))))\n\t(commands ((\n\t\t(environment \"freetype-producer\")\n\t\t(name \"zig\")\n\t\t(tool (\n\t\t\t(name \"zig_0_16\")\n\t\t\t(source \"nix\"))))))\n\t(configured_tools ())\n\t(environment ((\n\t\t(name \"freetype-producer\")\n\t\t(overlays ())\n\t\t(parents ())\n\t\t(tools ((\n\t\t\t(name \"python3\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"bash\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"coreutils\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"cmake\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"gnumake\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"pkg-config\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"patchelf\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"binutils\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"glibc\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"zlib\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"zlib.dev\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"bzip2.out\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"bzip2.dev\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"libpng\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"libpng.dev\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"harfbuzz\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"harfbuzz.dev\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"brotli.lib\")\n\t\t\t(source \"nix\")) (\n\t\t\t(name \"brotli.dev\")\n\t\t\t(source \"nix\")))))))\n\t(environment_programs ())\n\t(executors ((\n\t\t(name \"freetype-native\")\n\t\t(provider \"nix\")\n\t\t(source \"nix\"))))\n\t(expects ())\n\t(programs ())\n\t(raw ())\n\t(roc_packages ())\n\t(sources ((\n\t\t(name \"nix\")\n\t\t(provider \"nix\")\n\t\t(version 1))))\n\t(system_tools ()))",
+            "dependencies": [],
+            "environment": "freetype-producer",
+            "executor": "freetype-native",
+            "files": [
+              {
+                "digest": "sha256:38463a3c770291fa7774c8c388b327b32a64ffc3f1c1b4d6241d5ec2b6f2bc80",
+                "path": "dependencies"
+              },
+              {
+                "digest": "sha256:a41235a31b033467d343ed20253635136a80fc47d34dde14adbf33954b1aaaf2",
+                "path": "dependencies/FreeType.roc"
+              },
+              {
+                "digest": "sha256:bbd86b5e6899fe9f1d0a938e24f7968bc9317ef9be3b213c4bb673c9b0e7f5f2",
+                "path": "dependencies/freetype.json"
+              },
+              {
+                "digest": "sha256:5c14300ff6efc1f572189d2ecf74a2452f1fb517bfc8490067dfca1ab1691f61",
+                "path": "dependencies/linux"
+              },
+              {
+                "digest": "sha256:602143702e3369b2476204dad9d82f2250164a7fb6c5d164f087940d5bc00388",
+                "path": "dependencies/linux/zig-toolchain.cmake"
+              },
+              {
+                "digest": "sha256:07072badb556f9cb0d173c285c6fc5efadd864a6a2a99b5f3183e17d7a7bfdf3",
+                "path": "scripts"
+              },
+              {
+                "digest": "sha256:f2059f349030cff3310d57fc1f393e0e17a9e88da0f97250a5ac1c6fa2585795",
+                "path": "scripts/blueprint_link_inputs.py"
+              },
+              {
+                "digest": "sha256:2686e26991d118dcac0d2cf79f89247c347a4c2e3bb55bce70773b00cd3956fe",
+                "path": "scripts/build_freetype.py"
+              },
+              {
+                "digest": "sha256:c71ebe092578afe27067f8fb70af70ced80c1a1bec129abb12923f77364ac87f",
+                "path": "scripts/dependency_archive.py"
+              },
+              {
+                "digest": "sha256:668d8dc4e1965dbca77376a926cacffc24be4f905d9fb80e617f66b9216148d8",
+                "path": "scripts/dependency_artifacts.py"
+              },
+              {
+                "digest": "sha256:31e7154f88ff794ed9a3def2be7c49ad982dbe7c1609c31830875a385209042c",
+                "path": "test"
+              },
+              {
+                "digest": "sha256:10ebcc3b2859e44d9e8679f9303a311fa0840baf9d48624fe00885fdccf308c3",
+                "path": "test/dependencies"
+              },
+              {
+                "digest": "sha256:3420de45a2161bc62692e47abf059d84113f7fb52e6ebf9745ab317a139bf978",
+                "path": "test/dependencies/freetype.c"
+              }
+            ],
+            "inputs": [
+              {
+                "content_identity": "sha256:36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f",
+                "name": "freetype-source",
+                "provider": "file"
+              },
+              {
+                "content_identity": "sha256:318888f82ccbd2db968113e31ac2820c7a98b364f73b332531058e6161b4aaca",
+                "name": "nix",
+                "provider": "nix"
+              }
+            ],
+            "name": "freetype",
+            "output": "dist",
+            "selected_files": true
+          }
+        ],
+        "provider": "nix",
+        "system": "x86_64-linux"
+      },
+      "snapshot_digest": "sha256:ab9f2ebad42aff8cc187d0c27003e254b2e3d9d5374e21356e97e5b4baacf22b"
     }
   }
 }
