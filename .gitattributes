@@ -18,6 +18,16 @@ examples/image-library/icons/unreadable.svg text eol=lf
 # compute different digests and could neither reproduce nor publish a host.
 dependencies/** -text
 
+# Blueprint snapshots the FreeType producer's selected files by their exact
+# working-tree bytes on every consumer, Windows included, and admits the
+# published build only when that snapshot matches the producer's. The selected
+# scripts and probe source therefore have one byte form on every checkout.
+scripts/blueprint_link_inputs.py text eol=lf
+scripts/build_freetype.py text eol=lf
+scripts/dependency_archive.py text eol=lf
+scripts/dependency_artifacts.py text eol=lf
+test/dependencies/** -text
+
 # The Windows resource is compiled from these and released beside the host, so
 # its bytes must not depend on how a checkout wrote their line endings.
 crates/host/windows/** -text
