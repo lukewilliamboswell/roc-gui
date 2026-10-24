@@ -13,10 +13,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 TRIPLE = "x86_64-pc-windows-gnullvm"
 SDK = "10.0.26100.0"
-# Reviewed inventory run 34343278660: Microsoft-signed 10.0.26100.8249.
-FXC_SHA = "005eff830845789c7efb2831a0b41950ee6954e9bcd93baf50de67ad537728b2"
-COMPILER_SHA = "1557adab24404308657d7902fdac82ce07a120987a849acab690ab402fecf449"
-SIGNER = "F6EECCC7FF116889C2D5466AE7243D7AA7698689"
+# Reviewed from CI run 40051784606 on the hosted windows-2025 image of
+# 2026-10-24: both files carry a valid Authenticode signature whose subject is
+# CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington,
+# C=US. Earlier pins came from inventory run 34343278660 (10.0.26100.8249).
+FXC_SHA = "3c1d8f3aa0d1c970732f14d61d3a4b5dfa8ca4b7c81d567643f39f6cef412010"
+COMPILER_SHA = "8d48f0096f75c46d9c2180ed0fb12c1cb8124b3f3cc6e1262538819cbb23404c"
+SIGNER = "B835FC295FFB94EA2FCA23B0E9C1EDA3FBA4E07D"
 ZIG_URL = "https://ziglang.org/download/0.16.0/zig-x86_64-windows-0.16.0.zip"
 ZIG_SHA = "68659eb5f1e4eb1437a722f1dd889c5a322c9954607f5edcf337bc3684a75a7e"
 ZIG_SIZE = 97217739
