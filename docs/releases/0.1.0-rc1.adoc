@@ -67,9 +67,26 @@ changes:
 * `x64mingw`: Windows x86-64
 
 Every example and benchmark is rebuilt from the published bundle on each
-target, and every specification runs there, before the release is published.
-Linux needs `libfreetype6`, `libxkbcommon0` and `libxkbcommon-x11-0` at run
-time.
+target, and every specification not named under Known issues runs there,
+before the release is published. Linux needs `libfreetype6`, `libxkbcommon0`
+and `libxkbcommon-x11-0` at run time.
+
+== Known issues
+
+This candidate ships with four open defects. Each is tracked in the
+repository's backlog and is expected to close before `0.1.0`.
+
+* Observatory does not build with the default `--opt=speed` backend: the
+  compiler crashes or exhausts memory on every recent nightly. Build it with
+  `--opt=dev`, as the release tests do.
+* The compiler intermittently crashes while type-checking on Windows. A build
+  that stops with "Access violation in the Roc compiler" succeeds when run
+  again.
+* Observatory's window Timeline specification fails on hosted macOS and
+  Windows runners, where the window opens smaller than requested; it passes
+  on Linux at 1920x1080.
+* Observatory's folder-rewatch specification sometimes counts a transient
+  change beside a capture it opens, so the release tests skip it.
 
 == Examples
 
