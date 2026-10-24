@@ -41,6 +41,7 @@ Theme := [].{
 
 	## Scrollback, counts, and readouts are columnar: a fixed pitch keeps digits
 	## from shifting width as they change and lets a column align.
+	face : Gui.FontFace
 	face = Monospace
 
 	## Body type. Dense enough to read a full day of output.

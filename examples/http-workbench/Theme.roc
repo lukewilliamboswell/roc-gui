@@ -50,6 +50,7 @@ Theme := [].{
 
 	## A URL, a header, a status code, and a response body are all structured
 	## text. A fixed pitch keeps a column aligned and digits a constant width.
+	face : Gui.FontFace
 	face = Monospace
 
 	## Body type, dense enough for a full response in view.

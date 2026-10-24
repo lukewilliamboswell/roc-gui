@@ -86,6 +86,7 @@ Theme := [].{
 	quiet_active : Gui.Color
 	quiet_active = Gui.adaptive(0xe1e5ea, 0x343c45)
 
+	face : Gui.FontFace
 	face = Monospace
 
 	body = 12.U32

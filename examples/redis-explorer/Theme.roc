@@ -48,6 +48,7 @@ Theme := [].{
 
 	## Every string on screen came out of Redis or is a glob to match against
 	## one, so the whole console is set at a fixed pitch.
+	face : Gui.FontFace
 	face = Monospace
 
 	## Body type, dense enough to scan a long keyspace.
