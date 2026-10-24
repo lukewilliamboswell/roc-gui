@@ -18,11 +18,6 @@ an entry below or is a maintainer action.
   the compiler intermittently crashes on Windows".
 - [ ] Make Observatory's folder rewatch deterministic and unskip it; see
   "RELEASE BLOCKER: Observatory's folder rewatch sometimes counts a change".
-- [ ] After #40 merges, rerun roc-automation's `check-settings` with
-  `--platform`. Its last three failures need this branch on the default
-  branch: `SECURITY.md`, `.github/dependabot.yml`, and a merged pull request
-  whose jobs produced the required `CI` check. Then confirm with a pull request
-  whose `CI` fails that the merge is blocked.
 - [ ] Dry-run `release.yml` on a pull request, then dispatch it with
   `0.1.0-rc1`.
 
@@ -1024,9 +1019,14 @@ names the evidence so a fix can be verified against the same case.
   `nightly-2026-10-20-7a8a800`; it needs a Windows machine.
 
 - [ ] **RELEASE BLOCKER: the default backend does not finish building
-  Observatory.** `roc build --opt=speed examples/observatory/main.roc` on
-  `nightly-2026-10-20-7a8a800` was killed after 17 minutes of CPU at 6.9 GB
-  resident. On Linux, `nightly-2026-10-21-5349569` with
+  Observatory.** On `nightly-2026-10-23-18478ff`, `roc build --opt=speed
+  --no-cache examples/observatory/main.roc` on Linux crashes the compiler
+  with a segmentation fault after 9.1 s wall time at 1.43 GiB peak RSS, in
+  `post-check lambda_solve` on the main thread, before any executable is
+  written; the same nightly's `--opt=dev` build and `roc check`/`roc test`
+  of Observatory pass. Earlier nightlies failed differently: on
+  `nightly-2026-10-20-7a8a800` the build was killed after 17 minutes of CPU
+  at 6.9 GB resident. On Linux, `nightly-2026-10-21-5349569` with
   `--no-cache --opt=speed`, after explicitly typing the themes' `face` as `Gui.FontFace`,
   was killed by signal 9 after 37.69 s wall time at 25,582,912 KiB peak RSS
   (24.4 GiB), without producing an executable. Its `--opt=dev` build, with
