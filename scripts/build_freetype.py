@@ -26,6 +26,22 @@ def verify_source(path, source):
         raise ValueError("FreeType source differs from the reviewed recipe")
 
 
+def blueprint_source(inputs):
+    """The original upstream archive Blueprint provides to the build.
+
+    `$BLUEPRINT_INPUTS/freetype-source` is Blueprint's link into the Nix store;
+    the regular file it names holds the bytes Blueprint verified against the
+    declared hash, and the recipe verifies them again before unpacking.
+    """
+    link = Path(inputs) / "freetype-source"
+    if not link.is_symlink() and not link.is_file():
+        raise ValueError("Blueprint provided no FreeType source")
+    source = link.resolve(strict=True)
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("Blueprint FreeType source is not a regular file")
+    return source
+
+
 def check_candidate(archive, source, output, compiler):
     """Execute a glyph-rendering probe against the extracted candidate library.
 
@@ -128,6 +144,6 @@ if __name__ == "__main__":
     parser.add_argument("--rebuild", action="store_true", help="force Nix to rebuild and check reproducibility")
     args = parser.parse_args()
     if args.inside:
-        inside_builder(Path(os.environ["BLUEPRINT_INPUTS"]) / "freetype-source", args.output)
+        inside_builder(blueprint_source(os.environ["BLUEPRINT_INPUTS"]), args.output)
     else:
         build(args.output.resolve(), rebuild=args.rebuild)
