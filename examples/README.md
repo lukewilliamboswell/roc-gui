@@ -27,6 +27,10 @@ directory.
 | [Animation Studio](animation-studio/) | timeline-based graphics editor | canvas interaction, timelines, and undo |
 | [Redis Explorer](redis-explorer/) | read-only Redis client | a capability-owned TCP stream |
 | [Observatory](observatory/) | `.rgstats` capture explorer | SQLite queries over real captures and honest evidence status |
+| [Hot reload](hot-reload/) | one-component page to edit while it runs | hot reload of a root that is a component |
+
+Hot reload is the exception to the rule above: it is a minimal page to edit
+during a development session, not an application.
 
 Every completed example has deterministic first-run data, semantic locators,
 SCM specifications for its meaningful behaviour, and a scaling case reached

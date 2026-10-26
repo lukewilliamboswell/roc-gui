@@ -239,6 +239,10 @@ pub enum Command {
     Focus(Locator),
     PressKey(ControlKey),
     AwaitTask,
+    /// Start a new session with the current state through the hot-reload
+    /// entrypoint, as the host does when the running executable publishes a
+    /// new generation.
+    Reload,
     /// Resolve task completions until the locator matches this many nodes.
     ///
     /// Output arrives in as many tasks as the platform decides: a console
@@ -505,6 +509,7 @@ impl Command {
             Self::Focus(_) => "focus",
             Self::PressKey(_) => "press-key",
             Self::AwaitTask => "await-task",
+            Self::Reload => "reload",
             Self::AwaitCount(_, _) => "await-count",
             Self::ClipboardText(_) => "clipboard-text",
             Self::SystemTheme(_) => "system-theme",
@@ -708,7 +713,8 @@ impl Command {
             Self::ReplaceText(_, _)
             | Self::Submit(_)
             | Self::AwaitTaskWaits(_)
-            | Self::ExpectTaskCounters(_) => Capability::Semantic,
+            | Self::ExpectTaskCounters(_)
+            | Self::Reload => Capability::Semantic,
         }
     }
 
@@ -728,6 +734,7 @@ impl Command {
                 | Self::PressKey(_)
                 | Self::Key(_)
                 | Self::AwaitTask
+                | Self::Reload
                 | Self::AwaitCount(_, _)
                 | Self::ClipboardText(_)
                 | Self::SystemTheme(_)
@@ -1487,6 +1494,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
             })
         }
         "await-task" if values.len() == 1 => Command::AwaitTask,
+        "reload" if values.len() == 1 => Command::Reload,
         "await-count" if values.len() == 3 => {
             let expected = values[2]
                 .atom()
@@ -2267,6 +2275,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         | "focus"
         | "press-key"
         | "await-task"
+        | "reload"
         | "await-count"
         | "clipboard-text"
         | "await-ticks"
@@ -3044,6 +3053,14 @@ mod tests {
                 "{command}"
             );
         }
+    }
+
+    #[test]
+    fn reload_is_an_operation_that_takes_no_arguments() {
+        let spec = parse(r#"(test "reload" (steps (reload)))"#).unwrap();
+        assert_eq!(spec.steps[0].command, Command::Reload);
+        assert!(spec.steps[0].command.is_operation());
+        assert!(parse(r#"(test "reload" (steps (reload 1)))"#).is_err());
     }
 
     #[test]
@@ -3846,7 +3863,7 @@ mod tests {
     #[test]
     fn capabilities_partition_the_vocabulary() {
         let semantic = parse(
-            r#"(test "s" (steps (mark-metrics) (expect-patch :kind replace :staged 6 :removed 6)))"#,
+            r#"(test "s" (steps (mark-metrics) (expect-patch :kind replace :staged 6 :removed 6) (reload)))"#,
         )
         .unwrap();
         for step in &semantic.steps {

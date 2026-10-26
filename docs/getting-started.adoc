@@ -114,6 +114,47 @@ the production registries and operations but are not trusted user consent.
 Interactive resource access uses the trusted broker workflows described in the
 resource access chapter.
 
+== Reload while you edit
+
+Run an application with `roc` and no flags to start a development session with
+hot reload:
+
+[source,sh]
+----
+roc examples/hot-reload/main.roc
+----
+
+When you save a source file, the compiler builds a new application image. The
+host asks the running session for its state and starts a session of the new
+image with that state. The new session renders the state and installs its own
+dispatcher, so render functions and event handlers run from the new image. The
+state is kept.
+
+The host links the `roc_hot_reload_generation` symbol. The platform needs a Roc
+compiler that defines this symbol. An older compiler does not define it and
+cannot link the host.
+
+* A change to the layout of the `State` type requires a restart. The compiler
+  rejects the reload with "hot reload changed the platform host interface".
+* The compiler does not detect a `State` change that keeps the layout, for
+  example two fields of the same type that change places. Restart after such a
+  change.
+* A change to the platform source requires a restart. The compiler does not
+  reliably detect it.
+* A task, timer, or completion that started before the reload finishes on the
+  code that started it. A task that starts its next task from its own
+  completion, such as a sampling loop, runs the old code until the chain stops.
+* A function stored in the state keeps the code of the image that created it.
+* The new session mounts every component that has no key as a new instance,
+  as a parent render does. A task that such a component started is cancelled.
+  Editor state inside such a component resets.
+* A crash in the render function of the new image ends the process. The state
+  is lost.
+* Each reload keeps the state of the replaced session in memory until the
+  session ends.
+* The host reads the window title, size, and colours once, at startup. The
+  opening action does not run again.
+
 == Run the specifications
 
 Every application keeps its specifications in one `specs/` directory beside

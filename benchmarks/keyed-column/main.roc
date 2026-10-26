@@ -44,16 +44,28 @@ accept_command = |proposed| {
 	Gui.Action.update({ items: $next })
 }
 
+clear_first : State -> State
+clear_first = |state| match Gui.KeyedSeq.to_list(state.items).first() {
+	Ok(entry) => { items: Gui.KeyedSeq.remove(state.items, entry.key) ?? crash "remove the first keyed item" }
+	Err(_) => state
+}
+
 render : State -> Gui.Elem(State)
-render = |_state| Gui.keyed_col(
-	render_item,
-	{ label: "Persistent keyed column", gap: 6, padding: 20 },
-	{
-		key: Gui.Key.from_str("items"),
-		get: |state| state.items,
-		set: |state, items| { ..state, items },
-		on_delegate: |state, _key| accept_command(state),
-	},
+render = |_state| Gui.col(
+	{ label: "Keyed column page", gap: 6 },
+	[
+		Gui.button({ caption: "Clear first item", label: "Clear first item", on_press: |current, _| Gui.Action.update(clear_first(current)) }),
+		Gui.keyed_col(
+			render_item,
+			{ label: "Persistent keyed column", gap: 6, padding: 20 },
+			{
+				key: Gui.Key.from_str("items"),
+				get: |state| state.items,
+				set: |state, items| { ..state, items },
+				on_delegate: |state, _key| accept_command(state),
+			},
+		),
+	],
 )
 
 initial_items = Gui.KeyedSeq.from_list([

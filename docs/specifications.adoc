@@ -367,6 +367,12 @@ route.
 With no dialog, close every presenting popover; with neither, the step fails.
 `(press-key Space)`:: Activate the focused button, or toggle the focused enabled
 checkbox, through the normal Roc event route.
+`(reload)`:: Start a new session with the current state through the
+hot-reload entrypoint, as one `reload` turn. The host runs this turn when a
+development session publishes a new application image; under the
+specification runner the image is the one that started. The state is kept,
+the root renders again, and the turn installs the dispatcher that later steps
+use.
 `(remove-file "NAME")`:: Delete the direct child `NAME` of the
 `(directory copy ...)` grant, as a person deleting a file does. It changes only
 the private copy, and a specification without that grant is refused.
@@ -615,7 +621,7 @@ them silently:
 which depend on the semantic runner's per-iteration mount, and the
 `(file recording)` grant, since only the semantic runner records a capture. Also every step the
 window runner does not implement: `replace-text`, `submit`, `await-task-waits`,
-`expect-task-counters`, and the
+`expect-task-counters`, `reload`, and the
 repository fixture steps the Contributing chapter describes.
 
 `window-only`:: `settle`, `screenshot`, `type`, `resize`, `scroll`, `drag-files`,

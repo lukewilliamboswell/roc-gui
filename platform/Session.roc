@@ -1,10 +1,12 @@
 import Action
 
-## Both ABI entrypoints construct this input in Roc; its generic tagged layout
-## never crosses the ABI. One installed closure owns state and routing.
+## The dispatcher entrypoints `roc_gui_dispatch`, `roc_gui_complete`, and
+## `roc_gui_reload` construct this input in Roc; its generic tagged layout never
+## crosses the ABI. One installed closure owns state and routing.
 Session(a) :: [
 	Event(U64),
 	Completion({ owner : U64, resume : Box(Action.Completion(a)) }),
+	Reload((a, U64 => {})),
 ].{
 
 	## Deliver a host-issued event identifier to the installed dispatcher.
@@ -15,10 +17,17 @@ Session(a) :: [
 	completion : U64, Box(Action.Completion(a)) -> Session(a)
 	completion = |owner, resume| Completion({ owner, resume })
 
-	## Distinguish event dispatch from completion delivery inside the platform.
-	inspect : Session(a) -> [Event(U64), Completion({ owner : U64, resume : Box(Action.Completion(a)) })]
+	## Deliver the session start of the running application image. The installed
+	## dispatcher passes it the state and the mounted root node.
+	reload : (a, U64 => {}) -> Session(a)
+	reload = |resume!| Reload(resume!)
+
+	## Distinguish event dispatch, completion delivery, and reload inside the
+	## platform.
+	inspect : Session(a) -> [Event(U64), Completion({ owner : U64, resume : Box(Action.Completion(a)) }), Reload((a, U64 => {}))]
 	inspect = |value| match value {
 		Event(id) => Event(id)
 		Completion(completed) => Completion(completed)
+		Reload(resume!) => Reload(resume!)
 	}
 }

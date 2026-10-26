@@ -54,6 +54,11 @@ Program(state) := Config(state).{
 	run : Config(state) -> Program(state)
 	run = |config| Program.(config)
 
+	## Mount a program in place of the root node `old_root` with an existing
+	## state, as a hot reload does.
+	resume! : Program(state), state, U64 => {}
+	resume! = |Program.(Config.(config)), state, old_root| Internal.resume!(state, config.render, old_root)
+
 	## Mount a program in the native host and begin event dispatch.
 	start! : Program(state) => {}
 	start! = |Program.(Config.(config))| {
