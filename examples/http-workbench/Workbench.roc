@@ -1,6 +1,7 @@
 ## Request document state, the authority the bench currently holds, and the
 ## asynchronous HTTP transitions between them.
 import pf.Gui
+import http.Method
 import http.Request
 import http.Response
 
@@ -123,6 +124,7 @@ origin_of = |url| {
 	}
 }
 
+send_method : State, Method -> Gui.Action(State)
 send_method = |state, method| {
 	id = state.next_id
 	origin = origin_of(state.url)

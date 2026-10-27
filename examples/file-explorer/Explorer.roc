@@ -125,6 +125,7 @@ fail = |error| Failed({ hint: hint_for(error), message: describe(error) })
 ## A first line of the file's own bytes, when they are text. Reading is the one
 ## operation whose result is invisible unless the application shows it, and a
 ## byte count alone does not prove the bytes were the file's.
+preview_of : List(U8) -> Str
 preview_of = |bytes| {
 	head = bytes.take_first(preview_limit)
 	match Str.from_utf8(head) {
