@@ -1,3 +1,4 @@
+[#_release_notes]
 = Release notes
 
 Each release's notes, newest first. A release candidate's notes stay here

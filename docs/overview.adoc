@@ -1,3 +1,4 @@
+[#_what_you_build]
 = What you build
 
 Roc GUI is an action/state platform for https://www.roc-lang.org[Roc], hosted
@@ -26,6 +27,7 @@ This model keeps application decisions in ordinary Roc values and functions.
 There is no mutable widget object to synchronise with a second copy of the
 application state.
 
+[#_vocabulary]
 == Vocabulary
 
 Application:: Your Roc code: its state, render functions, and event handlers.
@@ -53,6 +55,7 @@ grant cannot be forged, widened, or turned back into a path or a URL.
 Observatory:: The opt-in recorder embedded in the host. It writes semantic and
 performance evidence to a SQLite `.rgstats` capture.
 
+[#_what_the_platform_provides]
 == What the platform provides
 
 * text;

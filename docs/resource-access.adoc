@@ -1,3 +1,4 @@
+[#_resource_access]
 = Resource access
 
 [.lead]
@@ -12,6 +13,7 @@ none of it needs permission. This chapter is about the moment your application
 wants something that belongs to the person using it — their documents, their
 network, their devices, their clipboard.
 
+[#_what_you_start_with]
 == What you start with
 
 Every application begins with a useful private environment, provided
@@ -25,6 +27,7 @@ None of these holds anyone's data but yours, and none of them can reach anything
 else, which is exactly why they need no decision from anybody. An application
 that uses only these never asks the person for anything, and should not.
 
+[#_how_you_get_more]
 == How you get more
 
 Someone gives it to you. Usually that someone is the person using your
@@ -77,6 +80,7 @@ people stop reading it. Every decision this platform asks for is attached to a
 thing the person just picked, shown in a window they recognise, at the moment
 they wanted something to happen.
 
+[#_a_grant_is_a_value]
 == A grant is a value
 
 What you get back is an ordinary Roc value. You hold it in your state, pass it
@@ -101,6 +105,7 @@ over.
 out of nothing. Every grant you hold traces back to something a person chose, or
 to the small private environment above.
 
+[#_narrowing_and_handing_things_on]
 == Narrowing, and handing things on
 
 You can always give away less than you hold, and never more.
@@ -135,6 +140,7 @@ you hand a network client to may use that client for anything. Give the narrowes
 thing that does the job, and notice when a library asks for something broad.
 ====
 
+[#_taking_it_back]
 == Taking it back
 
 A person can withdraw a grant. The trusted *App access* surface lists what this
@@ -158,6 +164,7 @@ one that does not try:
 * A grant given for a session ends with the session. Nothing carries over to the
   next run unless it was remembered, which the next section describes.
 
+[#_remembering_what_you_were_given]
 == Remembering what you were given
 
 A person who opened a document yesterday expects to find it again today without
@@ -188,6 +195,7 @@ list of everything remembered. Withdrawing a remembered grant forgets it, and
 each remembered entry can be forgotten there directly, with no help from your
 application — which is the point of offering it there.
 
+[#_why_it_is_built_this_way]
 == Why it is built this way
 
 The idea is older than most of the software that ignores it.
@@ -223,6 +231,7 @@ of abstract capabilities presented before anything has happened is not a questio
 anyone can answer. Every platform that started there has since moved the decision
 to the moment of use and attached it to the thing being used.
 
+[#_what_this_costs_you]
 == What this costs you
 
 It would be dishonest to present this as free.
@@ -242,6 +251,7 @@ It would be dishonest to present this as free.
 If a rule in this chapter costs you something and protects nobody, that is a
 defect in the platform, and worth saying so.
 
+[#_what_is_deliberately_absent]
 == What is deliberately absent
 
 * No permission list in a manifest, and no approval at install time.

@@ -9,8 +9,6 @@
 :toclevels: 3
 :sectnums:
 :sectanchors:
-:icons: font
-:source-highlighter: rouge
 :imagesdir: images
 
 [.lead]
@@ -25,6 +23,7 @@ link:api/index.html[Browse the generated API reference] ·
 link:roc-gui.pdf[Download the standalone PDF manual].
 endif::[]
 
+[#_choose_a_path]
 == Choose a path
 
 New to Roc GUI:: Read <<_what_you_build>>, then follow <<_getting_started>> to

@@ -226,10 +226,26 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      # This site tracks the branch, not a release, and says so on its title
-      # page rather than claiming the last published version.
-      - name: Build and check HTML and PDF documentation
-        run: python3 scripts/build_docs.py --pdf --docs-version main
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@ff89350926987a316333acf983f09591f19a946e
+        with:
+          cache: 'true'
+          cache-workload: docs
+      - id: renderer
+        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@ff89350926987a316333acf983f09591f19a946e
+        with:
+          task: docs-path
+          label: roc-docs tools-0.6.0
+      # This site tracks the branch and uses this run's compiler for the API.
+      - name: Build HTML, PDF, Markdown and API documentation
+        uses: lukewilliamboswell/roc-automation/actions/build-docs@ff89350926987a316333acf983f09591f19a946e
+        with:
+          renderer-binary: ${{ steps.renderer.outputs.binary }}
+          pdf-filename: roc-gui.pdf
+          docs-version: main
+          api-entrypoint: platform/main.roc
+          site-url: https://lukewilliamboswell.github.io/roc-gui/
+      - name: Check public documentation links, source text and API integration
+        run: python3 scripts/check_docs.py
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: example-gallery

@@ -1499,20 +1499,10 @@ names the reproduction so the workaround can be removed when the fix lands.
   repository automation in `scripts/*.roc` run by `roc-stable`. The checks,
   host-bindings regeneration and release notes are Roc scripts; the
   specification runner, the headless compositor wrapper, the host and
-  linker-input producers, the release bundling and the documentation build are
+  linker-input producers and the release bundling are
   still Python, with their unit tests. Port each with its tests carried across
   as `expect` tests, consolidating where scripts overlap, and delete the
   Python once the replacement runs in CI.
-
-- [ ] **Render the manual with roc-automation's `roc-docs`.** The manual is
-  built by `scripts/build_docs.py` with Asciidoctor in Docker, including
-  Mermaid diagrams rendered through Puppeteer and a Rouge lexer for Roc.
-  roc-automation renders manuals with the precompiled `roc-docs` through
-  `actions/build-docs`, which needs each Mermaid diagram prepared as a PNG
-  whose hash matches its source. Prepare the diagrams, move the theme to the
-  shared renderer, and replace the Docker build. roc-automation has no tool
-  to prepare the diagrams yet:
-  https://github.com/lukewilliamboswell/roc-automation/issues/60.
 
 - [ ] **Call roc-automation's shared nightly and run the archived examples'
   specifications.** roc-automation's reusable

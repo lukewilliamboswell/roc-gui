@@ -1,7 +1,9 @@
+[#_getting_started]
 = Getting started
 
 Roc GUI runs on Linux x86-64, macOS on Apple silicon, and Windows x86-64.
 
+[#_use_a_published_platform]
 == Use a published platform
 
 An application names a released platform by its URL and needs nothing else.
@@ -22,6 +24,7 @@ roc build --opt=dev --output=my-app main.roc
 Every release also publishes an archive of the examples with their headers
 already pointing at that platform, so they build without a checkout.
 
+[#_work_from_a_checkout_instead]
 == Work from a checkout instead
 
 Contributors build the platform locally. Install a current Roc nightly as
@@ -50,6 +53,7 @@ python3 build.py
 The result is `platform/targets/<target>/libhost.a`, where `<target>` is
 `x64glibc`, `arm64mac`, or `x64mingw`. Re-run `build.py` after a host change.
 
+[#_build_and_run_the_example]
 == Build and run the example
 
 [source,sh]
@@ -62,6 +66,7 @@ The window contains two independent counters. Their buttons show the normal
 application cycle: a press runs a Roc handler, the handler returns a new counter
 state, and only that counter's render boundary is rendered again.
 
+[#_start_an_application]
 == Start an application
 
 Create a directory with a `main.roc` file and point its platform path at this
@@ -114,6 +119,7 @@ the production registries and operations but are not trusted user consent.
 Interactive resource access uses the trusted broker workflows described in the
 resource access chapter.
 
+[#_run_the_specifications]
 == Run the specifications
 
 Every application keeps its specifications in one `specs/` directory beside
@@ -131,6 +137,7 @@ production event route and mounted graph without opening a GPUI window; window
 specifications open the real window. Pass `--only semantic` or `--only window`
 to run one kind.
 
+[#_where_to_go_next]
 == Where to go next
 
 Read <<_building_an_application>> to add interaction and split state into local

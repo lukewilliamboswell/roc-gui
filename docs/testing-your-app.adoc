@@ -1,3 +1,4 @@
+[#_testing_your_application]
 = Testing your application
 
 Every Roc GUI executable can test itself. Both specification runners live in the
@@ -14,6 +15,7 @@ specification drives.
 Build the application, then run both kinds of specifications against that same
 executable.
 
+[#_two_runners]
 == Two runners
 
 A specification is an S-expression file describing what a user does and what
@@ -41,9 +43,10 @@ roc build --opt=dev my-app.roc
 `./my-app --host-describe-specs specs/*.scm` prints one JSON line per
 specification giving the runner it needs and the capabilities it declares.
 
+[#_host_flags]
 === Host flags
 
-[cols="2,3"]
+[cols="2,3",options="header"]
 |===
 | Flag | Meaning
 
@@ -75,6 +78,7 @@ specification giving the runner it needs and the capabilities it declares.
 `--host-help` lists these flags along with the capability and measurement
 flags.
 
+[#_granting_capabilities]
 == Granting capabilities
 
 An application that reads files, reaches the network, or drives a terminal does
@@ -105,6 +109,7 @@ specification language reference lists the grant vocabulary.
   (steps ...))
 ----
 
+[#_a_first_window_specification]
 == A first window specification
 
 Start from the greeting application in the getting-started chapter and give it
@@ -182,6 +187,7 @@ specification used:
 The exit status is 0 when every step passed and 1 when one did not, so a
 specification is usable directly from a shell script or a build rule.
 
+[#_what_the_window_runner_drives]
 == What the window runner drives
 
 Keyboard input is real. `focus` moves focus through the same handle the host
@@ -202,6 +208,7 @@ not mean what its name says.
 The specification reference has the full step vocabulary and describes what
 geometry recording cannot see.
 
+[#_where_screenshots_come_from]
 == Where screenshots come from
 
 On Linux the host photographs its own frame: the renderer reads back the frame
@@ -223,6 +230,7 @@ An unavailable screenshot fails the run unless
 either way, so a machine that cannot photograph anything can still verify
 behaviour.
 
+[#_iterating_with_an_agent]
 == Iterating with an agent
 
 The report is meant to be read by a program as well as a person, which makes a
@@ -239,6 +247,7 @@ index, so the agent finds images without walking the steps.
 The loop verifies the assertions you wrote and hands back images. It does not
 judge whether the result looks good.
 
+[#_reports_are_not_captures]
 == Reports are not captures
 
 A window run writes a JSON report and images into a working directory. A

@@ -168,11 +168,25 @@ jobs:
           python3 scripts/bundle_examples.py --output "$RUNNER_TEMP/release"
           --version "$RELEASE_VERSION"
           --manifest "$RUNNER_TEMP/release/release-manifest.json"
+      - id: renderer
+        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@ff89350926987a316333acf983f09591f19a946e
+        with:
+          task: docs-path
+          label: roc-docs tools-0.6.0
       - name: Build the manual that documents these bytes
+        uses: lukewilliamboswell/roc-automation/actions/build-docs@ff89350926987a316333acf983f09591f19a946e
+        with:
+          renderer-binary: ${{ steps.renderer.outputs.binary }}
+          pdf-filename: roc-gui.pdf
+          docs-version: ${{ needs.validate.outputs.version }}
+          api-entrypoint: platform/main.roc
+          site-url: https://lukewilliamboswell.github.io/roc-gui/
+      - name: Check the complete documentation site
+        run: python3 scripts/check_docs.py
+      - name: Archive the manual and complete documentation site
         env:
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          python3 scripts/build_docs.py --pdf --docs-version "$RELEASE_VERSION"
           cp .docs-out/roc-gui.pdf "$RUNNER_TEMP/release/roc-gui-$RELEASE_VERSION.pdf"
           (cd .docs-out/site && zip -qr "$RUNNER_TEMP/release/roc-gui-docs-$RELEASE_VERSION.zip" .)
       - name: Render the release notes with the bundle's URL and the compilers

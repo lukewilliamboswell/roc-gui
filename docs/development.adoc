@@ -1,9 +1,11 @@
+[#_contributing]
 = Contributing
 
 Read `AGENTS.md` before changing the platform. The central constraint is “test
 what we fly”: tests and measurements drive the production implementation and
 never reproduce it.
 
+[#_development_environment]
 == Development environment
 
 `Blueprint.roc` declares the environment and `Blueprint.lock` fixes it. Commit
@@ -43,6 +45,7 @@ The `check` task needs no Nix: it fetches `roc-stable` and expects `roc` and
 `git` on the machine. The native tasks take their toolchain and libraries from
 the pinned Nix package set.
 
+[#_two_compilers]
 === Two compilers
 
 The platform, its applications and its benchmarks name no compiler. They are
@@ -89,6 +92,7 @@ Release packaging records the compiler that bundled the release in its
 manifest, and the release notes name it with `roc-stable`. Archived examples
 name only the released platform, like the branch sources.
 
+[#_validate_a_change]
 == Validate a change
 
 [source,sh]
@@ -118,6 +122,7 @@ the public API, hosted ABI, native owner, configuration source, and verifying
 specifications. Mark missing enforcement or evidence `Unverified`; never infer security
 from an absent public function or an opaque Roc type.
 
+[#_complete_a_platform_feature]
 == Complete a platform feature
 
 A new element, property, event, or state mechanism is complete when it has:
@@ -140,6 +145,7 @@ Exercise recorder-disabled, enabled, saturated, output-limited, interrupted,
 and writer-failure paths when changing capture infrastructure. Timing is not a
 correctness assertion.
 
+[#_fixture_backed_steps]
 == Fixture-backed steps
 
 The steps below are available to any specification, and this repository's
@@ -200,25 +206,48 @@ committed files.
 `platform/main-glue.roc` is an ABI-generation root. Applications build against
 `platform/main.roc`.
 
+[#_documentation]
 == Documentation
 
 AsciiDoc sources live in `docs/`; `docs/index.adoc` is the complete book. Build
-the HTML site with:
+the HTML site, standalone PDF, static Markdown, and compiler API reference with:
 
 [source,sh]
 ----
-python3 scripts/build_docs.py
+blueprint run docs
 ----
 
-Build the standalone PDF as well with `python3 scripts/build_docs.py --pdf`.
-Docker supplies the pinned Asciidoctor, diagram, PDF, Mermaid, and syntax
-highlighting toolchain; only Python and Docker are required on the host. Output
-is written beneath `.docs-out/`.
+Blueprint downloads the released `roc-docs` executable for the host and verifies
+its digest against `Blueprint.lock`, including restored cache bytes. The shared
+renderer supplies the HTML and PDF theme and source highlighting. The `roc` on
+PATH generates the platform API reference; it is independent of the renderer's
+tooling compiler. Output is written beneath `.docs-out/`, with the complete
+publishable site in `.docs-out/site/` and the manual at `.docs-out/roc-gui.pdf`.
+The Python compatibility command accepts a version label and compiler path:
+`python3 scripts/build_docs.py --docs-version main --roc /path/to/roc`.
+Set `DOCS_OUT` to select another output directory inside the repository.
+
+Mermaid source stays beside the prose. After editing a diagram, install
+`@mermaid-js/mermaid-cli@11.16.0` and its Chromium runtime, then run
+`python3 scripts/prepare_docs_diagrams.py`. Commit the source, PNG and SVG
+inputs under `docs/images/diagrams/`, and `docs/prepared-diagrams.json` together.
+The manifest binds the source and prepared assets by SHA-256; the renderer
+rejects stale assets. Diagram preparation is an authoring step. Ordinary manual
+builds consume those inputs without a browser or external converter.
+
+Section IDs are explicit so existing underscore links survive renderer changes.
+Keep an established ID when renaming a heading. The shared authoring profile is
+documented in
+https://lukewilliamboswell.github.io/roc-automation/documentation.html[the shared tooling manual].
+CI renders with read-only permissions and adds the tested example gallery before
+handing inert site files to the Pages deployment job. Release assembly builds the
+same documentation before the separate publishing job receives its archives.
 
 Documentation describes the product and its enduring contracts. Put defects,
 missing capabilities, and implementation tasks in `wip/issues-backlog.md`, then
 remove entries when they are resolved.
 
+[#_native_linker_inputs_and_releases]
 == Native linker inputs and releases
 
 Generated objects, libraries, TBD files, host archives, and platform bundles do
@@ -240,6 +269,7 @@ There are two kinds of release and three things that are built:
   and publishes those same tested bytes under Roc's content-addressed bundle
   name, together with each host's source companion.
 
+[#_continuous_integration]
 === Continuous integration
 
 CI produces each target's native host once per run and exercises those exact
@@ -263,6 +293,7 @@ archive a release would bundle is the one the specifications exercised.
 `release.yml` builds and composes every host the same way, from the commit it
 releases.
 
+[#_host_source_companions]
 === Host source companions
 
 Host notice selection comes from Cargo's successful build messages and is
@@ -278,6 +309,7 @@ path, Git tree identity, and a separate SHA-256 digest of the deterministic
 source archive. Notice composition and source-companion validation verify that
 archive digest; a Git revision is never used as a crate archive checksum.
 
+[#_the_windows_import_library]
 === The Windows import library
 
 A Windows link needs an import record for every DLL function the program
@@ -354,6 +386,7 @@ trusted linker-input publisher with that pull request number. The resulting
 signed lock commit makes the new symbols available to the same branch. Ordinary
 platform and host changes reuse the locked release and never invoke a producer.
 
+[#_linux_producers_with_nix]
 === Linux producers with Nix
 
 FreeType uses Blueprint's managed Build contract declared by
@@ -410,6 +443,7 @@ providers. A separate Ubuntu validation job admits the exact candidate archives,
 final-links the production host, and runs the GPUI smoke test outside Nix before
 those archives can be assembled and attested.
 
+[#_windows_inputs_from_nix_and_native_windows]
 === Windows inputs from Nix and native Windows
 
 On Linux x86-64, the Windows runtime and resource producers use
@@ -449,6 +483,7 @@ destructors, C++ and Rust unwinding, and UBSan failure. The published runtime is
 the Nix candidate that passed native execution; cross-host runtime byte equality
 is not required because the build provenance differs.
 
+[#_generated_system_library_interfaces]
 === Generated system-library interfaces
 
 When an application links to a library supplied by the target environment, its
@@ -463,6 +498,7 @@ The target system or package environment supplies the implementation at runtime.
 This keeps linker inputs independent of a distribution's filesystem layout while
 preserving normal runtime library resolution.
 
+[#_generated_macos_interfaces]
 === Generated macOS interfaces
 
 Read `dependencies/macos-interfaces/README.md` and `PROVENANCE.md` before changing
