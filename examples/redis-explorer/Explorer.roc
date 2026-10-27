@@ -25,8 +25,8 @@ import RedisData exposing [Key, Selection]
 Link : [
 	Offline,
 	Opening(U64),
-	Idle(Gui.Tcp.Stream),
-	Busy({ stream : Gui.Tcp.Stream, id : U64, doing : Str }),
+	Idle(Gui.Tcp.TcpStream),
+	Busy({ stream : Gui.Tcp.TcpStream, id : U64, doing : Str }),
 	Closing(U64),
 ]
 
@@ -47,17 +47,17 @@ Explorer := [].{
 	init = |access| { access, keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
 	connect : State -> Gui.Action(State)
 	connect = connect
-	disconnect : State, Gui.Tcp.Stream -> Gui.Action(State)
+	disconnect : State, Gui.Tcp.TcpStream -> Gui.Action(State)
 	disconnect = disconnect
-	scan : State, Gui.Tcp.Stream -> Gui.Action(State)
+	scan : State, Gui.Tcp.TcpStream -> Gui.Action(State)
 	scan = scan
-	inspect : State, Gui.Tcp.Stream, Key -> Gui.Action(State)
+	inspect : State, Gui.Tcp.TcpStream, Key -> Gui.Action(State)
 	inspect = inspect
 	set_pattern : State, Str -> State
 	set_pattern = |state, pattern| { ..state, pattern }
 }
 
-connection : Gui.Tcp.Stream -> Connection.Connection(Gui.Tcp.TcpErr, Gui.Tcp.TcpErr)
+connection : Gui.Tcp.TcpStream -> Connection.Connection(Gui.Tcp.TcpErr, Gui.Tcp.TcpErr)
 connection = |stream| {
 	transport = ByteIo.from_empty_eof({ read_bytes!: |max_bytes| stream.read_up_to!(max_bytes), write_all!: |bytes| stream.write_all!(bytes) })
 	Client.{}.attach(transport)
