@@ -99,6 +99,6 @@ Access :: Resource.Access.{
 	system_monitor! = |Access.(raw)| SystemMonitor.acquire!(raw)
 
 	## Connect to the exact endpoint supplied with `--host-cap-tcp`.
-	tcp_connect! : Access => Try(Tcp.Stream, Tcp.TcpErr)
+	tcp_connect! : Access => Try(Tcp.TcpStream, Tcp.TcpErr)
 	tcp_connect! = |Access.(raw)| Tcp.connect!(raw)
 }
