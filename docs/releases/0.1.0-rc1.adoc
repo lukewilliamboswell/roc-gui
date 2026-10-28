@@ -1,4 +1,3 @@
-[#_roc_gui_0_1_0_rc1]
 = roc-gui 0.1.0-rc1
 
 The first published release of Roc GUI, a platform for native desktop
@@ -11,7 +10,6 @@ the same binary a person runs.
 This is a release candidate. Try it, report what does not behave as the manual
 says, and expect a `0.1.0-rc2` if anything needs fixing before `0.1.0`.
 
-[#_use_this_release]
 == Use this release
 
 [source,roc]
@@ -41,7 +39,6 @@ roc build --opt=dev --output=counter main.roc
 ./counter
 ----
 
-[#_which_roc_to_use]
 == Which Roc to use
 
 The platform names no compiler. Build with a current Roc nightly; the
@@ -49,7 +46,6 @@ The platform names no compiler. Build with a current Roc nightly; the
 with. A scheduled workflow builds the release's examples on every new nightly
 and opens an issue when one stops building.
 
-[#_if_you_built_against_a_checkout]
 == If you built against a checkout
 
 Applications written against the repository before this release need these
@@ -64,7 +60,6 @@ changes:
   `track.play!()`, `pause!`, `seek!`, `status!` and `stop!`.
 * Application headers and the examples archive name no compiler.
 
-[#_targets]
 == Targets
 
 * `x64glibc`: Linux x86-64 (glibc)
@@ -76,7 +71,6 @@ target, and every specification not named under Known issues runs there,
 before the release is published. Linux needs `libfreetype6`, `libxkbcommon0`
 and `libxkbcommon-x11-0` at run time.
 
-[#_known_issues]
 == Known issues
 
 This candidate ships with four open defects. Each is tracked in the
@@ -94,7 +88,6 @@ repository's backlog and is expected to close before `0.1.0`.
 * Observatory's folder-rewatch specification sometimes counts a transient
   change beside a capture it opens, so the release tests skip it.
 
-[#_examples]
 == Examples
 
 The examples archive holds sixteen applications, from a two-counter demo to an
@@ -103,7 +96,6 @@ explorer, an image library, a music player, a system monitor, an animation
 editor and Observatory, which reads the performance captures the others
 record. Each carries its specifications beside it.
 
-[#_verify_what_you_downloaded]
 == Verify what you downloaded
 
 Every asset carries a GitHub build-provenance attestation:

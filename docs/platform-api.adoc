@@ -1,4 +1,3 @@
-[#_building_an_application]
 = Building an application
 
 Start with one state type, a render function, and event handlers that return
@@ -6,7 +5,6 @@ actions. Ordinary functions are enough to organise a small application. This
 chapter introduces local components when part of the UI needs to update
 independently, then keys and memoization when their additional guarantees help.
 
-[#_state_render_and_actions]
 == State, render, and actions
 
 An application exports a state type and `main : Gui.Program(State)`. The whole platform arrives through one import:
@@ -83,7 +81,6 @@ so a handler's first argument is always the state that precedes it. This model
 is Richard Feldman's, from his design document _Design Idea: Action-State_; the
 architecture chapter records that origin and the reasoning behind it.
 
-[#_pure_application_assembly]
 === Pure application assembly
 
 `Gui.run({ init, render, window })` describes an application with ordinary
@@ -113,7 +110,6 @@ composes them through `Gui.translate` or `Gui.translate_with`; no setup-time
 registration is needed. The host assigns each mounted boundary its lifetime.
 The module does not call `Gui.run` or choose the application's window.
 
-[#_asynchronous_actions]
 == Asynchronous actions
 
 Use `Gui.Action.task({ pending, run, resolve })` when an event needs to wait for
@@ -131,7 +127,6 @@ Tasks belong to the component that accepts them. Removing that component
 cancels its tasks. The local-state section explains how a parent can own work
 that must survive a child closing.
 
-[#_superseding_and_cancelling_tasks]
 === Superseding and cancelling tasks
 
 `Gui.Action.keyed_task({ key, pending, run, resolve })` is a task that supersedes the
@@ -163,7 +158,6 @@ Keys are scoped to the component that accepts the task, so two instances of
 one component never supersede each other. Cancelling a key with nothing in
 flight only installs the state.
 
-[#_timers_and_subscriptions]
 === Timers and subscriptions
 
 `Gui.Timer.start!({ interval_ms })` creates an opaque `Gui.Timer.Handle` for intervals
@@ -177,7 +171,6 @@ resolve as `Canceled`. Dropping the last typed `Box(U64)` handle also releases
 the host registry entry. Applications retain the handle in state and decide
 whether a `Fired` result schedules another wait.
 
-[#_elements_and_layout]
 == Elements and layout
 
 `Gui.text(value)`:: Display a string, inheriting colour and size from its
@@ -446,7 +439,6 @@ of its own, and a change of scheme repaints the window without rendering the
 application again. The window's scheme is the system's unless the application
 has chosen one with `Gui.Appearance.prefer!`.
 
-[#_appearance]
 === Appearance
 
 `Gui.Appearance.current!()` answers the system's appearance as
@@ -675,7 +667,6 @@ the parent's layout and presents nothing, and a popover or tooltip takes them
 itself. Always wrap the same element the same way, so that the region, and
 the controls inside it, keep their identity across renders.
 
-[#_modifiers]
 === Modifiers
 
 A property record is how an element is written. The code that builds an
@@ -713,7 +704,6 @@ cards = Gui.row({ width: Fill, gap: 24 }, [
 The component stays reusable at any width because it never chose one, and the
 page states its division of space without reaching into the component.
 
-[#_translations_and_local_state]
 == Translations and local state
 
 Begin by splitting a large render function into ordinary helper functions.
@@ -743,7 +733,6 @@ An unkeyed translation has a fresh lifetime whenever its parent reconstructs
 it. Its own local updates preserve its lifetime and parent-owned application
 data survives reconstruction unless an action changes it.
 
-[#_preserve_a_component_across_parent_renders]
 === Preserve a component across parent renders
 
 Use `Gui.translate_with(render, config)` when a component should keep its
@@ -778,7 +767,6 @@ candidate is discarded before invoking delegation handlers or launching tasks.
 Emitting a boundary whose getter returns
 `Err(Removed)` is an application error; omit it from the element tree instead.
 
-[#_keys_identify_instances_within_a_scope]
 === Keys identify instances within a scope
 
 Use a string literal for a fixed component, `Gui.Key.from_str` for a computed name,
@@ -798,7 +786,6 @@ compare functions to infer identity. Keep container kinds and semantic names
 stable when native interaction state should survive. A translation adds no
 padding or layout surface.
 
-[#_persistent_application_collections]
 === Persistent application collections
 
 Keep a small collection in a list unless measurements give you a reason to
@@ -820,7 +807,6 @@ translate `Missing` into `Removed`. This lets a local action replace one entry
 without copying an unrelated flat list. The row-boundaries application uses
 the same persistent index as the platform's production route registry.
 
-[#_local_updates_and_delegation]
 === Local updates and delegation
 
 Sometimes a child change also affects its parent: a counter may contribute to
@@ -849,7 +835,6 @@ translation, then calls `on_delegate(candidate)`. That handler may:
 Delegation reaching the root becomes a root update. Handlers receive current
 state. Veto commits none of the candidate, including its child changes.
 
-[#_memoization_is_opt_in]
 === Memoization is opt-in
 
 Add memoization when a parent frequently rebuilds an expensive child whose input
@@ -877,7 +862,6 @@ preserves instance identity and task ownership but rebuilds the boundary and
 resets its cache. Saved inputs can inhibit Roc's in-place updates; measure the
 production scaling cases before choosing a comparison policy.
 
-[#_tasks_follow_the_accepting_boundary]
 === Tasks follow the accepting boundary
 
 Tasks launch only after their pending-state graph transaction is accepted.
@@ -897,7 +881,6 @@ See `examples/counter` for plain translations, `examples/review-queue` for
 explicit parent policy and removable state, and `examples/terminal-workspace`
 for keyed resource-bearing panes.
 
-[#_directory_capabilities_and_tasks]
 == Directory capabilities and tasks
 
 `access.pick_directory!()` requests a trusted host-owned Open Project
@@ -950,7 +933,6 @@ host counts files hashed, hashes refused, and bytes hashed, which
 `expect-hash-counters` asserts; no name, path, or digest is evidence. Run filesystem operations inside `Gui.Action.task`, as
 `examples/folder-browser/main.roc` shows.
 
-[#_single_file_capabilities]
 == Single-file capabilities
 
 `access.pick_file!(types)` asks the person for one file in the same trusted
@@ -1006,7 +988,6 @@ clickable breadcrumbs without exposing paths. Relist a retained handle before
 committing navigation, and attach a monotonically increasing request identity
 to asynchronous work so a superseded completion cannot replace a newer view.
 
-[#_dropped_files]
 == Dropped files
 
 A file a person drags onto the window and drops on a `Gui.drop_target` is
@@ -1027,7 +1008,6 @@ exactly as a chosen file is. The document owner counts drops delivered, files
 they granted, and items they refused, which `expect-drop-counters` asserts; no
 name or path is evidence.
 
-[#_recent_files_and_folders]
 == Recent files and folders
 
 An application may remember a file or folder a person gave it, so a later run
@@ -1079,7 +1059,6 @@ the run instead, most recent first, recorded as provisioned; a provisioned
 list is never written back. A specification or smoke run without them starts
 with an empty list of its own.
 
-[#_watching_granted_files]
 == Watching granted files
 
 `directory.watch!()` subscribes to changes of a granted directory's direct
@@ -1128,7 +1107,6 @@ wait = |state, watch| Gui.Action.task({
 })
 ----
 
-[#_encoded_image_data]
 == Encoded image data
 
 `Gui.ImageData.inspect!(bytes, format)` validates bounded encoded bytes already
@@ -1147,7 +1125,6 @@ inspections, and inspection failures. Semantic specifications compare those
 numeric counters with `expect-image-owner-counters`; captures never store
 encoded content, image names, paths, dimensions, or application text.
 
-[#_shipped_application_assets]
 == Shipped application assets
 
 An application's own artwork is not user data and not durable state. It is the
@@ -1207,7 +1184,6 @@ Gui.Action.task({
 store in its state needs one to write that state down in a pure `expect`; reads
 through it fail, and it proves nothing about asset resolution.
 
-[#_validating_an_asset_set_at_startup]
 === Validating an asset set at startup
 
 An asset set may declare a `roc-assets.manifest` file at its root: an
@@ -1236,7 +1212,6 @@ The comparison is against the manifest's own declarations. Nothing walks or
 hashes the files beneath the root, so an open costs the same for one asset as
 for ten thousand.
 
-[#_what_a_store_refuses]
 === What a store refuses
 
 A store root is a directory handle, never an ambient filesystem capability. The
@@ -1253,7 +1228,6 @@ refused reads, and bytes read. Semantic specifications compare those six numbers
 with `expect-asset-counters`. No path, file name, or asset content ever becomes
 evidence.
 
-[#_process_and_pseudo_terminal_capabilities]
 == Process and pseudo-terminal capabilities
 
 `access.process!()` returns an opaque process grant only when the application is
@@ -1275,7 +1249,6 @@ Failures carry their operation in the tag, such as
 PTYs are opaque `Box(U64)` resources and cannot be confused with other handle
 kinds.
 
-[#_hid_device_capabilities]
 == HID device capabilities
 
 `access.device!()` returns an opaque grant only when the host has authorised one
@@ -1294,7 +1267,6 @@ Failures retain their operation in tags such as
 `DiscoverDeviceErr(NotFound)` and `TransactDeviceErr(Protocol)`. Connection and
 transaction lifecycle counts are recorded by the host that owns those events.
 
-[#_system_observation_capabilities]
 == System observation capabilities
 
 `access.system_monitor!()` returns an opaque typed sampler only when the host has
@@ -1314,7 +1286,6 @@ Processes are bounded and sorted by CPU, memory, then PID. Only PID, display
 name, CPU, and memory cross the ABI; user, executable path, arguments,
 environment, hostname, and machine identity do not.
 
-[#_durable_application_data]
 == Durable application data
 
 `access.app_data!()` acquires the application's private read-write directory
@@ -1332,7 +1303,6 @@ Run these blocking operations inside `Gui.Action.task`, with a monotonic request
 identity when an edit can supersede pending work. The Settings Center uses this
 route and retains a newer draft when an older load completes.
 
-[#_audio_output_capabilities]
 == Audio output capabilities
 
 `access.audio!()` acquires an opaque output handle for ordinary mixer
@@ -1357,7 +1327,6 @@ Specification runs may receive a harness-owned null-output grant. It drains
 the same paced Rodio mixer, decoder, and player state used by a system output;
 it changes only the final device sink.
 
-[#_clipboard_capabilities]
 == Clipboard capabilities
 
 `access.clipboard!()` acquires text clipboard authority only when the host
@@ -1377,7 +1346,6 @@ Pause by cancelling that timer; sensitive values are discarded before they
 enter state. Clipboard content is application data and never enters host
 diagnostics or observatory captures.
 
-[#_http_requests]
 == HTTP requests
 
 Applications declare `roc-lang/http` v1.0.0 and build its canonical `Request`
@@ -1417,7 +1385,6 @@ resolver, compare that identity with the latest state and return `Gui.Action.non
 for an obsolete result. This prevents a slow earlier response from replacing a
 newer response without creating a second completion route.
 
-[#_read_only_sqlite_capabilities]
 == Read-only SQLite capabilities
 
 `Gui.Sqlite.open_read!(directory, name)` opens one direct ordinary child of a
@@ -1483,7 +1450,6 @@ replace a newer result. `examples/database-browser` demonstrates this pattern.
 replacement, as the watching section describes. `examples/observatory` watches
 a capture while its recorder is still writing it.
 
-[#_tcp_endpoint_capabilities]
 == TCP endpoint capabilities
 
 `access.tcp_connect!()` opens an ordered byte stream to the single numeric
@@ -1511,7 +1477,6 @@ Redis Explorer adapts a stream with `roc-redis`'s `ByteIo.from_empty_eof`, so
 command encoding, bounded RESP2 decoding, typed commands, and exchange policy
 remain the responsibility of the established platform-independent package.
 
-[#_retained_canvas]
 == Retained canvas
 
 `Gui.canvas` paints an ordered list of keyed primitives in native GPUI, built
@@ -1548,7 +1513,6 @@ Each delivered hover records one `hover` cycle and each wheel scroll one
 `wheel` cycle, through the same recorded dispatch as a `drag` phase, whether a
 person or a specification moves the pointer.
 
-[#_a_canvas_drawn_for_its_size]
 === A canvas drawn for its size
 
 A canvas is laid out like any other element: its `width` and `height` are

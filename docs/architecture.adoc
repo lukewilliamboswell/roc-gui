@@ -1,4 +1,3 @@
-[#_how_roc_gui_works]
 = How Roc GUI works
 
 This chapter is the map of roc-gui for advanced users and contributors. It
@@ -12,7 +11,6 @@ memoized components can retain their complete mounted subtrees; the remainder
 is rendered and lowered into fresh nodes. Native controls retain their
 interaction state according to a separate, scoped identity contract.
 
-[#_the_model_in_one_page]
 == The model in one page
 
 roc-gui has three representations of a UI:
@@ -60,10 +58,8 @@ protected selection, persistent identity, and revocation. Opaque Roc handles
 cross that boundary, while raw paths and platform persistence mechanics do not. The
 Resource access chapter describes that boundary.
 
-[#_from_state_to_pixels]
 == From state to pixels
 
-[#_the_application_renders_a_value]
 === The application renders a value
 
 `Gui.run` supplies pure initial state, a pure renderer, and optional
@@ -81,7 +77,6 @@ pixels. It is an intermediate value consumed immediately by platform lowering.
 The application renderer runs initially and after an updating event; it does
 not run for every display frame.
 
-[#_the_platform_lowers_the_description]
 === The platform lowers the description
 
 The platform lowers the `Elem` description into native nodes with host-issued
@@ -163,7 +158,6 @@ the instance and its tasks. Unmemoized boundaries keep no input snapshot.
 Lowering ends with exactly one `Mount`, `Replace`, or `NoChange` commit. Staging
 alone cannot modify the visible graph.
 
-[#_the_host_validates_and_commits]
 === The host validates and commits
 
 The host validates a staged tree before accepting it. References and ownership
@@ -193,7 +187,6 @@ removed by replacement is stale. A component's mount token survives a matching
 rerender, but retirement ends its lifetime even if the same key is mounted
 again later.
 
-[#_the_host_materialises_gpui_views]
 === The host materialises GPUI views
 
 Ordinary newly mounted graph nodes become GPUI `Entity<NodeView>` values. Rows
@@ -353,7 +346,6 @@ layout, prepaint, paint, and presentation. roc-gui does not calculate geometry
 or issue GPU commands in Roc, and one application event does not necessarily
 correspond to one presented frame.
 
-[#_one_event_turn]
 == One event turn
 
 [mermaid]
@@ -401,7 +393,6 @@ checks that native event IDs remain live; Roc also checks the owning instance
 and its route revision. Rebuilding a live component advances its revision, so a
 callback from an old route cannot address a new handler in that same instance.
 
-[#_boundaries_determine_update_scope]
 == Boundaries determine update scope
 
 `Gui.translate(render, get, set)` relates child state to parent state and
@@ -430,7 +421,6 @@ deleted state, and emitting a boundary with a missing projection is an
 application error. Parent-owned data survives reconstruction unless changed by
 an action.
 
-[#_memoization_is_an_explicit_behavioral_contract]
 === Memoization is an explicit behavioral contract
 
 Memoization is opt-in through `memo: Some(compare)` on a keyed translation.
@@ -462,7 +452,6 @@ increase reference counts and prevent Roc's in-place updates. The single
 session avoids an unnecessary duplicate root capture; it does not guarantee
 unique ownership of lists, strings, resources, or indexed registry nodes.
 
-[#_asynchronous_action_turns]
 == Asynchronous action turns
 
 A `Gui.Action.task` proposes its pending state and a boxed worker. After graph
@@ -480,7 +469,6 @@ still exist. A removed owner's completion is discarded; it never recreates
 child state and never falls back to the root. To outlive a child, work must be
 started by a surviving ancestor, including through `on_delegate`.
 
-[#_task_lifetime_supersession_and_cancellation]
 === Task lifetime, supersession, and cancellation
 
 The host issues each task when the transaction that proposed it commits, and
@@ -558,7 +546,6 @@ broker creates a grant only for the selected project. Listing and child
 acquisition operate relative to the stored handle, and child acquisition uses
 the no-follow operation from `cap-fs-ext`.
 
-[#_there_is_no_node_level_diff]
 == There is no node-level diff
 
 roc-gui compares declared component inputs and matches explicit component keys;
@@ -585,7 +572,6 @@ The scaling suite exercises full-root collections, local boundaries, text
 density, tree depth, and tree breadth so the consequences of replacement scope
 remain visible as the implementation evolves.
 
-[#_origin_of_the_action_state_model]
 == Origin of the Action-State model
 
 The Action-State model this platform implements originates with Richard
@@ -646,7 +632,6 @@ tracker. Instance liveness answers whether an owner still exists; application
 request identity answers whether a result remains relevant to that live owner.
 Those are distinct questions, and neither replaces the other.
 
-[#_how_this_compares]
 == How this compares
 
 [cols="1,2,2,2",options="header"]
@@ -681,7 +666,6 @@ and declared memo equivalence, not a general tree diff, choose what survives. GP
 rendering invalidation; that is separate from roc-gui's application graph
 replacement model.
 
-[#_semantic_tests_use_the_production_graph]
 == Semantic tests use the production graph
 
 The semantic runner stops after the mounted-graph layer because it needs
@@ -695,7 +679,6 @@ semantic specifications prove application behaviour and mounted topology, but do
 exercise `NodeView`, display frames, layout, paint, GPU work, or presentation.
 Those require the interactive production path.
 
-[#_threading_and_observability]
 == Threading and observability
 
 Application callbacks, graph commits, GPUI entity updates, and window work stay
@@ -715,7 +698,6 @@ substitute for later layout, paint, GPU execution, or presentation. The
 Understanding captures chapter covers availability and report views, and the
 Measuring scaling chapter covers representative workloads.
 
-[#_correctness_boundaries]
 == Correctness boundaries
 
 The platform and host maintain these invariants across every event turn:
@@ -743,7 +725,6 @@ avoids allocating a temporary Roc child-identity list and then copying it into
 host storage. A patch cannot commit while a child builder remains unfinished,
 and builders must close in nesting order.
 
-[#_responsibilities_when_extending_the_platform]
 == Responsibilities when extending the platform
 
 [cols="2,4",options="header"]

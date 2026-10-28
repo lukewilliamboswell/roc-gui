@@ -1,4 +1,3 @@
-[#_understanding_captures]
 = Understanding captures
 
 Every specification run produces a versioned `.rgstats` SQLite database. The
@@ -6,7 +5,6 @@ database keeps the semantic result, attributed operation records, resource
 counters, recorder health, and privacy-safe comparison identity together. This
 supports several focused reports without inventing a second measurement format.
 
-[#_start_with_the_summary]
 == Start with the summary
 
 [source,sh]
@@ -34,7 +32,6 @@ The analyser opens databases read-only. You can also inspect them with any
 SQLite client; application-facing reports should use the supplied views so the
 evidence-status rules remain visible.
 
-[#_choose_the_question_you_are_asking]
 == Choose the question you are asking
 
 [source,sh]
@@ -178,7 +175,6 @@ Each focused view includes `evidence_status` and `evidence_reason`. Read those
 before interpreting numeric columns. Missing measurements are `NULL` rather
 than a fabricated zero.
 
-[#_what_semantic_runs_measure]
 == What semantic runs measure
 
 `scripts/run_specs.py` invokes the executable with `--host-run-spec`. The Roc
@@ -209,7 +205,6 @@ its own callback, application spans, allocation activity, and graph work.
 This distinction matters: headless graph application is useful host evidence,
 but it is not a proxy for rendering a frame.
 
-[#_what_a_drawn_frame_measures]
 == What a drawn frame measures
 
 Interactive task completions pass through the recorded callback path just as
@@ -232,7 +227,6 @@ once for the window from GPUI's own root element, between the host element's
 layout request and its prepaint. Presentation and frame completion are private
 to GPUI; a compositor frame callback would be the seam that owns them.
 
-[#_place_work_on_one_clock]
 == Place work on one clock
 
 Every interval in a capture is measured on one process-relative monotonic
@@ -287,7 +281,6 @@ an omitted cycle or frame has no row to link. Semantic-headless captures report
 both as `not_recorded`: they draw no frame and have no viewport, although their
 cycles still carry intervals.
 
-[#_count_native_rendering_work]
 == Count native rendering work
 
 Schema 18 stores native work in `gpui_native_work`, keyed by
@@ -397,7 +390,6 @@ that case. Input, focus, and layout invalidation can cause additional native
 work in other interactions; these assertions are specific evidence rather than
 an unconditional limit on rendering for every action.
 
-[#_record_an_interactive_application]
 == Record an interactive application
 
 Recording is disabled by default. Enable it on an ordinary application with:
@@ -430,7 +422,6 @@ specifications independently of capture recording. When it is enabled,
 recording failure is evidence failure; it
 does not change application behaviour.
 
-[#_read_a_capture_while_it_is_recorded]
 == Read a capture while it is recorded
 
 A capture is a write-ahead-logged SQLite database, and the recorder commits
@@ -482,7 +473,6 @@ carries no machine, user, path, or clock. A reader that sees a file's
 `capture_id` change knows the file was replaced by another capture rather than
 grown, and reads it again from the start.
 
-[#_cycle_targets]
 == Cycle targets
 
 A cycle an element caused records that element in `cycles.target_kind` and
@@ -509,7 +499,6 @@ named by where it is shown, never by its key, because an application derives
 its keys from its data. An identity is a place, not a promise: a control that
 moves has a new one.
 
-[#_comparison_identity_and_privacy]
 == Comparison identity and privacy
 
 A capture stores comparison-relevant build, executable, workload, recorder,

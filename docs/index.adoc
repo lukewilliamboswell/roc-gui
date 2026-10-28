@@ -23,26 +23,25 @@ link:api/index.html[Browse the generated API reference] ·
 link:roc-gui.pdf[Download the standalone PDF manual].
 endif::[]
 
-[#_choose_a_path]
 == Choose a path
 
-New to Roc GUI:: Read <<_what_you_build>>, then follow <<_getting_started>> to
+New to Roc GUI:: Read <<what-you-build>>, then follow <<getting-started>> to
 build the counter and a minimal application.
-Application author:: Continue through <<_building_an_application>> for the
+Application author:: Continue through <<building-an-application>> for the
 state/action/render model, elements, layout, and local state boundaries. Read
-<<_resource_access>> before an application touches anything belonging to the
+<<resource-access>> before an application touches anything belonging to the
 person using it — a document, a folder, a network service, a device.
-Specification author:: Read <<_testing_your_application>>. The executable you
+Specification author:: Read <<testing-your-application>>. The executable you
 build runs both specification runners itself, so checking behaviour, layout, and
 appearance needs no test framework and no second build.
-<<_specification_language_reference>> has the complete step vocabulary.
-Advanced application author:: Read <<_how_roc_gui_works>> for the rendering and
+<<specification-language-reference>> has the complete step vocabulary.
+Advanced application author:: Read <<how-roc-gui-works>> for the rendering and
 event lifecycles, boundary replacement model, and comparison with other GUI
 architectures.
-Performance investigator:: Start with <<_measuring_scaling>>, then use
-<<_understanding_captures>> to choose and interpret SQLite evidence views.
-Platform contributor:: Read <<_how_roc_gui_works>> before <<_resource_access>>
-and <<_contributing>>. These chapters
+Performance investigator:: Start with <<measuring-scaling>>, then use
+<<understanding-captures>> to choose and interpret SQLite evidence views.
+Platform contributor:: Read <<how-roc-gui-works>> before <<resource-access>>
+and <<contributing>>. These chapters
 cover host ownership, event routing, evidence ownership, validation, and feature
 completeness.
 

@@ -1,14 +1,11 @@
-[#_troubleshooting]
 = Troubleshooting
 
-[#_roc_build_cannot_find_libhost_a]
 == `roc build` cannot find `libhost.a`
 
 Run `python3 build.py` from the repository root. It creates
 `platform/targets/x64glibc/libhost.a`, the archive selected by the platform's
 `x64glibc` target. Rebuild it after Rust host changes.
 
-[#_the_windows_build_rejects_the_sdks_shader_tools]
 == The Windows build rejects the SDK's shader tools
 
 `build.py` compiles GPUI's shaders with the Windows SDK's `fxc.exe` and its
@@ -21,7 +18,6 @@ and records the identities it loaded; it says so as it builds. Set
 Either way an unsigned or altered pair is refused, and a refusal names the SDK
 directory it examined.
 
-[#_an_application_stops_building_after_a_roc_update]
 == An application stops building after a Roc update
 
 The platform follows the latest Roc nightly. A checkout builds with a current
@@ -30,7 +26,6 @@ the nightly it was built and tested with in its release notes, and a newer
 nightly can reject code that an older one accepted. Update the platform to its
 latest release, or build with the nightly its notes name.
 
-[#_the_executable_rejects_an_argument]
 == The executable rejects an argument
 
 Host arguments belong after the executable name. Supported options include
@@ -39,7 +34,6 @@ Host arguments belong after the executable name. Supported options include
 controls described in the observatory chapter. `--host-help` lists them all.
 The host rejects unknown arguments.
 
-[#_a_click_locator_is_missing_or_ambiguous]
 == A click locator is missing or ambiguous
 
 Check the `label` field passed to `Gui.button`. A role locator uses this
@@ -47,7 +41,6 @@ semantic name, not the visible text. Names must be unique among the buttons
 present at that step. If a preceding click replaced a boundary, locate
 the new button by name rather than retaining an old host node identity.
 
-[#_a_specification_passes_but_performance_columns_are_null]
 == A specification passes but performance columns are `NULL`
 
 Run `semantic_health` and `capture_health` first. If both are complete, `NULL`
@@ -55,7 +48,6 @@ means the selected backend did not perform or instrument that work. Semantic
 headless runs do not open a window, so GPUI layout, paint, and presentation
 cannot be inferred from them.
 
-[#_a_comparison_is_rejected]
 == A comparison is rejected
 
 Compare captures for the same specification and benchmark policy, built for a
@@ -63,7 +55,6 @@ compatible target, backend, profile, recorder policy, and machine properties.
 Generate both serially and use `--aa` to measure normal variation. The analyzer
 rejects incomplete captures before calculating ratios.
 
-[#_the_documentation_build_cannot_render_diagrams]
 == The documentation build cannot render diagrams
 
 Run `python3 scripts/prepare_docs_diagrams.py` with Mermaid CLI 11.16.0 and its

@@ -1,4 +1,3 @@
-[#_measuring_scaling]
 = Measuring scaling
 
 A scaling benchmark is a realistic Roc application driven by the same semantic
@@ -19,7 +18,6 @@ backend by default. Compare captures from the same backend and executable
 before interpreting timing differences; the Rust host uses its independent
 release build profile.
 
-[#_benchmark_policy]
 == Benchmark policy
 
 Add a `benchmark` clause before `steps`:
@@ -57,7 +55,6 @@ The declared scale is a label until the application proves it. Requiring a
 matching `expect-count` prevents a fast but broken “10,000 row” case from being
 reported when it created fewer rows.
 
-[#_read_a_scale_ladder]
 == Read a scale ladder
 
 One large case cannot distinguish fixed cost from growth. Measure the same
@@ -82,7 +79,6 @@ Timing is diagnostic evidence, not a pass/fail threshold. Semantic assertions,
 patch expectations, scale verification, and capture health are deterministic
 gates.
 
-[#_verify_depth_with_a_process_stack_budget]
 == Verify depth with a process-stack budget
 
 Tree-shape specifications exercise ordinary construction, lifted structural
@@ -102,7 +98,6 @@ application recursion or GPUI layout and paint depth. Record failures and
 their owning call paths in the backlog rather than widening the process stack
 to make the result pass.
 
-[#_bound_recorder_detail_overhead]
 == Bound recorder detail overhead
 
 Use the same realistic scaling case and isolated job count for both recorder
@@ -124,7 +119,6 @@ range remained inside the summary range. Treat 1% as the observed detail-policy
 overhead bound for this case. Timing remains report-only, and a performance
 decision reruns the bound on its comparison machine.
 
-[#_workload_families]
 == Workload families
 
 The suite varies operations and shapes that applications naturally produce:
@@ -216,7 +210,6 @@ operation to an existing family when it uses the same state and interaction
 model; create a separate application when the data model or UI shape is
 materially different.
 
-[#_compare_two_captures]
 == Compare two captures
 
 Generate captures serially on the same machine and compare matching cases:
