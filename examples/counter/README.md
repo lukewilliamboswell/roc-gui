@@ -33,6 +33,8 @@ There is no grant. The application performs no I/O and has no capability.
 
 `counting.scm` and `independence.scm` run on the semantic runner and cover
 counting across zero, reversal, and the independence of the two cards.
+`hot-reload.scm` reloads the application and checks that both tallies survive
+and the controls still count.
 `keyboard.scm`, `pointer.scm`, `on-screen.scm`, and `screenshots.scm` run
 against the real window: they assert that the cards and controls were laid out
 on screen at the expected sizes, and photograph the result.

@@ -6,7 +6,7 @@ platform ""
 	packages {
 		http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 	}
-	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch!, "roc_gui_complete": gui_complete!, "roc_gui_run_task": gui_run_task! }
+	provides { "roc_gui_init": gui_init!, "roc_gui_dispatch": gui_dispatch!, "roc_gui_complete": gui_complete!, "roc_gui_run_task": gui_run_task!, "roc_gui_reload": gui_reload!, "roc_gui_state_layout": gui_state_layout! }
 	hosted {
 		"roc_gui_node_text": Host.node_text!,
 		"roc_gui_node_styled_text": Host.node_styled_text!,
@@ -171,3 +171,14 @@ gui_complete! = |dispatch_box, completion_box, owner| Box.unbox(dispatch_box)(Se
 
 gui_run_task! : Box((() => Work)) => {}
 gui_run_task! = |task_box| Work.run!(Box.unbox(task_box)(), |_, _| {})
+
+# Passing a function read directly from `main` panics the compiler, so the
+# closure reads `main` inside its body.
+gui_reload! : Box((Session(State) => {})) => {}
+gui_reload! = |dispatch_box| Box.unbox(dispatch_box)(Session.reload(|state, old_root| Program.resume!(main, state, old_root)))
+
+# The host never calls this entrypoint. Its argument puts these layouts in the
+# host interface, so the compiler rejects a hot reload that changes them. The
+# interface does not describe the code behind erased callables.
+gui_state_layout! : Box({ state : State, session : Session(State), elem : Elem(State) }) => {}
+gui_state_layout! = |_| {}

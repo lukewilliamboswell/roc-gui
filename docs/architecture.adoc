@@ -384,9 +384,13 @@ sequenceDiagram
 The session is one-shot state: one boxed dispatcher owns the state, routes, and
 boundaries valid for the mounted graph. Events and worker completions enter
 that same dispatcher through a typed Roc message, and each accepted turn
-installs its successor. The ABI erases boxed callables, not an unboxed generic
-state union. There are no separate installed event and completion closures
-forcing duplicate captures of the root state.
+installs its successor. A hot reload enters the same dispatcher with the
+session start of the new application image. The dispatcher passes its state and
+its root node to that function, which renders the state with the new image,
+replaces the root node, and installs the dispatcher of the new image. The ABI
+erases boxed callables, not an unboxed generic state union. There are no
+separate installed event and completion closures forcing duplicate captures of
+the root state.
 
 Handlers receive the latest state rather than a render-time snapshot. The host
 checks that native event IDs remain live; Roc also checks the owning instance

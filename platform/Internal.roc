@@ -1483,8 +1483,8 @@ Internal := [].{
 		$steps
 	}
 
-	update_keyed! : BoundaryInfo(a), Elem.Frame, a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
-	update_keyed! = |owner, props, state, task, task_owner, render, routes, boundaries| {
+	update_keyed! : BoundaryInfo(a), Elem.Frame, a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_keyed! = |owner, props, state, task, task_owner, routes, boundaries| {
 		Host.work_start!(2)
 		Host.component_work!(0, 1)
 		render! = owner.render
@@ -1529,7 +1529,7 @@ Internal := [].{
 									Some(worker) => enqueue_work!(task_owner, worker)
 								}
 								Host.work_end!(0)
-								install!(state, render, built.routes, Index.set(built.boundaries, owner.key, updated))
+								install!(state, built.routes, Index.set(built.boundaries, owner.key, updated))
 								Work.done
 							},
 						),
@@ -1589,7 +1589,7 @@ Internal := [].{
 			$keyed_index = $keyed_index + 1
 		}
 		keyed_meta = if completed.keyed_container == 0 {
-			{ container: cleared.keyed_container, revision: cleared.keyed_revision, items: cleared.keyed_items }
+			{ container: 0, revision: 0, items: KeyedSeq.empty() }
 		} else {
 			{ container: completed.keyed_container, revision: completed.keyed_revision, items: $keyed_items }
 		}
@@ -1603,22 +1603,24 @@ Internal := [].{
 			keyed_container: keyed_meta.container,
 			keyed_revision: keyed_meta.revision,
 			keyed_items: keyed_meta.items,
-			keyed: match completed.keyed {
-				Some(value) => Some(value)
-				None => cleared.keyed
-			},
+			keyed: completed.keyed,
 		}
 		var $settled_routes = lowered.routes
 		var $settled_boundaries = lowered.boundaries.stored
+		previous_children =
+			if owner.keyed_container == 0
+				owner.children
+			else
+				owner.children.concat(KeyedSeq.to_list(owner.keyed_items).map(|item| item.value))
 		# Retirement needs the live-child set only when a previous child can
 		# actually be missing; an initial mount or an unchanged child list —
 		# the common full-root case — retires nothing and builds no index.
-		if !owner.children.is_empty() and owner.children != current.children {
+		if !previous_children.is_empty() and previous_children != completed.children {
 			var $live = Index.empty()
-			for child in current.children {
+			for child in completed.children {
 				$live = Index.set($live, child, True)
 			}
-			for previous in owner.children {
+			for previous in previous_children {
 				match Index.get($live, previous) {
 					Ok(_) => {}
 					Err(_) => {
@@ -1675,16 +1677,16 @@ Internal := [].{
 		},
 	)
 
-	apply_action! : Action(a), a, U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
-	apply_action! = |action, state, origin, render, routes, boundaries| match Action.inspect(action) {
+	apply_action! : Action(a), a, U64, Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	apply_action! = |action, state, origin, routes, boundaries| match Action.inspect(action) {
 		NoChange => Work.flush(
 			|| {
 				Host.apply!(NoChange)
-				install!(state, render, routes, boundaries)
+				install!(state, routes, boundaries)
 				Work.done
 			},
 		)
-		Deferred(_) => Work.next(|| Action.resolve_work!(action, |resolved| Work.next(|| apply_action!(resolved, state, origin, render, routes, boundaries))))
+		Deferred(_) => Work.next(|| Action.resolve_work!(action, |resolved| Work.next(|| apply_action!(resolved, state, origin, routes, boundaries))))
 		_ => {
 			source = Index.get(boundaries, origin) ?? crash "missing action owner"
 			levels = Action.owner_levels(action)
@@ -1729,13 +1731,13 @@ Internal := [].{
 				}
 			}
 			match Action.inspect(action) {
-				Refresh => update_boundary!(state, None, owner, owner, render, routes, $dirty)
-				Update(next) => update_boundary!(next, None, owner, owner, render, routes, $dirty)
-				Delegate(next) => update_boundary!(next, None, 0, 0, render, routes, $dirty)
-				Task(task) => update_boundary!(task.pending, Some({ key: task.key, run: task.run }), owner, owner, render, routes, $dirty)
+				Refresh => update_boundary!(state, None, owner, owner, routes, $dirty)
+				Update(next) => update_boundary!(next, None, owner, owner, routes, $dirty)
+				Delegate(next) => update_boundary!(next, None, 0, 0, routes, $dirty)
+				Task(task) => update_boundary!(task.pending, Some({ key: task.key, run: task.run }), owner, owner, routes, $dirty)
 				Cancel(canceled) => {
 					Host.cancel_task!(owner, canceled.key)
-					update_boundary!(canceled.state, None, owner, owner, render, routes, $dirty)
+					update_boundary!(canceled.state, None, owner, owner, routes, $dirty)
 				}
 				_ => crash "action changed during dispatch"
 			}
@@ -1767,15 +1769,15 @@ Internal := [].{
 		),
 	)
 
-	update_boundary! : a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, U64, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => Work
-	update_boundary! = |state, task, task_owner, render_owner, render, routes, boundaries| {
+	update_boundary! : a, [None, Some({ key : Str, run : Box(Action.Worker(a)) })], U64, U64, Index(Route(a)), Index(BoundaryInfo(a)) => Work
+	update_boundary! = |state, task, task_owner, render_owner, routes, boundaries| {
 		owner = Index.get(boundaries, render_owner) ?? crash "missing render owner"
 		keyed = match owner.keyed {
 			Some(keyed_props) => Some(keyed_props)
 			None => None
 		}
 		match keyed {
-			Some(value) => update_keyed!(owner, value, state, task, task_owner, render, routes, boundaries)
+			Some(value) => update_keyed!(owner, value, state, task, task_owner, routes, boundaries)
 			None => unchanged!(
 				owner,
 				state,
@@ -1789,7 +1791,7 @@ Internal := [].{
 										None => {}
 										Some(worker) => enqueue_work!(task_owner, worker)
 									}
-									install!(state, render, routes, boundaries)
+									install!(state, routes, boundaries)
 									Work.done
 								},
 							)
@@ -1807,7 +1809,7 @@ Internal := [].{
 											None => {}
 											Some(worker) => enqueue_work!(task_owner, worker)
 										}
-										install!(state, render, lowered.routes, lowered.boundaries)
+										install!(state, lowered.routes, follow_root(lowered.boundaries, owner.root, lowered.root))
 										Work.done
 									},
 								),
@@ -1819,12 +1821,20 @@ Internal := [].{
 		}
 	}
 
-	install! : a, (a -> Elem(a)), Index(Route(a)), Index(BoundaryInfo(a)) => {}
-	install! = |state, render, routes, boundaries| {
+	# The root boundary has no node of its own: its node is its top element's.
+	# When that element is a child boundary, rebuilding the child replaces it.
+	follow_root : Index(BoundaryInfo(a)), U64, U64 -> Index(BoundaryInfo(a))
+	follow_root = |boundaries, old_root, new_root| match Index.get(boundaries, 0) {
+		Ok(top) if top.root == old_root => Index.set(boundaries, 0, { ..top, root: new_root })
+		_ => boundaries
+	}
+
+	install! : a, Index(Route(a)), Index(BoundaryInfo(a)) => {}
+	install! = |state, routes, boundaries| {
 		discard! = || Work.flush(
 			|| {
 				Host.apply!(NoChange)
-				install!(state, render, routes, boundaries)
+				install!(state, routes, boundaries)
 				Work.done
 			},
 		)
@@ -1850,7 +1860,7 @@ Internal := [].{
 											|resolved| Work.next(
 												|| {
 													Host.work_end!(1)
-													apply_action!(resolved, state, route.boundary, render, routes, boundaries)
+													apply_action!(resolved, state, route.boundary, routes, boundaries)
 												},
 											),
 										)
@@ -1880,7 +1890,7 @@ Internal := [].{
 											|resolved| Work.next(
 												|| {
 													Host.work_end!(1)
-													apply_action!(resolved, state, completed.owner, render, routes, boundaries)
+													apply_action!(resolved, state, completed.owner, routes, boundaries)
 												},
 											),
 										),
@@ -1892,6 +1902,12 @@ Internal := [].{
 						},
 					),
 				)
+				Reload(resume!) => Work.flush(
+					|| {
+						resume!(state, (Index.get(boundaries, 0) ?? crash "missing root boundary").root)
+						Work.done
+					},
+				)
 			}
 			run_work!(work)
 		}
@@ -1902,6 +1918,31 @@ Internal := [].{
 	open_route : U64
 	open_route = 0
 
+	root_boundary : (a -> Elem(a)) -> BoundaryInfo(a)
+	root_boundary = |render| { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty(), keyed: None }
+
+	## Render `state` with `render` in place of the root node `old_root`, and
+	## install this image's dispatcher in place of the running one.
+	resume! : a, (a -> Elem(a)), U64 => {}
+	resume! = |state, render, old_root| {
+		Host.begin_render!(0)
+		run_work!(
+			rebuild!(
+				root_boundary(render),
+				state,
+				Index.empty(),
+				Index.empty(),
+				|lowered| Work.flush(
+					|| {
+						Host.apply!(Replace({ old_root, root: lowered.root }))
+						install!(state, lowered.routes, lowered.boundaries)
+						Work.done
+					},
+				),
+			),
+		)
+	}
+
 	start! : a, (a -> Elem(a)), { title : Str, width : U32, height : U32, background : Style.Color, foreground : Style.Color }, [None, Some((a => Action(a)))] => {}
 	start! = |initial, render, window, on_open| {
 		opens = match on_open {
@@ -1909,7 +1950,7 @@ Internal := [].{
 			Some(_) => True
 		}
 		Host.window_config!(window.title, window.width, window.height, color(window.background), color(window.foreground), opens)
-		root = { key: 0, parent: None, path: [0], render: |state, done!| Work.next(|| done!(render(state))), root: 0, bound: None, memo: Unknown, revision: 0, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_items: KeyedSeq.empty(), keyed: None }
+		root = root_boundary(render)
 		Host.begin_render!(0)
 		run_work!(
 			rebuild!(
@@ -1927,7 +1968,7 @@ Internal := [].{
 							None => lowered.routes
 							Some(handler) => Index.set(lowered.routes, open_route, { id: open_route, boundary: 0, revision: revision(lowered.boundaries, 0), fire: |current, _| handler(current) })
 						}
-						install!(initial, render, routes, lowered.boundaries)
+						install!(initial, routes, lowered.boundaries)
 						Work.done
 					},
 				),

@@ -2056,6 +2056,31 @@ fn run_lifecycle_inner(spec: &Spec, run_id: i64) -> Result<(), String> {
                 cycle_ordinal += 1;
                 Ok(())
             }
+            Command::Reload => {
+                let cycle_started = Instant::now();
+                observatory::reset_roc_work();
+                let roc_started = Instant::now();
+                let patch = crate::reload();
+                let roc_ns = elapsed_ns(roc_started);
+                let (roc_work, roc_work_valid) = observatory::take_roc_work();
+                let facts = apply_transaction(&mut graph, patch)?;
+                last_patch = Some(facts);
+                pending_cycles.push(make_cycle(
+                    run_id,
+                    cycle_ordinal,
+                    Some(ordinal),
+                    if marked { "measured" } else { "setup" },
+                    "reload",
+                    None,
+                    cycle_started,
+                    roc_ns,
+                    roc_work,
+                    &facts,
+                    roc_work_valid,
+                ));
+                cycle_ordinal += 1;
+                Ok(())
+            }
             Command::AwaitCount(locator, expected) => {
                 // A wait can deliver several production turns. Record each callback
                 // and its own graph decision, never combine work with another patch.

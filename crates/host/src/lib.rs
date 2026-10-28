@@ -104,6 +104,8 @@ fn host_bindings() -> Vec<KeyBinding> {
 unsafe extern "C" {
     fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable, owner: u64);
     fn roc_gui_run_task(task: RocErasedCallable);
+    fn roc_gui_reload(dispatcher: RocErasedCallable);
+    fn roc_hot_reload_generation() -> u64;
 }
 
 #[derive(Debug)]
@@ -284,6 +286,7 @@ thread_local! {
     static RESIZE_EVENT: RefCell<Option<bridge::Resize>> = const { RefCell::new(None) };
     static DROP_EVENT: RefCell<Option<document::Dropped>> = const { RefCell::new(None) };
     static STAGED_TURN: RefCell<StagedTurn> = RefCell::new(StagedTurn::default());
+    static RELOADED_DISPATCHERS: RefCell<Vec<RocErasedCallable>> = const { RefCell::new(Vec::new()) };
 }
 
 #[derive(Clone, Copy)]
@@ -2068,6 +2071,42 @@ fn dispatch(event_id: u64) -> Patch {
             "Roc dispatch did not install its successor"
         );
     });
+    take_patch()
+}
+
+/// The hot-reload generation the running executable publishes. It is 0 for
+/// every build other than a development hot-reload session. A session
+/// publishes it on its first entrypoint call, so read it only after
+/// initialization.
+fn hot_reload_generation() -> u64 {
+    unsafe { roc_hot_reload_generation() }
+}
+
+const HOT_RELOAD_POLL: Duration = Duration::from_millis(100);
+
+/// Start a session of the latest application image with the current state.
+/// The installed dispatcher keeps running the image that built it, so only an
+/// entrypoint call reads code from the latest image.
+pub(crate) fn reload() -> Patch {
+    observatory::begin_component_work();
+    let dispatcher = BRIDGE.with(|bridge| {
+        bridge
+            .borrow()
+            .dispatcher
+            .expect("Roc dispatcher is not installed")
+    });
+    unsafe { incref_erased_callable(dispatcher, 2) };
+    unsafe { roc_gui_reload(dispatcher) };
+    STAGED_TURN.with(|turn| {
+        assert!(
+            turn.borrow().dispatcher.is_some(),
+            "Roc reload did not install its successor"
+        );
+    });
+    // Static data that the state holds, such as a long Str literal, lives only
+    // while a callable from its image is retained. The replaced dispatcher is
+    // never released, so every earlier image stays mapped for the session.
+    RELOADED_DISPATCHERS.with(|kept| kept.borrow_mut().push(dispatcher));
     take_patch()
 }
 
@@ -4196,6 +4235,9 @@ struct VirtualListCache {
 
 struct InitialMount {
     patch: Patch,
+    /// The hot-reload generation read after initialization; 0 when the
+    /// executable is not a development hot-reload session.
+    hot_reload_generation: u64,
     cycle_started: Instant,
     roc_callback_ns: u64,
     roc_work: [observatory::RocWork; observatory::ROC_WORK_KINDS],
@@ -4364,7 +4406,61 @@ impl Runtime {
             }
         })
         .detach();
+        if initial.hot_reload_generation != 0 {
+            let executor = cx.background_executor().clone();
+            // A session publishes generation 1 for its first image. A larger
+            // startup value means a later image was published before the read;
+            // the first poll then reloads once, even when initialization already
+            // ran that image.
+            let mut seen_generation = 1;
+            cx.spawn(async move |runtime, cx| {
+                loop {
+                    executor.timer(HOT_RELOAD_POLL).await;
+                    if runtime.upgrade().is_none() {
+                        break;
+                    }
+                    let generation = hot_reload_generation();
+                    if generation == seen_generation {
+                        continue;
+                    }
+                    seen_generation = generation;
+                    if runtime
+                        .update(cx, |runtime, cx| runtime.hot_reload(cx))
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            })
+            .detach();
+        }
         runtime
+    }
+
+    /// Start a session of the latest application image with the current
+    /// state, as one `reload` cycle no element caused.
+    fn hot_reload(&mut self, cx: &mut Context<Self>) {
+        if observatory::active() {
+            let cycle_started = Instant::now();
+            observatory::reset_roc_work();
+            let roc_started = Instant::now();
+            let patch = reload();
+            let roc_callback_ns = elapsed_ns(roc_started);
+            let (roc_work, roc_work_valid) = observatory::take_roc_work();
+            self.apply_recorded(
+                patch,
+                "reload",
+                None,
+                cycle_started,
+                roc_callback_ns,
+                roc_work,
+                roc_work_valid,
+                cx,
+            );
+        } else {
+            let patch = reload();
+            self.apply_unrecorded(patch, cx);
+        }
     }
 
     fn canvas_pointer_for_node(
@@ -7519,6 +7615,7 @@ pub unsafe extern "C" fn main(_argc: i32, _argv: *const *const i8) -> i32 {
     let (roc_work, roc_work_valid) = observatory::take_roc_work();
     let initial = InitialMount {
         patch: take_patch(),
+        hot_reload_generation: hot_reload_generation(),
         cycle_started,
         roc_callback_ns,
         roc_work,
@@ -8593,6 +8690,47 @@ mod tests {
     }
 
     #[test]
+    fn a_reload_installs_the_successor_and_keeps_the_replaced_dispatcher() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicU64, Ordering},
+        };
+        let old_drops = Arc::new(AtomicU64::new(0));
+        let next_drops = Arc::new(AtomicU64::new(0));
+        let old = counted_callable(&old_drops);
+        let next = counted_callable(&next_drops);
+        super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher = Some(old));
+        super::roc_test_symbols::RELOAD_ENTRYPOINT.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(move |dispatcher| {
+                assert_eq!(dispatcher, old);
+                unsafe { super::decref_erased_callable(dispatcher, super::roc_host()) };
+                super::roc_gui_set_dispatch(next);
+                super::BRIDGE.with(|bridge| bridge.borrow_mut().pending = Some(Patch::NoChange));
+            }));
+        });
+
+        assert!(matches!(super::reload(), Patch::NoChange));
+        let mut graph = MountedGraph::default();
+        let applied = graph.apply(Patch::NoChange).expect("empty accepted turn");
+        super::accept_transaction(&graph, &applied);
+
+        assert_eq!(old_drops.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            super::BRIDGE.with(|bridge| bridge.borrow().dispatcher),
+            Some(next)
+        );
+        let kept = super::RELOADED_DISPATCHERS.with(|kept| std::mem::take(&mut *kept.borrow_mut()));
+        assert_eq!(kept, vec![old]);
+        super::roc_test_symbols::RELOAD_ENTRYPOINT.with(|slot| slot.borrow_mut().take());
+        unsafe { super::decref_erased_callable(old, super::roc_host()) };
+        assert_eq!(old_drops.load(Ordering::Relaxed), 1);
+        let installed = super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher.take());
+        unsafe { super::decref_erased_callable(installed.unwrap(), super::roc_host()) };
+        assert_eq!(next_drops.load(Ordering::Relaxed), 1);
+        observatory::reject_component_work();
+    }
+
+    #[test]
     fn stale_epoch_completion_is_dropped_without_invoking_the_session() {
         use std::sync::{
             Arc,
@@ -8810,6 +8948,7 @@ mod tests {
     fn initial_mount(patch: Patch) -> InitialMount {
         InitialMount {
             patch,
+            hot_reload_generation: 0,
             cycle_started: Instant::now(),
             roc_callback_ns: 0,
             roc_work: [observatory::RocWork::default(); observatory::ROC_WORK_KINDS],
@@ -11177,6 +11316,162 @@ mod tests {
             assert_eq!(runtime.graph.popover_counters().as_array(), [1, 1, 0]);
         });
     }
+
+    /// Answers the reload entrypoint as an image would: it consumes the
+    /// dispatcher it is passed, installs a successor, and stages a patch that
+    /// replaces the graph root.
+    struct ReloadHarness {
+        reloads: Rc<std::cell::Cell<u32>>,
+        old_drops: std::sync::Arc<std::sync::atomic::AtomicU64>,
+    }
+
+    impl ReloadHarness {
+        fn install(runtime: &gpui::Entity<Runtime>, cx: &mut VisualTestContext) -> Self {
+            let mut replacement =
+                runtime.read_with(cx, |runtime, _| runtime.graph.node(1001).unwrap().clone());
+            replacement.id = 2000;
+            if let NodeKind::Button { label, caption, .. } = &mut replacement.kind {
+                *label = "Reloaded".into();
+                *caption = "Reloaded".into();
+            }
+            let old_drops = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let next_drops = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let old = counted_callable(&old_drops);
+            super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher = Some(old));
+            let reloads = Rc::new(std::cell::Cell::new(0u32));
+            let counted = reloads.clone();
+            super::roc_test_symbols::RELOAD_ENTRYPOINT.with(|slot| {
+                *slot.borrow_mut() = Some(Box::new(move |dispatcher| {
+                    counted.set(counted.get() + 1);
+                    unsafe { super::decref_erased_callable(dispatcher, super::roc_host()) };
+                    super::roc_gui_set_dispatch(counted_callable(&next_drops));
+                    super::BRIDGE.with(|bridge| {
+                        bridge.borrow_mut().pending = Some(Patch::Replace {
+                            old_root: 1000,
+                            root: 2000,
+                            nodes: vec![replacement.clone()],
+                        })
+                    });
+                }));
+            });
+            Self { reloads, old_drops }
+        }
+
+        fn reloads(&self) -> u32 {
+            self.reloads.get()
+        }
+
+        /// Release what the session keeps until it ends, and report how many
+        /// replaced dispatchers it kept.
+        fn finish(self) -> usize {
+            use std::sync::atomic::Ordering;
+            super::roc_test_symbols::RELOAD_ENTRYPOINT.with(|slot| slot.borrow_mut().take());
+            assert_eq!(self.old_drops.load(Ordering::Relaxed), 0);
+            let kept =
+                super::RELOADED_DISPATCHERS.with(|kept| std::mem::take(&mut *kept.borrow_mut()));
+            for dispatcher in &kept {
+                unsafe { super::decref_erased_callable(*dispatcher, super::roc_host()) };
+            }
+            if let Some(installed) =
+                super::BRIDGE.with(|bridge| bridge.borrow_mut().dispatcher.take())
+            {
+                unsafe { super::decref_erased_callable(installed, super::roc_host()) };
+            }
+            assert_eq!(self.old_drops.load(Ordering::Relaxed), 1);
+            observatory::reject_component_work();
+            kept.len()
+        }
+    }
+
+    fn set_hot_reload_generation(value: u64) {
+        super::roc_test_symbols::HOT_RELOAD_GENERATION.with(|generation| generation.set(value));
+    }
+
+    /// A new hot-reload generation is one reload turn on the window's poll
+    /// clock, applied as a live patch. An unchanged generation calls nothing.
+    #[gpui::test]
+    fn a_new_hot_reload_generation_reloads_once(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let nodes = two_hover_buttons(1000);
+        set_hot_reload_generation(1);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            let mut initial = initial_mount(Patch::Mount { root: 1000, nodes });
+            initial.hot_reload_generation = 1;
+            Runtime::new(initial, cx)
+        });
+        let reloads = ReloadHarness::install(&runtime, cx);
+
+        cx.executor().advance_clock(super::HOT_RELOAD_POLL);
+        cx.run_until_parked();
+        assert_eq!(
+            reloads.reloads(),
+            0,
+            "the startup generation is not a reload"
+        );
+
+        set_hot_reload_generation(2);
+        cx.executor().advance_clock(super::HOT_RELOAD_POLL);
+        cx.run_until_parked();
+        assert_eq!(reloads.reloads(), 1);
+        runtime.read_with(cx, |runtime, _| {
+            assert!(runtime.graph.node(1000).is_none());
+            assert!(runtime.graph.node(1001).is_none());
+            assert!(matches!(
+                runtime.graph.node(2000).map(|node| &node.kind),
+                Some(NodeKind::Button { label, .. }) if label == "Reloaded"
+            ));
+        });
+
+        cx.executor().advance_clock(super::HOT_RELOAD_POLL * 3);
+        cx.run_until_parked();
+        assert_eq!(reloads.reloads(), 1, "a seen generation is not a reload");
+
+        assert_eq!(reloads.finish(), 1);
+        set_hot_reload_generation(0);
+    }
+
+    /// A startup generation above 1 means a rebuild landed while the first
+    /// image initialized, and the first poll reloads once.
+    #[gpui::test]
+    fn a_rebuild_during_initialization_reloads_on_the_first_poll(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let nodes = two_hover_buttons(1000);
+        set_hot_reload_generation(2);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            let mut initial = initial_mount(Patch::Mount { root: 1000, nodes });
+            initial.hot_reload_generation = 2;
+            Runtime::new(initial, cx)
+        });
+        let reloads = ReloadHarness::install(&runtime, cx);
+
+        cx.executor().advance_clock(super::HOT_RELOAD_POLL * 3);
+        cx.run_until_parked();
+        assert_eq!(reloads.reloads(), 1);
+
+        assert_eq!(reloads.finish(), 1);
+        set_hot_reload_generation(0);
+    }
+
+    /// An executable that starts at generation 0 is not a hot-reload session
+    /// and never polls, whatever the symbol returns later.
+    #[gpui::test]
+    fn a_zero_startup_generation_never_reloads(cx: &mut TestAppContext) {
+        let _events = recording_dispatcher();
+        let nodes = two_hover_buttons(1000);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        let reloads = ReloadHarness::install(&runtime, cx);
+
+        set_hot_reload_generation(5);
+        cx.executor().advance_clock(super::HOT_RELOAD_POLL * 3);
+        cx.run_until_parked();
+        assert_eq!(reloads.reloads(), 0);
+        runtime.read_with(cx, |runtime, _| assert!(runtime.graph.node(1000).is_some()));
+
+        assert_eq!(reloads.finish(), 0);
+        set_hot_reload_generation(0);
+    }
 }
 
 /// Roc-shaped symbols so the host's own test binary links without a compiled
@@ -11211,6 +11506,32 @@ mod roc_test_symbols {
     #[unsafe(no_mangle)]
     extern "C" fn roc_gui_run_task(_task: RocErasedCallable) {
         unreachable!("a host test called into Roc");
+    }
+
+    type ReloadEntrypoint = Box<dyn Fn(RocErasedCallable)>;
+
+    thread_local! {
+        pub(crate) static RELOAD_ENTRYPOINT: std::cell::RefCell<Option<ReloadEntrypoint>> =
+            const { std::cell::RefCell::new(None) };
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_gui_reload(dispatcher: RocErasedCallable) {
+        RELOAD_ENTRYPOINT.with(|slot| {
+            let slot = slot.borrow();
+            let entrypoint = slot.as_ref().expect("a host test called into Roc");
+            entrypoint(dispatcher);
+        });
+    }
+
+    thread_local! {
+        pub(crate) static HOT_RELOAD_GENERATION: std::cell::Cell<u64> =
+            const { std::cell::Cell::new(0) };
+    }
+
+    #[unsafe(no_mangle)]
+    extern "C" fn roc_hot_reload_generation() -> u64 {
+        HOT_RELOAD_GENERATION.with(std::cell::Cell::get)
     }
 }
 
