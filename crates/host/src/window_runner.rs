@@ -1201,11 +1201,7 @@ async fn run_step(
                 window.resize(size(px(*width as f32), px(*height as f32)));
             })
             .map_err(|_| StepError::WindowClosed)?;
-            settle(window, 2, options.timeout, cx).await?;
-            // A resized window reads its pointer from the system again.
-            cx.update_window(window.into(), |_, window, cx| restore_pointer(window, cx))
-                .map_err(|_| StepError::WindowClosed)?;
-            settle(window, 1, options.timeout, cx).await
+            settle(window, 2, options.timeout, cx).await
         }
         Command::Scroll { region, motion } => {
             // A scroll target is located in the drawn frame.
@@ -2122,7 +2118,11 @@ fn native_window(_window: &gpui::Window) {}
 static POINTER: std::sync::Mutex<Option<gpui::Point<gpui::Pixels>>> = std::sync::Mutex::new(None);
 
 /// Deliver a step's pointer event, remembering where it leaves the pointer.
-fn dispatch_pointer(window: &mut gpui::Window, input: gpui::PlatformInput, cx: &mut App) {
+pub(crate) fn dispatch_pointer(
+    window: &mut gpui::Window,
+    input: gpui::PlatformInput,
+    cx: &mut App,
+) {
     let position = match &input {
         gpui::PlatformInput::MouseMove(event) => Some(event.position),
         gpui::PlatformInput::MouseDown(event) => Some(event.position),
@@ -2137,8 +2137,8 @@ fn dispatch_pointer(window: &mut gpui::Window, input: gpui::PlatformInput, cx: &
 }
 
 /// Put the window's pointer where the specification left it. GPUI reads the
-/// system cursor when it opens or resizes a window, and a cursor resting over
-/// a control would make it hovered before any step entered it.
+/// system cursor when it opens, activates, or resizes a window, and a cursor
+/// resting over a control would make it hovered before any step entered it.
 fn restore_pointer(window: &mut gpui::Window, cx: &mut App) {
     let position = POINTER
         .lock()
@@ -2154,6 +2154,21 @@ fn restore_pointer(window: &mut gpui::Window, cx: &mut App) {
     );
 }
 
+/// Keep the specification's pointer authoritative when GPUI reads the system
+/// cursor again after activation or a bounds change.
+pub(crate) fn own_the_pointer(window: &mut gpui::Window, cx: &mut gpui::Context<Runtime>) {
+    block_system_pointer(window);
+    cx.observe_window_bounds(window, |_, window, cx| {
+        let handle = window.window_handle();
+        // Pointer callbacks update Runtime. Release the observer's Runtime
+        // borrow before sending the event through GPUI's production route.
+        cx.defer(move |cx| {
+            let _ = cx.update_window(handle, |_, window, cx| restore_pointer(window, cx));
+        });
+    })
+    .detach();
+}
+
 /// A specification's window takes its pointer only from the specification.
 ///
 /// Its steps move, press, and scroll the window's pointer themselves. On a
@@ -2164,7 +2179,7 @@ fn restore_pointer(window: &mut gpui::Window, cx: &mut App) {
 /// them; the keyboard, painting, and every event a step dispatches are
 /// untouched. Elsewhere a specification window receives no stray pointer.
 #[cfg(windows)]
-fn own_the_pointer(window: &gpui::Window) {
+fn block_system_pointer(window: &gpui::Window) {
     use windows_sys::Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM},
         UI::Shell::{DefSubclassProc, SetWindowSubclass},
@@ -2194,7 +2209,7 @@ fn own_the_pointer(window: &gpui::Window) {
 }
 
 #[cfg(not(windows))]
-fn own_the_pointer(_window: &gpui::Window) {}
+fn block_system_pointer(_window: &gpui::Window) {}
 
 fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rect, StepError> {
     window
@@ -2214,8 +2229,8 @@ fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rec
 pub fn spawn(spec: Spec, window: WindowHandle<Runtime>, options: Options, cx: &mut App) {
     cx.spawn(async move |cx| {
         crate::watchdog::milestone(crate::watchdog::Milestone::DriverStarted);
+        let _ = window.update(cx, |_, window, cx| own_the_pointer(window, cx));
         let _ = cx.update_window(window.into(), |_, window, cx| {
-            own_the_pointer(window);
             restore_pointer(window, cx);
         });
         let file_baseline = crate::files::operation_counts();

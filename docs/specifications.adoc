@@ -770,8 +770,10 @@ passing quietly. `drag` presses, moves, and releases the window's pointer
 through GPUI's own event dispatch, so the press is hit-tested and the
 production listeners follow the move. `hover-enter` and `hover-exit` dispatch mouse-move events into
 the live GPUI window, exercising hit testing, production views, and the normal
-event route. They do not move the operating-system pointer. GPUI tests also
-verify replacement continuity and disabled or stale routes. The Testing your
+event route. They do not move the operating-system pointer. The specification
+owns its simulated pointer across window activation and resizing; the physical
+cursor cannot change its hover target. GPUI tests also verify replacement
+continuity and disabled or stale routes. The Testing your
 application chapter explains why, and what each guarantee is worth.
 
 === What the probe cannot see

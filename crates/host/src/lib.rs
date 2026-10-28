@@ -11070,6 +11070,87 @@ mod tests {
     }
 
     #[gpui::test]
+    fn window_runner_keeps_its_pointer_across_activation_and_bounds_updates(
+        cx: &mut TestAppContext,
+    ) {
+        let _events = recording_dispatcher();
+        let nodes = noted_controls(1000, 400);
+        let (runtime, cx) = open_with_pointer_outside(cx, |_, cx| {
+            Runtime::new(initial_mount(Patch::Mount { root: 1000, nodes }), cx)
+        });
+        runtime.update_in(cx, |_, window, cx| {
+            crate::window_runner::own_the_pointer(window, cx)
+        });
+        let move_pointer = |cx: &mut VisualTestContext, position| {
+            cx.update(|window, cx| {
+                crate::window_runner::dispatch_pointer(
+                    window,
+                    gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
+                        position,
+                        pressed_button: None,
+                        modifiers: Modifiers::none(),
+                    }),
+                    cx,
+                );
+            });
+            cx.run_until_parked();
+        };
+        let outside = point(px(-10.0), px(-10.0));
+        move_pointer(cx, outside);
+
+        // The test platform reports its cursor at the origin, over the first
+        // anchor. Activation and bounds refresh must retain our outside point.
+        cx.deactivate_window();
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        cx.update(|window, _| assert_eq!(window.mouse_position(), outside));
+        cx.update(|window, cx| window.bounds_changed(cx));
+        cx.run_until_parked();
+        cx.update(|window, _| assert_eq!(window.mouse_position(), outside));
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1001].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| assert!(runtime.graph.popover_open(1003)));
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1002].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert_eq!(runtime.graph.popover_counters().as_array(), [1, 1, 0]);
+        });
+
+        // A genuine injected hover must survive the same refreshes and keep
+        // the note open after focus moves away, until the pointer leaves too.
+        let inside = point(px(10.0), px(10.0));
+        move_pointer(cx, inside);
+        cx.deactivate_window();
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.bounds_changed(cx));
+        cx.run_until_parked();
+        cx.update(|window, _| assert_eq!(window.mouse_position(), inside));
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1001].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.update_in(cx, |runtime, window, cx| {
+            runtime.focus_handles[&1002].focus(window, cx)
+        });
+        cx.run_until_parked();
+        runtime.read_with(cx, |runtime, _| {
+            assert!(runtime.graph.popover_open(1003));
+            assert_eq!(runtime.graph.popover_counters().as_array(), [2, 1, 0]);
+        });
+        move_pointer(cx, outside);
+        runtime.read_with(cx, |runtime, _| {
+            assert!(!runtime.graph.popover_open(1003));
+            assert_eq!(runtime.graph.popover_counters().as_array(), [2, 2, 0]);
+        });
+    }
+
+    #[gpui::test]
     fn popover_opens_to_keyboard_focus_and_closes_when_focus_leaves(cx: &mut TestAppContext) {
         let _events = recording_dispatcher();
         let nodes = noted_controls(1000, 400);
