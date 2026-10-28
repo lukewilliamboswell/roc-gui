@@ -1,6 +1,6 @@
 app [State, main] {
 	pf: platform "../../platform/main.roc",
-	redis: "https://github.com/lukewilliamboswell/roc-redis/releases/download/0.1.0-rc5/AmMndy4GVcCnTyyewXbkRnbrTJ4st528pFzoSr9ausAk.tar.zst",
+	redis: "https://github.com/lukewilliamboswell/roc-redis/releases/download/0.1.0-rc6/9NUUP4FRtPwLgJxKTTkn4usW9NKSruAhxudC1KdmiDbP.tar.zst",
 }
 import pf.Gui
 import Explorer
