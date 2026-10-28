@@ -254,7 +254,8 @@ begins satisfies it immediately, having awaited nothing, so a locator matching
 something left over from an earlier step proves nothing about this one. Wait for
 what the step under test produces, such as the output of the command it sent.
 `(await-task)`:: Wait for exactly one accepted worker task and apply its
-completion through the normal latest-state route. A task that resolves to
+completion through the normal latest-state route. Concurrent tasks may complete
+in a different order from the order they were issued. A task that resolves to
 another task requires another `await-task` step.
 +
 On the window runner this claim is weaker, and knowingly so: frames are what

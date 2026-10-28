@@ -1,16 +1,16 @@
-; A discovery that completes after a second one started. The abandoned result
-; belongs to a generation nobody is waiting for, so it must not populate the
-; device list behind the discovery still in flight.
-(test "the superseded discovery applies nothing when it lands"
+; Both discovery requests run through the production worker pool. Either may
+; complete first; after both completions the current request owns the list.
+; Configurator.roc tests that its actual resolver returns NoChange for an older
+; generation, for both successful and failed discovery results.
+(test "overlapping discoveries settle on one device list"
   (grants
     (device virtual))
   (steps
     (click (role button :name "Discover devices"))
     (click (role button :name "Discover devices"))
     (expect-visible (text "Discovering devices"))
-    (await-task)
-    (expect-visible (text "Discovering devices"))
     (expect-not-visible (text-prefix "Device 0:"))
+    (await-task)
     (await-task)
     (expect-visible (text "Found 1 device"))
     (expect-visible (text "Device 0: Roc Labs Aurora Control Pad"))))
