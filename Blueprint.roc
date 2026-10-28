@@ -4,6 +4,7 @@
 #     blueprint run build    # the host and every application
 #     blueprint run test     # the application specifications
 #     blueprint run lint     # Clippy over the host
+#     blueprint run docs     # HTML, PDF, Markdown and compiler API reference
 #     blueprint shell        # the development environment
 #     blueprint update       # refresh Blueprint.lock
 #
@@ -13,7 +14,15 @@
 app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.8.0/FbJymjYdCxx9vqMcau7r4tQfeAbnVGqqJoYrLGqPCqKu.tar.zst" }
 
 import pf.Recipes
+import pf.Config
+import pf.System
 import dependencies/FreeType
+
+docs_renderer : System -> Config.Download
+docs_renderer = |system| match system {
+	"x86_64-linux" | "aarch64-darwin" => File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.6.0/roc-docs-${system.to_str()}")
+	_ => Unavailable
+}
 
 config = [
 	Name("roc-gui"),
@@ -34,6 +43,9 @@ config = [
 	# Regenerating the host bindings formats them with the repository's Rust
 	# toolchain, which rustup selects from rust-toolchain.toml.
 	Environment("glue", [Extend("scripts"), Expect(["cargo"])]),
+	# The renderer is a verified native download; API generation uses the
+	# caller's compiler, independently of the tooling compiler above.
+	Environment("docs", [Programs([Fetch("roc-docs", docs_renderer)]), Expect(["realpath", "sh"])]),
 	Environment(
 		"dev",
 		[
@@ -70,6 +82,8 @@ config = [
 	Task("build", [Use("dev"), Run(["python3", "build.py"])]),
 	Task("test", [Use("dev"), Run(["python3", "scripts/run_specs.py", "--roc", "roc"])]),
 	Task("lint", [Use("dev"), Run(["python3", "scripts/run_cargo.py", "clippy", "--locked", "--package", "roc-gui-host", "--all-targets", "--no-deps", "--", "-D", "warnings"])]),
+	Task("docs", [Use("docs"), Run(["roc-docs", "build", "--workspace", ".", "--pdf-filename", "roc-gui.pdf", "--site-url", "https://lukewilliamboswell.github.io/roc-gui/", "--api-entrypoint", "platform/main.roc"])]),
+	Task("docs-path", [Use("docs"), Run(["sh", "-c", "realpath \"$(command -v roc-docs)\""])]),
 	# Regenerate the committed host bindings: regenerate-glue -- <roc source>.
 	Task("regenerate-glue", [Use("glue"), Run(["scripts/regenerate_glue.roc"])]),
 	# Render a release's notes: release-notes -- <version> <bundle filename> <output>.

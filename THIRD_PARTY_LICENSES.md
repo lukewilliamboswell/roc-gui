@@ -26,9 +26,11 @@ through reviewed locks that record their exact identities, hashes, and sizes.
   reviewed fork <https://github.com/lukewilliamboswell/zed> at the exact
   revision pinned in `crates/host/Cargo.toml` and `Cargo.lock`. They are
   licensed under Apache-2.0; see each crate's `LICENSE-APACHE`.
-- Space Grotesk and Plus Jakarta Sans, used to set the documentation: see
-  `docs/theme/fonts/`. Both are licensed under the SIL Open Font License,
-  version 1.1, and are redistributed here in their unmodified released form.
+- Documentation fonts are supplied by the locked `roc-docs` utility. Its
+  bundled notices are available through `roc-docs --licenses` and the shared
+  tools release's `roc-docs-LICENSES.txt`. Generated sites carry the SIL Open
+  Font License 1.1 notices for Space Grotesk and Plus Jakarta Sans under
+  `_roc-docs/fonts/` beside the font files.
 - Lucide icons, used as the artwork of several examples -- including the
   attention mark in `examples/system-monitor/icons/` and the attention and USB
   marks in `examples/device-configurator/icons/`: see the `NOTICE.md`

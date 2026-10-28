@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "diagrams": [
+    {
+      "source_sha256": "655d7f9f4c7223580b81d4619da1adbaed38d263ded090f45095384b77053ad1",
+      "href": "images/diagrams/architecture-1.png",
+      "png": "images/diagrams/architecture-1.png",
+      "png_sha256": "b407a169adcdaa810e0f2cf4695ea96ac6d81049c33c0de559e24302b5ef3099",
+      "svg": "images/diagrams/architecture-1.svg",
+      "svg_sha256": "86bcc9919f579a16c35e060c2d7f126c05311314efd9be6cb50a03993fbe1fc2"
+    },
+    {
+      "source_sha256": "e6006e9ae13721828e0405038bdce4022b61fa595d4f3437d8e7166daf674cd4",
+      "href": "images/diagrams/architecture-2.png",
+      "png": "images/diagrams/architecture-2.png",
+      "png_sha256": "dae8ccad3342f849a8eae08706ecd8eda2c2706f05ea827e0de471a0f5334dc3",
+      "svg": "images/diagrams/architecture-2.svg",
+      "svg_sha256": "567623f16eef3ea61620f222c0558d05a3a6322adc5406417da8a1d25eae489e"
+    },
+    {
+      "source_sha256": "cd3d3ab86da99669a02b88d823575b8e18e64bb3e91cff814e94554c24327e5e",
+      "href": "images/diagrams/overview-1.png",
+      "png": "images/diagrams/overview-1.png",
+      "png_sha256": "951da997b11165ab3c45e00dc1829c7818a53edd4eb2112032d52ea6b491a458",
+      "svg": "images/diagrams/overview-1.svg",
+      "svg_sha256": "d8f83ec13426e268b498e31bdd5c4136f6419baaffebc4503f5513cfa689ee77"
+    }
+  ]
+}

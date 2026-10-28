@@ -57,7 +57,8 @@ rejects incomplete captures before calculating ratios.
 
 == The documentation build cannot render diagrams
 
-Run `python3 scripts/build_docs.py --pdf` with Docker available. The pinned
-documentation image contains Asciidoctor, the PDF and diagram extensions,
-Mermaid CLI, Chromium, and the source highlighters; none of these are installed
-on the host.
+Run `python3 scripts/prepare_docs_diagrams.py` with Mermaid CLI 11.16.0 and its
+Chromium runtime after changing a Mermaid block. Commit its prepared PNG, SVG,
+and manifest together with the source. The shared renderer checks their digests
+and rejects a missing or stale preparation. Run `blueprint run docs` to build
+the manual and API reference with the updated inputs.

@@ -43,7 +43,7 @@ specification giving the runner it needs and the capabilities it declares.
 
 === Host flags
 
-[cols="2,3"]
+[cols="2,3",options="header"]
 |===
 | Flag | Meaning
 

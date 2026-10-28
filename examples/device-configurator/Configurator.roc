@@ -114,11 +114,13 @@ discover = |state| {
 				Ok(devices) => Discovered(devices)
 			}
 		},
-		resolve: |latest, result| if latest.generation != next Gui.Action.none() else match result {
-			DiscoveryFailed(err) => Gui.Action.update({ ..latest, status: refusal(err) })
-			Discovered(devices) => Gui.Action.update({ ..latest, devices, status: Discovered(List.len(devices)) })
-		},
+		resolve: |latest, result| resolve_discovery(latest, next, result),
 	})
+}
+
+resolve_discovery = |latest, generation, result| if latest.generation != generation Gui.Action.none() else match result {
+	DiscoveryFailed(err) => Gui.Action.update({ ..latest, status: refusal(err) })
+	Discovered(devices) => Gui.Action.update({ ..latest, devices, status: Discovered(List.len(devices)) })
 }
 
 connect = |state| {
@@ -206,4 +208,33 @@ toggle_lighting = |state, checked| match state.config {
 select_profile = |state, profile| match state.config {
 	None => state
 	Some(config) => edited(state, { ..config, profile })
+}
+
+## Older worker completions carry no action, whether they succeeded or failed.
+expect match Gui.Action.inspect(resolve_discovery({ generation: 2, devices: [], status: Discovering }, 1, Discovered([]))) {
+	NoChange => True
+	_ => False
+}
+
+expect match Gui.Action.inspect(resolve_discovery({ generation: 2, devices: [], status: Discovering }, 1, DiscoveryFailed(DiscoverDeviceErr(NotFound)))) {
+	NoChange => True
+	_ => False
+}
+
+## The current generation installs the result through the same resolver.
+expect match Gui.Action.inspect(resolve_discovery({ generation: 2, devices: [], status: Discovering }, 2, Discovered([{ manufacturer: "Roc Labs", product: "Aurora Control Pad", product_id: 1.U16, vendor_id: 0x1209.U16 }]))) {
+	Update(next) => next.generation == 2 and next.status == Discovered(1) and List.len(next.devices) == 1
+	_ => False
+}
+
+## An older completion is also inert when the current one arrived first.
+expect {
+	devices = [{ manufacturer: "Roc Labs", product: "Current device", product_id: 2.U16, vendor_id: 0x1209.U16 }]
+	match Gui.Action.inspect(resolve_discovery({ generation: 2, devices: [], status: Discovering }, 2, Discovered(devices))) {
+		Update(current) => current.devices == devices and match Gui.Action.inspect(resolve_discovery(current, 1, Discovered([]))) {
+			NoChange => True
+			_ => False
+		}
+		_ => False
+	}
 }

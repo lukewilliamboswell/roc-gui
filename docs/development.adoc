@@ -203,17 +203,38 @@ committed files.
 == Documentation
 
 AsciiDoc sources live in `docs/`; `docs/index.adoc` is the complete book. Build
-the HTML site with:
+the HTML site, standalone PDF, static Markdown, and compiler API reference with:
 
 [source,sh]
 ----
-python3 scripts/build_docs.py
+blueprint run docs
 ----
 
-Build the standalone PDF as well with `python3 scripts/build_docs.py --pdf`.
-Docker supplies the pinned Asciidoctor, diagram, PDF, Mermaid, and syntax
-highlighting toolchain; only Python and Docker are required on the host. Output
-is written beneath `.docs-out/`.
+Blueprint downloads the released `roc-docs` executable for the host and verifies
+its digest against `Blueprint.lock`, including restored cache bytes. The shared
+renderer supplies the HTML and PDF theme and source highlighting. The `roc` on
+PATH generates the platform API reference; it is independent of the renderer's
+tooling compiler. Output is written beneath `.docs-out/`, with the complete
+publishable site in `.docs-out/site/` and the manual at `.docs-out/roc-gui.pdf`.
+Pass renderer options after `--`, for example
+`blueprint run docs -- --docs-version main --roc-command /path/to/roc`.
+Use `--output-directory` to select another output directory inside the repository.
+
+Mermaid source stays beside the prose. After editing a diagram, install
+`@mermaid-js/mermaid-cli@11.16.0` and its Chromium runtime, then run
+`python3 scripts/prepare_docs_diagrams.py`. Commit the source, PNG and SVG
+inputs under `docs/images/diagrams/`, and `docs/prepared-diagrams.json` together.
+The manifest binds the source and prepared assets by SHA-256; the renderer
+rejects stale assets. Diagram preparation is an authoring step. Ordinary manual
+builds consume those inputs without a browser or external converter.
+
+Headings receive IDs automatically. Use those IDs in cross-references and
+reserve explicit IDs for intentional permalinks.
+The shared authoring profile is documented in
+https://lukewilliamboswell.github.io/roc-automation/documentation.html[the shared tooling manual].
+CI renders with read-only permissions and adds the tested example gallery before
+handing inert site files to the Pages deployment job. Release assembly builds the
+same documentation before the separate publishing job receives its archives.
 
 Documentation describes the product and its enduring contracts. Put defects,
 missing capabilities, and implementation tasks in `wip/issues-backlog.md`, then
