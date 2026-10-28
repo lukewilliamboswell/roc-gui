@@ -223,9 +223,9 @@ renderer supplies the HTML and PDF theme and source highlighting. The `roc` on
 PATH generates the platform API reference; it is independent of the renderer's
 tooling compiler. Output is written beneath `.docs-out/`, with the complete
 publishable site in `.docs-out/site/` and the manual at `.docs-out/roc-gui.pdf`.
-The Python compatibility command accepts a version label and compiler path:
-`python3 scripts/build_docs.py --docs-version main --roc /path/to/roc`.
-Set `DOCS_OUT` to select another output directory inside the repository.
+Pass renderer options after `--`, for example
+`blueprint run docs -- --docs-version main --roc-command /path/to/roc`.
+Use `--output-directory` to select another output directory inside the repository.
 
 Mermaid source stays beside the prose. After editing a diagram, install
 `@mermaid-js/mermaid-cli@11.16.0` and its Chromium runtime, then run
@@ -235,9 +235,8 @@ The manifest binds the source and prepared assets by SHA-256; the renderer
 rejects stale assets. Diagram preparation is an authoring step. Ordinary manual
 builds consume those inputs without a browser or external converter.
 
-Section IDs are explicit so existing underscore links survive renderer changes.
-Keep an established ID when renaming a heading. The shared authoring profile is
-documented in
+Give sections explicit IDs and keep them stable when renaming headings.
+The shared authoring profile is documented in
 https://lukewilliamboswell.github.io/roc-automation/documentation.html[the shared tooling manual].
 CI renders with read-only permissions and adds the tested example gallery before
 handing inert site files to the Pages deployment job. Release assembly builds the

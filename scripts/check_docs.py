@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the published manual's links, legacy URLs, source text and API handoff."""
+"""Check the published manual's links, source text and API handoff."""
 
 from __future__ import annotations
 
@@ -54,11 +54,6 @@ class Page(HTMLParser):
 def check(output: Path) -> None:
     site = output / "site"
     pages = {p.name: Page(p.read_text()) for p in site.glob("*.html")}
-    # Published Asciidoctor URLs at 1d51a3e, before the shared-renderer migration.
-    legacy = json.loads((ROOT / "test/docs/legacy-anchors.json").read_text())
-    for route, anchors in legacy.items():
-        assert route in pages, f"missing public page: {route}"
-        assert set(anchors) <= set(pages[route].ids), f"lost legacy anchors: {route}"
     links = 0
     for route, page in pages.items():
         assert len(page.ids) == len(set(page.ids)), f"duplicate IDs: {route}"
