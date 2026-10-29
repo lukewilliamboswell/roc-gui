@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
-	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.25.0/CZsY7tYZwR3rj9kYbpaCfxki2yVAaRL8bBwMLvB2xkbA.tar.zst",
-	roc: "nightly-2026-10-23-18478ff",
+	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.26.0/GddgvsGjiNXrHFW6au5i5dUDbTs8FinQdrgE2Gqmw53t.tar.zst",
+	roc: "nightly-2026-10-28-bad769b",
 }
 
 import cli.Cmd
@@ -35,7 +35,7 @@ main! = |args| {
 }
 
 version_of! : Str => Try(Str, _)
-version_of! = |program| Ok(Cmd.new_str(program).args_str(["version"]).exec_output!()?.stdout_utf8.trim())
+version_of! = |program| Ok(Cmd.new(OsStr.from_str(program)).args(["version"]).capture!()?.trim())
 
 fail! = |message| {
 	Stderr.line!("error: ${message}")?

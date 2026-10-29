@@ -7,11 +7,9 @@ the change lands; do not soften the docs to match the gap.
 ## Before 0.1.0
 
 What must happen before the final release. `0.1.0-rc1` was published on
-2026-10-24 with the four defects below named as known issues in its notes.
-Each item either links an entry below or is a maintainer action.
+2026-10-24 with known issues in its notes. The remaining release blockers
+are listed below; each item links an entry or is a maintainer action.
 
-- [ ] Build Observatory with the default backend; see "RELEASE BLOCKER: the
-  default backend does not finish building Observatory".
 - [ ] Pass Observatory's window Timeline on macOS and Windows; see "RELEASE
   BLOCKER: Observatory's window Timeline fails on hosted macOS and Windows
   runners".
@@ -932,28 +930,6 @@ names the evidence so a fix can be verified against the same case.
   traversal/continuation state per node. Attribute and remove that residual
   cost without trading away stack safety or the bounded local path.
 
-  Disassembly of the controlled 10,000-row development-backend executable
-  shows each specialized lowering procedure still reserves about 752 KiB of
-  stack and several specializations contain about 1.46 MiB of generated text.
-  Moving the visited element into a boxed one-field record did not materially
-  change either generated size and made a 1,000-row capture slower. Boxing all
-  container-close payloads reduced measured lowering allocation bytes at 10k
-  from about 82.20 MB to 58.35 MB per cycle, but added 10,003 allocation calls
-  and repeatably slowed lowering from 118.77–118.98 ms to 122.67–122.79 ms.
-  Both representation experiments were rejected. Continue by attributing the
-  generated frame rather than adding indirection based on aggregate bytes.
-
-  2026-09-18: attributed. The development backend never reuses stack slots
-  (`allocStack` in `src/backend/dev/*/CodeGen.zig` only grows), so frame size
-  tracks total temporaries: twelve ~3 MiB specializations with ~794 KiB
-  page-probed frames at the pinned nightly, ~927 KiB text and ~250 KiB frames
-  at compiler `main` `5982c9b2`, holding ~60% of on-CPU callback time.
-  Reported upstream as roc-lang/roc#11448. The same source at the same head
-  commit built with `--opt=speed` runs the 10k select callback in 197.4 ms
-  against 721.5 ms, so the pin upgrade plus the LLVM backend recovers most of
-  this entry once the upgrade blocker below is fixed. `wip/performance.md`
-  carries the measurement detail.
-
   These semantic captures contain no GPUI frame work, and `origin/main` has no
   keyed-collection analogue, so they neither compare native rendering nor
   establish an A/B result for keyed insert, move, or removal.
@@ -996,20 +972,22 @@ names the evidence so a fix can be verified against the same case.
 
 ## Compiler and toolchain defects
 
-- [ ] **Cached builds are not byte-identical to uncached ones.** With
-  `nightly-2026-09-23-c7852fd` the build cache miscompiled: building
-  `examples/clipboard-history` with the cache panicked (`instantiation widened
-  a closed tag union`), and `examples/http-workbench` built in a cache another
-  application had populated drew a wrong view (roc-lang/roc#11678, still open
-  upstream). On `nightly-2026-10-20-7a8a800` neither reproduces: every example
-  builds through one shared cache, cold and warm, and the full specification
-  suite (Observatory aside) passes with cached builds except two Linux window
-  specifications that fail identically uncached. But a cached executable
-  differs from the uncached one (Counter is 6 KB smaller), while two
-  `--no-cache` builds are byte-identical. Captures compare executables by
-  hash, so the specification runner keeps `--no-cache`. Report the
-  nondeterminism on roc-lang/roc#11678 with this evidence, and drop
-  `--no-cache` once cached and uncached builds agree byte for byte.
+- [ ] **Cross-application build-cache contamination miscompiles applications.**
+  Still reproduces on Apple Silicon macOS with
+  `nightly-2026-10-28-bad769b`, `--opt=dev`, and the rebuilt production host.
+  Start with a fresh `ROC_CACHE_DIR`; build Clipboard History, HTTP Workbench,
+  Counter and Animation Studio in that order, cold and warm. Both cached
+  variants produce identical hashes, and both uncached variants produce
+  identical hashes, but HTTP, Counter and Animation Studio differ between
+  cached and uncached builds. Clipboard History, first in the cache, agrees.
+  Each cached set fails 34 of 54 ordinary semantic/window SCM cases; all 54
+  uncached cases pass. Direct HTTP `access-denied.scm` runs abort with
+  `Roc dispatch did not install its successor` after Clipboard History has
+  populated the cache, but pass when HTTP builds first in its own fresh cache
+  or with `--no-cache`. The earlier Counter-only check against an existing
+  cache did not exercise this trigger. Keep `--no-cache` in the runner.
+  roc-lang/roc#11678 was reopened with this evidence:
+  https://github.com/roc-lang/roc/issues/11678#issuecomment-6488047336.
 
 - [ ] **A Windows link is not reproducible.** Two `roc build` runs of the same
   source differ in the PE header's `TimeDateStamp` and in one later field, so
@@ -1019,85 +997,8 @@ names the evidence so a fix can be verified against the same case.
   timestamp (`/Brepro` or a fixed `/timestamp`). Not re-tested on
   `nightly-2026-10-20-7a8a800`; it needs a Windows machine.
 
-- [ ] **RELEASE BLOCKER: the default backend does not finish building
-  Observatory.** On `nightly-2026-10-23-18478ff`, `roc build --opt=speed
-  --no-cache examples/observatory/main.roc` on Linux crashes the compiler
-  with a segmentation fault after 9.1 s wall time at 1.43 GiB peak RSS, in
-  `post-check lambda_solve` on the main thread, before any executable is
-  written; the same nightly's `--opt=dev` build and `roc check`/`roc test`
-  of Observatory pass. Earlier nightlies failed differently: on
-  `nightly-2026-10-20-7a8a800` the build was killed after 17 minutes of CPU
-  at 6.9 GB resident. On Linux, `nightly-2026-10-21-5349569` with
-  `--no-cache --opt=speed`, after explicitly typing the themes' `face` as `Gui.FontFace`,
-  was killed by signal 9 after 37.69 s wall time at 25,582,912 KiB peak RSS
-  (24.4 GiB), without producing an executable. Its `--opt=dev` build, with
-  the font-face annotations and dialog focus repair, passes all 79 enabled
-  specifications on Linux (64 semantic and 15 window) with regenerated
-  fixtures; the separately invoked folder-rewatch specification passes
-  locally too.
-  `nightly-2026-09-27-a3ce7f1` built it in 16 s and
-  `nightly-2026-09-28-9927ba8` in 21 min 45 s; on those nightlies the result
-  segfaulted as a capture opened (roc-lang/roc#11830, since closed). `--opt=dev`
-  builds it in 11 s and every specification passes. The specification runner
-  skips Observatory under `--roc-opt speed` (`COMPILER_BLOCKED` in
-  `scripts/run_specs.py`). Reduce the slow build, report it upstream, and
-  remove the skip once a nightly builds Observatory with the default backend
-  and its specifications pass.
-
-- [ ] **Every application fails ARC certification on Roc `origin/main`.** A
-  Debug build of `origin/main` (`c80043e3`), and of the 2026-09-27 nightly's
-  own commit `a3ce7f1`, panics building any roc-gui application:
-  `ARC: released struct representation is missing exact residual-shell
-  metadata` in `Internal.lower_work!`. The certifier runs only in Debug
-  compilers, so release nightlies build the same code unchecked; no wrong
-  behaviour was observed in them. The platform construct is reading a field of
-  a boxed record in a `while` loop, reassigning the box's record in one branch
-  of a `match`, then using the field:
-
-  ```roc
-  Owner : { key : U64, revision : U64, name : Str }
-
-  lower : List(Bool), { active : Box(Owner) } -> { active : Box(Owner) }
-  lower = |flags, boundaries| {
-  	var $i = 0
-  	var $boundaries = boundaries
-  	while $i < flags.len() {
-  		match flags.get($i) {
-  			Ok(flag) => {
-  				revision = (Box.unbox($boundaries.active)).revision
-  				match flag {
-  					Bool.False => {}
-  					Bool.True => {
-  						$boundaries = { active: Box.box({ ..Box.unbox($boundaries.active), key: $i }) }
-  					}
-  				}
-  				$i = $i + revision
-  			}
-  			Err(_) => crash "unreachable"
-  		}
-  	}
-  	$boundaries
-  }
-  ```
-
-  It needs the loop, both matches, the record wrapping the box, and a
-  refcounted field in `Owner`. A Debug build of `main` at `7894793d`
-  (2026-10-11) still panics on it inside a basic-cli application. Only a Debug
-  compiler checks this, so release nightlies are unaffected; build roc-gui with
-  a release compiler. Not filed upstream by choice; a reproduction is drafted
-  if that changes.
-
 Defects outside this repository that this repository has to work around. Each
 names the reproduction so the workaround can be removed when the fix lands.
-
-- [ ] **Make the default backend the specification runner's default.** The
-  LLVM backend's CPS runtime corruption, which produced wrong initial state and
-  reference-count failures, is gone: on `nightly-2026-10-20-7a8a800`,
-  `--roc-opt speed` passes all 361 semantic specifications of the examples and
-  benchmarks other than Observatory. The runner, the guides and the example
-  READMEs still use `--opt=dev`, because the default backend does not finish
-  building Observatory (the release blocker above). Once it does, make the
-  default backend the runner's default and drop `--opt=dev` from the guides.
 
 - [ ] **The Windows development backend drops relocations past a 16-bit count.**
   A compile-time-evaluated top-level value is emitted as initialized data with
@@ -1133,19 +1034,19 @@ names the reproduction so the workaround can be removed when the fix lands.
   machine.
 
 - [ ] **Generated Roc API pages omit record-field documentation.** Running
-  `roc docs platform/main.roc` renders the `Elem.TranslateConfig` type comment
-  and signature but omits the doc comments on `key`, `get`, `set`, `on_delegate`,
-  and `memo`. A two-field package on `nightly-2026-10-20-7a8a800` still renders
-  the record's type comment and drops both field comments. The type-level
-  documentation includes the essential contracts so readers can use the
-  generated reference. Report it upstream and verify the field descriptions in
-  the HTML output once a nightly renders them.
+  `roc docs platform/main.roc` on `nightly-2026-10-28-bad769b` renders the
+  `Elem.TranslateConfig` type comment and signature but omits the unique
+  descriptions of `key` and `get`. An isolated two-field `Settings` package
+  on the same nightly renders its type-level documentation sentinel but
+  omits both field-level sentinels. The type-level documentation includes the
+  essential contracts so readers can use the generated reference. Report it
+  upstream and verify the field descriptions once a nightly renders them.
 
 - [ ] **A nominal record cannot be constructed through an alias.**
   `Gui.ColProps.{ ... }` is rejected because the alias is not nominal ("You are
   using the type ColProps like a nominal type, but it is an alias", still on
-  `nightly-2026-10-20-7a8a800`), so `Gui` does not re-export the property
-  record types: applications pass a bare record literal where a property or
+  `nightly-2026-10-28-bad769b` in an isolated nominal-record control), so
+  `Gui` does not re-export the property record types: applications pass a bare record literal where a property or
   configuration record with defaults is expected, and lose the name at the
   construction site. A bare record fills its defaults only where the expected
   type reaches it directly: `Rectangle({ ... })` inside a `List.map` closure in
@@ -1165,15 +1066,6 @@ names the reproduction so the workaround can be removed when the fix lands.
   removed, and an unannotated helper holding a literal child list checks five
   times out of five and builds with both backends. Add both methods with
   their documentation and drop `Gui.text` around literals.
-
-- [ ] **A record builder only finds `map2` on a module's own type.**
-  `{ ... }.Builder` works when `Builder` is imported as a module and fails with
-  "does not implement map2" through a `Gui` alias or as a nominal nested in
-  `Gui`, on the 09-27 nightly and at compiler `main` `0d00cca8`. Not re-tested
-  on `nightly-2026-10-20-7a8a800`. Nothing in the platform is a record builder
-  today, so this blocks nothing; it decides where one would have to live if
-  joining independent tasks into one record is ever offered. Re-test and
-  report upstream.
 
 - [ ] **RELEASE BLOCKER: the compiler intermittently crashes on Windows.**
   `nightly-2026-10-20-7a8a800` died with "Access violation in the Roc
@@ -1202,7 +1094,8 @@ names the reproduction so the workaround can be removed when the fix lands.
   `roc check` as "The type History is being redeclared", but `roc test` on the
   same file crashes the compiler with a segmentation fault, on
   `nightly-2026-09-27-a3ce7f1` and still on `nightly-2026-10-20-7a8a800`,
-  once an `expect` calls one of the module's functions; without the
+  and on `nightly-2026-10-28-bad769b` (exit 139 in `post-check
+  lambda_solve`), once an `expect` calls one of the module's functions; without the
   expectations it reports the error. A module declaring only the conflicting
   alias reports it too. Reduce it, report it upstream, and remove this entry
   when `roc test` reports the error.
@@ -1238,7 +1131,11 @@ names the reproduction so the workaround can be removed when the fix lands.
   line 30 reports "Show the whole timeline" laid out at (872,239)-(978,270)
   but not on screen, where the runner opened the 1440x820 window at 1024x656
   points (macOS) or 1024x720 (Windows): CI runs 36519276403 and
-  36509812236. The rectangle lies inside the window, so the check or a
+  36509812236. On `nightly-2026-10-28-bad769b`, an ordinary local
+  full-size run passes, but inserting the production `(resize 1024 656)` or
+  `(resize 1024 720)` step reproduces the failure on macOS: the control lies
+  at (859,241)-(965,272.5) and is reported off screen. This remains a
+  production layout/visibility defect, not a screenshot-permission failure. The rectangle lies inside the window, so the check or a
   clipping ancestor disagrees with the layout. It passes on Linux at
   1920x1080. `native.yml` excludes it from the window job, and `link-inputs.yml`
   from its macOS validation. Find why the
@@ -1472,16 +1369,22 @@ names the reproduction so the workaround can be removed when the fix lands.
 
 ## Continuous integration
 
-- [ ] **Take the host toolchain from Blueprint on every runner.** The host and
-  linker-input jobs install Zig 0.16 and Rust 1.95.0 through
-  `.github/actions/setup-toolchain`, repeating versions `Blueprint.roc` and
-  `rust-toolchain.toml` declare, with nothing checking they agree. The same
-  action installs the Windows `blueprint.exe` itself, admitted by a SHA-256
-  recorded beside the step, because roc-automation's shared `setup-blueprint`
-  installs no Windows binary and Blueprint runs no Windows CI tasks:
-  https://github.com/lukewilliamboswell/roc-automation/issues/59. When it
-  does, add `x86_64-windows` to `Systems`, fetch Zig with a recipe there, and
-  delete `setup-toolchain`.
+- [ ] **Take the host toolchain from Blueprint on every runner.** Shared
+  `setup-blueprint` at `8acff758d5d73210f1731bed75adb9322f5e773d` supports
+  Windows and replaces the local Windows executable download. Rust CI selects
+  `rust-toolchain.toml` without repeating its channel. Zig provisioning still
+  uses the local composite action. Adding `x86_64-windows` to this repository's
+  `Systems` makes Blueprint 0.10.0 `update` fail with
+  `cannot generate the nix files: unsupported Nix target x86_64-windows`, even
+  with Nix tools restricted by `ToolsFor`. The Nix provider rejects every
+  unsupported declared system before selecting environments. Resolve mixed
+  provider/fetched-system locking before adding Windows to `Systems` and
+  replacing the remaining native provisioning. Tracked upstream as
+  https://github.com/lukewilliamboswell/roc-blueprint/issues/76, with Unix-only
+  Nix and provider-free two-system controls. The limitation also rejects a
+  selected macOS Nix task on its supported host when Windows is declared.
+  roc-automation#59 remaining open does not mean its Windows executable
+  installer is absent.
 
 - [ ] **Read the linker inputs' nixpkgs pin from Blueprint.**
   `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash` that

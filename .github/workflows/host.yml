@@ -61,8 +61,8 @@ jobs:
       - name: Install the Windows GNU host target
         if: runner.os == 'Windows'
         run: |
-          rustup toolchain install 1.95.0 --profile minimal
-          rustup target add --toolchain 1.95.0 x86_64-pc-windows-gnullvm
+          rustup show active-toolchain
+          rustup target add x86_64-pc-windows-gnullvm
       - id: fingerprint
         name: Fingerprint the host sources
         run: echo "value=$(python3 scripts/ci_host.py fingerprint)" >> "$GITHUB_OUTPUT"

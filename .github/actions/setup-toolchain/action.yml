@@ -7,29 +7,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - if: runner.os != 'Windows'
-      uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
-    # roc-automation's setup-blueprint installs no Windows binary yet
-    # (https://github.com/lukewilliamboswell/roc-automation/issues/59). Until
-    # it does, Windows downloads the binary of the release Blueprint.roc names
-    # and admits it only by the SHA-256 recorded here, which moves with that
-    # release: the 0.8.0 line of the release's blueprint.sha256, whose Linux
-    # line roc-automation records as the reviewed digest of the same release.
-    - name: Install the Blueprint release Blueprint.roc names
-      if: runner.os == 'Windows'
-      shell: bash
-      env:
-        BLUEPRINT_SHA256_X86_64_WINDOWS: 05932e4ee67990c565debf8f78ff88af3b972ae7b5d9598292ebfe1e8639a859
-      run: |
-        version=$(sed -n 's|.*roc-blueprint/releases/download/\([^/]*\)/[0-9A-Za-z]*\.tar\.zst.*|\1|p' Blueprint.roc | sort -u)
-        if [ -z "$version" ] || [ "$(printf '%s\n' "$version" | wc -l)" != 1 ]; then
-          echo "::error::Blueprint.roc must name exactly one roc-blueprint release"; exit 1
-        fi
-        directory="$RUNNER_TEMP/roc-gui-blueprint"
-        mkdir -p "$directory"
-        curl -fsSL -o "$directory/blueprint.exe" "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/$version/blueprint-x86_64-windows.exe"
-        echo "$BLUEPRINT_SHA256_X86_64_WINDOWS  $directory/blueprint.exe" | sha256sum -c -
-        echo "$directory" >> "$GITHUB_PATH"
+    - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
     - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
       with:
         version: 0.16.0
