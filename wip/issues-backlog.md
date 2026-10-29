@@ -1379,8 +1379,12 @@ names the reproduction so the workaround can be removed when the fix lands.
   with Nix tools restricted by `ToolsFor`. The Nix provider rejects every
   unsupported declared system before selecting environments. Resolve mixed
   provider/fetched-system locking before adding Windows to `Systems` and
-  replacing the remaining native provisioning. roc-automation#59 remaining
-  open does not mean its Windows executable installer is absent.
+  replacing the remaining native provisioning. Tracked upstream as
+  https://github.com/lukewilliamboswell/roc-blueprint/issues/76, with Unix-only
+  Nix and provider-free two-system controls. The limitation also rejects a
+  selected macOS Nix task on its supported host when Windows is declared.
+  roc-automation#59 remaining open does not mean its Windows executable
+  installer is absent.
 
 - [ ] **Read the linker inputs' nixpkgs pin from Blueprint.**
   `dependencies/nixpkgs-pin.nix` repeats the revision and `narHash` that
