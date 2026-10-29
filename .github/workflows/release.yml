@@ -87,7 +87,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           cache: 'true'
           cache-workload: check
@@ -149,7 +149,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
       - name: Verify the locked linker inputs' attestations
         env:
           GH_TOKEN: ${{ github.token }}
@@ -169,12 +169,12 @@ jobs:
           --version "$RELEASE_VERSION"
           --manifest "$RUNNER_TEMP/release/release-manifest.json"
       - id: renderer
-        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@ff89350926987a316333acf983f09591f19a946e
+        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           task: docs-path
-          label: roc-docs tools-0.6.0
+          label: roc-docs tools-0.7.0
       - name: Build the manual that documents these bytes
-        uses: lukewilliamboswell/roc-automation/actions/build-docs@ff89350926987a316333acf983f09591f19a946e
+        uses: lukewilliamboswell/roc-automation/actions/build-docs@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           renderer-binary: ${{ steps.renderer.outputs.binary }}
           pdf-filename: roc-gui.pdf
@@ -285,7 +285,7 @@ jobs:
             candidate/*.pdf
             candidate/*.zip
             candidate/release-manifest.json
-      - uses: lukewilliamboswell/roc-automation/actions/publish-release@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           version: ${{ needs.validate.outputs.version }}
           prerelease: ${{ needs.validate.outputs.prerelease }}

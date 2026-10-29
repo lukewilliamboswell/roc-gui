@@ -41,7 +41,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           cache: 'true'
           cache-workload: check
@@ -64,7 +64,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
       - name: Download the nightly's source and verify its published digest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,7 +94,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           install-nix: 'true'
           cache: 'true'
@@ -228,18 +228,18 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@ff89350926987a316333acf983f09591f19a946e
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           cache: 'true'
           cache-workload: docs
       - id: renderer
-        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@ff89350926987a316333acf983f09591f19a946e
+        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           task: docs-path
-          label: roc-docs tools-0.6.0
+          label: roc-docs tools-0.7.0
       # This site tracks the branch and uses this run's compiler for the API.
       - name: Build HTML, PDF, Markdown and API documentation
-        uses: lukewilliamboswell/roc-automation/actions/build-docs@ff89350926987a316333acf983f09591f19a946e
+        uses: lukewilliamboswell/roc-automation/actions/build-docs@8acff758d5d73210f1731bed75adb9322f5e773d
         with:
           renderer-binary: ${{ steps.renderer.outputs.binary }}
           pdf-filename: roc-gui.pdf

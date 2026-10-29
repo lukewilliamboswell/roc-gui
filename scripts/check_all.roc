@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
-	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.25.0/CZsY7tYZwR3rj9kYbpaCfxki2yVAaRL8bBwMLvB2xkbA.tar.zst",
-	roc: "nightly-2026-10-23-18478ff",
+	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.26.0/GddgvsGjiNXrHFW6au5i5dUDbTs8FinQdrgE2Gqmw53t.tar.zst",
+	roc: "nightly-2026-10-28-bad769b",
 }
 
 import cli.Cmd
@@ -105,7 +105,7 @@ main! = |args| {
 	for root in applications {
 		for command in [["check", "--no-cache", root], ["test", "--no-cache", root]] {
 			Stdout.line!("+ roc ${Str.join_with(command, " ")}")?
-			if Cmd.new_str("roc").args_str(command).exec_exit_code!()? != 0 {
+			if Cmd.new("roc").args(command.map(OsStr.from_str)).inherit_stdio().run!()?.status != Exited(0) {
 				$failed = $failed.append("roc ${Str.join_with(command, " ")}")
 			}
 		}
@@ -141,11 +141,11 @@ machine_code! = |scope| {
 		Staged => ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]
 		Tracked => ["ls-files", "-z"]
 	}
-	paths = Cmd.new_str("git").args_str(listing).exec_output!()?.stdout_utf8.split_on("\u(0)").keep_if(|path| !path.is_empty())
+	paths = Cmd.new("git").args(listing.map(OsStr.from_str)).capture!()?.split_on("\u(0)").keep_if(|path| !path.is_empty())
 	var $rejected = []
 	for path in paths {
 		bytes = match scope {
-			Staged => Cmd.new_str("git").args_str(["show", ":${path}"]).exec_output_bytes!()?.stdout_bytes
+			Staged => Cmd.new("git").args(["show", ":${path}"]).run!()?.require_success()?.stdout_bytes
 			Tracked => if (Path.is_sym_link!(Path.unix(path))?) [] else Path.read_bytes!(Path.unix(path))?
 		}
 		match MachineCode.kind(bytes) {
@@ -197,13 +197,13 @@ read! = |path| Path.read_utf8!(Path.unix(path))
 stable! : List(Str) => Try({}, _)
 stable! = |args| {
 	Stdout.line!("+ roc-stable ${Str.join_with(args, " ")}")?
-	Cmd.new_str("roc-stable").args_str(args).exec_cmd!()
+	Cmd.new("roc-stable").args(args.map(OsStr.from_str)).call!()
 }
 
 nightly! : List(Str) => Try({}, _)
 nightly! = |args| {
 	Stdout.line!("+ roc ${Str.join_with(args, " ")}")?
-	Cmd.new_str("roc").args_str(args).exec_cmd!()
+	Cmd.new("roc").args(args.map(OsStr.from_str)).call!()
 }
 
 fail! = |message| {

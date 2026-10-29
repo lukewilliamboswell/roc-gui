@@ -47,7 +47,7 @@ jobs:
         with:
           extra-conf: |
             sandbox = true
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
       - name: Require sandboxed production
         run: test "$(nix config show sandbox)" = true
       - name: Build every Linux component twice
@@ -88,7 +88,7 @@ jobs:
         with:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
       - name: Build the production host against the candidate ALSA interface
         run: blueprint run build -- --skip-inputs --candidate-inputs "$RUNNER_TEMP/candidate"
       - name: Install native desktop runtime for portability validation
@@ -166,7 +166,8 @@ jobs:
           path: ${{ runner.temp }}/candidate
       - name: Execute the exact runtime
         run: |
-          rustup toolchain install 1.95.0 --profile minimal --target x86_64-pc-windows-gnullvm
+          rustup show active-toolchain
+          rustup target add x86_64-pc-windows-gnullvm
           python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/candidate/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/runtime-evidence'
 
       - name: Build native Windows runtime and resource twice
@@ -241,7 +242,7 @@ jobs:
           pattern: link-input-components-*
           merge-multiple: true
           path: ${{ runner.temp }}/components
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8acff758d5d73210f1731bed75adb9322f5e773d
       - name: Compose the independently releasable set
         run: python3 scripts/prepare_link_input_release.py --components "$RUNNER_TEMP/components" --resource "$RUNNER_TEMP/components/roc-gui.res" --output "$RUNNER_TEMP/release"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
