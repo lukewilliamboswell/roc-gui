@@ -104,6 +104,20 @@ def linker_source(name, original):
     return source, "Download and SHA-256 identify the recorded Zig source distribution. Only selected runtime portions and corresponding sources are delivered; the compiler executable is not included."
 
 
+def linker_component(target, archive_sha256, name, original, fingerprint):
+    """Identify one code occurrence without aliasing its source distribution."""
+    source, modified = linker_source(name, original)
+    version = original.get("version", "sha256-" + original.get("catalog_sha256", fingerprint))
+    source_url = source.get("url", "NOASSERTION")
+    identity = f"urn:roc-gui:link-input:{target}:{archive_sha256}:{name}"
+    result = component(target + "-native-" + name, name, version, identity, source_url,
+                       source.get("sha256", ""), "UPL-1.0" if name in ("alsa", "macos-interfaces") else "NOASSERTION",
+                       SYSTEMS[target], modified=modified)
+    if source_url != "NOASSERTION":
+        result["source_refs"] = [{"type": "source-distribution", "url": source_url}]
+    return result
+
+
 def inventory(release, hosts, cache):
     manifest = json.loads((release / "release-manifest.json").read_text())
     archives = manifest["hosts"]["archives"]
@@ -151,13 +165,7 @@ def inventory(release, hosts, cache):
         if admitted["target"] != target or admitted["input_fingerprint"] != lock["source"]["input_fingerprint"]:
             raise ValueError("linker-input component metadata differs from the selected release")
         for name, original in sorted(admitted["components"].items()):
-            source, modified = linker_source(name, original)
-            digest = source.get("sha256", "")
-            version = original.get("version", "sha256-" + original.get("catalog_sha256", admitted["input_fingerprint"]))
-            source_url = source.get("url", "NOASSERTION")
-            identity = source_url if source_url != "NOASSERTION" else "urn:roc-gui:link-interface:" + name + ":" + version
-            child = component(target + "-native-" + name, name, version, identity, source_url, digest,
-                              "UPL-1.0" if name in ("alsa", "macos-interfaces") else "NOASSERTION", SYSTEMS[target], modified=modified)
+            child = linker_component(target, record["sha256"], name, original, admitted["input_fingerprint"])
             platform_components.append(child)
             platform_edges.append(edge(identifier, child["id"], "contains", "", "The admitted dependency.json records this component's exact source/recipe identity"))
 

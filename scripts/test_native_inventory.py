@@ -7,7 +7,7 @@ import unittest
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from native_inventory import cargo_graph, checked_archive, linker_source
+from native_inventory import cargo_graph, checked_archive, linker_source, linker_component
 
 
 class NativeInventoryTests(unittest.TestCase):
@@ -60,6 +60,19 @@ class NativeInventoryTests(unittest.TestCase):
         original['schema_version'] = 99
         with self.assertRaisesRegex(ValueError, 'unsupported'):
             linker_source('windows-gnu-runtime', original)
+
+    def test_distinct_runtime_components_can_share_an_exact_source_distribution(self):
+        source = {'url': 'https://example.org/zig-linux.tar.xz', 'sha256': 'a' * 64}
+        glibc = linker_component('x64glibc', 'b' * 64, 'glibc', {'version': '2.39', 'source': source}, 'c' * 64)
+        unwind = linker_component('x64glibc', 'b' * 64, 'unwind', {'version': '0.16.0', 'source': source}, 'c' * 64)
+        self.assertNotEqual(glibc['identity'], unwind['identity'])
+        for component in (glibc, unwind):
+            self.assertEqual(component['download'], source['url'])
+            self.assertEqual(component['sha256'], source['sha256'])
+            self.assertEqual(component['source_refs'], [{'type': 'source-distribution', 'url': source['url']}])
+            self.assertIn('b' * 64, component['identity'])
+        changed = linker_component('x64glibc', 'd' * 64, 'glibc', {'version': '2.39', 'source': source}, 'c' * 64)
+        self.assertNotEqual(glibc['identity'], changed['identity'])
 
 
 if __name__ == '__main__':
