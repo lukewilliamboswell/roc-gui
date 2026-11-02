@@ -55,17 +55,22 @@ def cargo_graph(notice, metadata, host_id, target):
     components, relationships = [], []
     for key, package in sorted(packages.items()):
         source = package["source"]
+        source_refs, modified = [], ""
         if source.startswith("registry+"):
             identity = f"pkg:cargo/{package['name']}@{package['version']}"
             url = f"https://static.crates.io/crates/{package['name']}/{package['name']}-{package['version']}.crate"
             sha256 = package["crate_sha256"]
         else:
             git = package["git_source"]
-            identity = source.removeprefix("git+")
-            url = git.get("archive_url", "NOASSERTION")
             sha256 = git["archive_sha256"]
-        components.append(component(identifiers[key], package["name"], package["version"], identity,
-                                    url, sha256, package["declared_license"] or "NOASSERTION", SYSTEMS[target]))
+            identity = f"urn:roc-gui:cargo-source:{package['name']}:{package['version']}:sha256:{sha256}"
+            url = git.get("archive_url", "NOASSERTION")
+            source_refs = [{"type": "vcs", "url": source.removeprefix("git+")}]
+            modified = f"Canonical Cargo source archive for {git['repository']}, revision {git['revision']}, path {git['path']}; digest identifies retained archive bytes."
+        entry = component(identifiers[key], package["name"], package["version"], identity,
+                          url, sha256, package["declared_license"] or "NOASSERTION", SYSTEMS[target], modified=modified)
+        entry["source_refs"] = source_refs
+        components.append(entry)
     metadata_packages = {p["id"]: p for p in metadata["packages"]}
     root = next(p["id"] for p in metadata["packages"] if p["name"] == "roc-gui-host" and p["source"] is None)
     selected = set(packages) | {root}

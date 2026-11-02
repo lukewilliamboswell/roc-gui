@@ -74,6 +74,24 @@ class NativeInventoryTests(unittest.TestCase):
         changed = linker_component('x64glibc', 'd' * 64, 'glibc', {'version': '2.39', 'source': source}, 'c' * 64)
         self.assertNotEqual(glibc['identity'], changed['identity'])
 
+    def test_git_crates_in_one_repository_retain_distinct_source_archive_identities(self):
+        source = 'git+https://example.org/monorepo.git?rev=' + 'c' * 40 + '#' + 'c' * 40
+        packages = [{'id': name, 'name': name, 'version': '1.0.0', 'source': source,
+                     'declared_license': 'MIT', 'git_source': {'repository': 'https://example.org/monorepo.git',
+                     'revision': 'c' * 40, 'path': 'crates/' + name, 'archive_sha256': digest * 64}}
+                    for name, digest in [('first', 'a'), ('second', 'b')]]
+        metadata = {'packages': [{'id': 'root', 'name': 'roc-gui-host', 'source': None}] +
+                    [{**p, 'targets': [{'kind': ['lib']}]} for p in packages],
+                    'resolve': {'nodes': [{'id': 'root', 'deps': [{'pkg': p['id'], 'dep_kinds': [{'kind': None}]} for p in packages]}]}}
+        components, _ = cargo_graph({'packages': packages}, metadata, 'host', 'x64glibc')
+        self.assertEqual(len({c['identity'] for c in components}), 2)
+        for entry, package in zip(components, packages, strict=True):
+            self.assertEqual(entry['sha256'], package['git_source']['archive_sha256'])
+            self.assertIn(entry['sha256'], entry['identity'])
+            self.assertEqual(entry['source_refs'], [{'type': 'vcs', 'url': source.removeprefix('git+')}])
+            self.assertIn(package['git_source']['path'], entry['modified'])
+            self.assertEqual(entry['download'], 'NOASSERTION')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -30,6 +30,10 @@ def host_archives(directory: Path) -> dict:
 
 
 def assemble(output: Path, roc: str, link_lock: Path, host_directory: Path, cache: Path) -> Path:
+    # The bundler runs inside a fresh platform staging tree. Resolve caller
+    # paths before that working-directory change so relative CLI paths retain
+    # their original meaning.
+    output, link_lock, host_directory, cache = (path.resolve() for path in (output, link_lock, host_directory, cache))
     compiler = compiler_version(roc)
     external_lock = read_link_lock(link_lock)
     if external_lock["repository"] != "lukewilliamboswell/roc-gui":
