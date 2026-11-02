@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from html.parser import HTMLParser
-import json
+import hashlib
 from pathlib import Path
 import re
 from urllib.parse import unquote, urlsplit
@@ -70,6 +70,7 @@ def check(output: Path) -> None:
     expected = Counter(
         (match.group("lang") or "", match.group("body"))
         for source in (ROOT / "docs").rglob("*.adoc")
+        if "releases" not in source.relative_to(ROOT / "docs").parts
         for match in SOURCES.finditer(source.read_text())
         if match.group("kind") != "mermaid"
     )
@@ -78,11 +79,17 @@ def check(output: Path) -> None:
     assert (site / "index.md").is_file() and (site / "llms.txt").is_file(), "Markdown discovery missing"
     pdf = (output / "roc-gui.pdf").read_bytes()
     assert pdf.startswith(b"%PDF-") and (site / "roc-gui.pdf").read_bytes() == pdf, "PDF handoff differs"
-    manifest = json.loads((ROOT / "docs/prepared-diagrams.json").read_text())
-    for diagram in manifest["diagrams"]:
-        for extension in ("png", "svg"):
-            asset = diagram[extension]
-            assert (site / asset).read_bytes() == (ROOT / "docs" / asset).read_bytes(), f"asset changed: {asset}"
+    diagrams = [
+        match.group("body")
+        for source in (ROOT / "docs").rglob("*.adoc")
+        if "releases" not in source.relative_to(ROOT / "docs").parts
+        for match in SOURCES.finditer(source.read_text())
+        if match.group("kind") == "mermaid"
+    ]
+    for source in diagrams:
+        digest = hashlib.sha256(source.encode()).hexdigest()
+        asset = site / f"images/diagram-{digest}.svg"
+        assert asset.is_file() and b"<svg" in asset.read_bytes(), f"diagram output missing: {asset}"
     print(f"Checked {len(pages)} pages, {links} local links, {sum(expected.values())} source listings, API and PDF")
 
 

@@ -66,5 +66,3 @@ include::troubleshooting.adoc[leveloffset=+1]
 include::architecture.adoc[leveloffset=+1]
 
 include::development.adoc[leveloffset=+1]
-
-include::releases.adoc[leveloffset=+1]

@@ -30,16 +30,6 @@ roc build --output=system-monitor examples/system-monitor/main.roc
 The grant permits read-only local sampling. Without it, Start returns a refusal
 that states nothing was read and nothing is held.
 
-## Not yet built
-
-- Read-only. Processes cannot be signalled, killed, or reniced.
-- No per-core, per-disk, or per-interface breakdown; each metric is one machine-
-  wide figure.
-- History is 120 samples held in memory, with no persistence, export, or
-  adjustable sampling interval.
-- No alerting, thresholds beyond the two warm colours on bounded resources, or
-  temperature, battery, and GPU sensors.
-
 ## Assets
 
 The alert mark in `icons/` is vendored; its provenance and licence are in
@@ -47,11 +37,4 @@ The alert mark in `icons/` is vendored; its provenance and licence are in
 
 ## Specifications
 
-Eleven specifications run on the semantic runner against a deterministic host
-sampler reached through the same snapshot ABI as the real one, covering the
-first frame before anything is read, refusal and retry, unavailable sensors,
-pause and resume, a superseded session, filtering, sorting, a selection that
-outlives its sample, bounded history, and a 500-process scaling case through the
-ordinary table. One runs against the real window, photographing the instrument
-idle, live, and paused and asserting that the status strip and readings keep
-their heights across all three.
+The [specifications](specs/) exercise sample lifetime, bounded history and scaling.

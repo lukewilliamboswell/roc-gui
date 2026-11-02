@@ -337,7 +337,7 @@ def record_window(runs: Path, spec: Path, destination: Path, minimum_frames: int
         "--host-window-timeout-ms=60000",
     ]
     # A long scrolling session occasionally stalls (see "A generated window
-    # session occasionally stalls" in wip/issues-backlog.md); one retry keeps
+    # session occasionally stalls" in https://github.com/lukewilliamboswell/roc-gui/issues/60); one retry keeps
     # the fixture reachable without hiding a stall that repeats.
     if subprocess.run(command, cwd=ROOT).returncode != 0:
         destination.unlink(missing_ok=True)
@@ -412,7 +412,7 @@ def run_specs(specs: list[str], output: Path, *flags: str) -> None:
         "--output",
         str(output),
         "--roc",
-        os.environ.get("ROC", "roc"),
+        os.environ.get("ROC_GUI_APP_COMPILER", "roc"),
     ]
     subprocess.run(command, cwd=ROOT, env={**os.environ, GUARD: "1"}, check=True)
 

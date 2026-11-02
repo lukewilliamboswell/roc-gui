@@ -28,13 +28,6 @@ example runs without a person at the panel. It is development provisioning, not
 a person's consent; run the binary with no grant and the chooser refuses, which
 is a state the browser is built to explain.
 
-## Not yet built
-
-- No sorting or filtering beyond the folders-only checkbox, no selection, no
-  file contents, no mutation of any kind.
-- No history: there is Back and the breadcrumb trail, and nothing forward.
-- Symbolic links get their own marker but are not followed.
-
 ## Assets
 
 `icons/` holds three glyphs whose licences are recorded per file in
@@ -42,10 +35,4 @@ is a state the browser is built to explain.
 
 ## Specifications
 
-`browse.scm`, `breadcrumbs.scm`, `denied.scm`, `canceled.scm`, and
-`files-only.scm` run on the semantic runner and cover navigation, the boundaries
-of the trail, a refusal and the presses that follow it, a dismissal, and the
-filter. The five `window-*.scm` cases drive the real window: they assert the
-rows were laid out on screen, scroll to entries below the fold, and photograph
-the listing, the truncation of long names, the refusal, the dismissal, and the
-named empty result.
+The [specifications](specs/) exercise folder grants, navigation and empty states.

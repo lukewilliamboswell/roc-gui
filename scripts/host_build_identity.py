@@ -32,7 +32,8 @@ TARGETS = {
     ("Windows", "AMD64"): "x64mingw",
 }
 SOURCE_PATHS = (
-    "crates/host", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "build.py",
+    "crates/host", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml", ".gitattributes", "scripts/build.roc", "scripts/native_build.py",
+    "scripts/run_cargo.py", "scripts/prepare_dependencies.py", "scripts/host_build_identity.py",
     "dependencies/gui-host-notices",
     ".github/actions/setup-toolchain/action.yml", ".github/workflows/host.yml",
     ".github/workflows/host-candidate.yml",

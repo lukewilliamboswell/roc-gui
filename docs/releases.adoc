@@ -1,6 +1,9 @@
+// Release-tool input: keep note registrations available to the release helpers.
 = Release notes
 
-Each release's notes, newest first. A release candidate's notes stay here
-after its final release.
+Read the https://github.com/lukewilliamboswell/roc-gui/releases[published releases]
+for version-specific changes and upgrade instructions.
 
+ifdef::release-records[]
 include::releases/0.1.0-rc1.adoc[leveloffset=+1]
+endif::[]

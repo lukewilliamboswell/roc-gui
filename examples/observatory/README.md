@@ -286,18 +286,6 @@ regenerates it when the recorder schema or the contents of any input change: the
 generator, the specifications it runs and the applications they drive, the
 platform, or the host's sources and locks.
 
-## Not yet built
-
-- Tabs cannot be dragged into another order, and a folder cannot be dropped.
-- Only six tables have Copy; the Overview tiles, the inspector's work and
-  allocation sections, the run lifecycle and process resources, the Frames and
-  Timeline tables, and the Compare and Scaling sheets have none.
-- The palette does not find a frame or a source line (`frame N`, `line N`).
-- A finalised capture chosen as one file is not watched, so its replacement
-  is not offered for reloading.
-- While a capture grows, the Timeline keeps the span it last read until it is
-  shown again.
-
 ## Specifications
 
 Fifty-nine specifications run on the semantic runner. They cover the first

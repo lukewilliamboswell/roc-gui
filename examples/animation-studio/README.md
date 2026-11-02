@@ -46,14 +46,6 @@ also its only key, and one key is a constant position at every frame, so a
 static layout pays nothing for it but a marker on the timeline. Add keyframe is
 then for pinning a pose without moving it.
 
-## Not yet built
-
-- Shapes cannot be resized, recoloured, renamed, or deleted.
-- Only position is animated, and only linearly. There are no rotation, scale, or
-  opacity tracks, and no easing between keys.
-- There is no way to remove a keyframe except by undoing it.
-- Nothing is saved or loaded; closing the window discards the document.
-
 ## Assets
 
 `icons/` holds two SVGs, imported at compile time into the executable. Their
@@ -62,10 +54,4 @@ source and licence are recorded in `icons/NOTICE.md` and in
 
 ## Specifications
 
-Ten semantic specifications in `specs/` cover creation, selection, dragging,
-the ends of the history, keyframe ordering and replacement, the movement between
-two keys and the pose held either side of them, recording a move against the
-frame it was made on for a keyed and an unkeyed shape alike, scrubbing, and timer-driven playback with its pause and
-resume. Three window specifications
-drive the real window to check the layout, a long layer list, and the timeline.
-None of them needs a grant.
+The [specifications](specs/) exercise editing, playback, undo/redo and keyed timeline changes.

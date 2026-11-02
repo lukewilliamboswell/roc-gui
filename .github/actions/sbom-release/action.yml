@@ -1,0 +1,119 @@
+name: Final artifact SBOMs
+description: Bind and check a distinct composition for every final release file
+inputs:
+  version:
+    required: true
+    description: Release version
+  bundle:
+    required: true
+    description: Content addressed platform filename
+outputs:
+  assets:
+    description: Exact artifacts and sidecars tested and published
+    value: |
+      ${{ steps.bundle.outputs.assets }}
+      ${{ steps.sources_linux.outputs.assets }}
+      ${{ steps.sources_macos.outputs.assets }}
+      ${{ steps.sources_windows.outputs.assets }}
+      ${{ steps.examples.outputs.assets }}
+      ${{ steps.manual.outputs.assets }}
+      ${{ steps.docs.outputs.assets }}
+      ${{ steps.manifest.outputs.assets }}
+  subjects:
+    description: Complete final artifact set
+    value: |
+      dist/${{ inputs.bundle }}
+      dist/gui-host-sources-x64glibc.tar
+      dist/gui-host-sources-arm64mac.tar
+      dist/gui-host-sources-x64mingw.tar
+      dist/roc-gui-examples-${{ inputs.version }}.zip
+      dist/roc-gui-${{ inputs.version }}.pdf
+      dist/roc-gui-docs-${{ inputs.version }}.zip
+      dist/release-manifest.json
+runs:
+  using: composite
+  steps:
+    - id: bundle
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/${{ inputs.bundle }}
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/${{ inputs.bundle }}.composition.json
+        spdx-2-3: 'true'
+    - id: sources_linux
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/gui-host-sources-x64glibc.tar
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/gui-host-sources-x64glibc.tar.composition.json
+        spdx-2-3: 'true'
+    - id: sources_macos
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/gui-host-sources-arm64mac.tar
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/gui-host-sources-arm64mac.tar.composition.json
+        spdx-2-3: 'true'
+    - id: sources_windows
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/gui-host-sources-x64mingw.tar
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/gui-host-sources-x64mingw.tar.composition.json
+        spdx-2-3: 'true'
+    - id: examples
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/roc-gui-examples-${{ inputs.version }}.zip
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/roc-gui-examples-${{ inputs.version }}.zip.composition.json
+        spdx-2-3: 'true'
+    - id: manual
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/roc-gui-${{ inputs.version }}.pdf
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/roc-gui-${{ inputs.version }}.pdf.composition.json
+        spdx-2-3: 'true'
+    - id: docs
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/roc-gui-docs-${{ inputs.version }}.zip
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/roc-gui-docs-${{ inputs.version }}.zip.composition.json
+        spdx-2-3: 'true'
+    - id: manifest
+      uses: lukewilliamboswell/roc-automation/actions/sbom-sidecars@8afe656ea7de5586233683088eb6972b770f6832
+      with:
+        files: dist/release-manifest.json
+        version: ${{ inputs.version }}
+        target: source
+        author: 'Person: Luke Boswell'
+        composition: .release-out/cache/sbom-compositions/release-manifest.json.composition.json
+        spdx-2-3: 'true'
+    - name: Retain same-run transfer evidence
+      shell: bash
+      run: >-
+        blueprint run merge-sbom-evidence -- dist/sbom-evidence.json
+        "${{ steps.bundle.outputs.evidence }}"
+        "${{ steps.sources_linux.outputs.evidence }}"
+        "${{ steps.sources_macos.outputs.evidence }}"
+        "${{ steps.sources_windows.outputs.evidence }}"
+        "${{ steps.examples.outputs.evidence }}"
+        "${{ steps.manual.outputs.evidence }}"
+        "${{ steps.docs.outputs.evidence }}"
+        "${{ steps.manifest.outputs.evidence }}"

@@ -43,6 +43,20 @@ The `check` task needs no Nix: it fetches `roc-stable` and expects `roc` and
 `git` on the machine. The native tasks take their toolchain and libraries from
 the pinned Nix package set.
 
+=== Automation and native adapters
+
+Roc scripts own product orchestration: build selection, fixture generation,
+release version selection, native producer comparisons, release assembly, immutable suite planning and SBOM
+composition. Blueprint exposes each operation as a named task. Linux and macOS
+scope their Nix tools with `ToolsFor`; Windows uses native tools installed by
+its toolchain setup and does not evaluate a Nix development environment.
+
+Native archive/toolchain adapters and the independent SCM harness use Python.
+They own native file formats, admission and process/runtime integration. They do
+not replace the production host's specification parser, graph, event route or
+measurements. Shared executable utilities own archive execution, documentation
+rendering and SBOM generation/checking.
+
 === Two compilers
 
 The platform, its applications and its benchmarks name no compiler. They are
@@ -56,6 +70,11 @@ its `roc` header field, which `check` enforces. It runs the repository's Roc
 scripts only. To move it, change the tag in `Blueprint.roc` and in every
 script header, run `blueprint update`, format the scripts with
 `roc-stable fmt scripts`, and merge once CI passes.
+
+The specification runner selects the application compiler with `--roc` or
+`ROC_GUI_APP_COMPILER` and propagates that choice to nested fixture runs.
+`ROC` is Blueprint’s configuration-compiler override; it is independent of the
+application compiler.
 
 Install the repository hooks with `pre-commit install` and run them inside
 `blueprint shell`. The Roc hooks run `scripts/check_all.roc`; with `--staged`
@@ -83,11 +102,50 @@ Rust toolchain when running the hook outside the Blueprint environment.
 CI checks that every maintained example and benchmark has adjacent
 specifications and runs the semantic suites. A build or semantic failure fails
 the gate; it is not silently skipped. Record unresolved defects in
-`wip/issues-backlog.md`.
+https://github.com/lukewilliamboswell/roc-gui/issues[GitHub issues].
 
 Release packaging records the compiler that bundled the release in its
 manifest, and the release notes name it with `roc-stable`. Archived examples
 name only the released platform, like the branch sources.
+
+=== Immutable release suites and SBOMs
+
+`blueprint run release-build -- VERSION OUTPUT HOSTS CACHE` assembles the
+platform from sealed hosts and admitted linker inputs, records production
+fixtures, and packages the complete semantic suite as
+`roc-gui-examples-VERSION.zip`. The host classifies every adjacent SCM file;
+all semantic cases, including benchmark scaling cases, enter `spec.json`.
+Window specifications remain native presentation checks.
+
+The ZIP retains source bytes except for the released platform dependency.
+Its portable physical filenames and content deduplication are described by
+`fixture-aliases.json`; the independent runtime harness restores the original
+logical fixture filenames before execution. The harness retains production
+captures and failure evidence under the extracted suite’s `semantic-evidence/`
+directory for the shared runner’s diagnostic artifact. Captures originate in the production
+recorder. No compiler, host binary or alternate application implementation is
+included in the harness.
+
+`blueprint run test-archive` invokes the shared utility against `RP_OUTPUT`.
+It verifies the archive and runs its recorded cases against the exact candidate
+bundle through a loopback mapping with an empty compiler package cache. The
+shared nightly workflow runs that same immutable suite against the selected
+published release and compiler on Linux, macOS and Windows. Missing releases,
+skips, timeouts and incomplete target evidence cannot establish compatibility.
+
+Every final release file has SPDX 3.0.1, SPDX 2.3 and CycloneDX 1.7 sidecars plus
+a binding manifest. Reviewed dispositions in `sbom/composition.json` distinguish
+environment tools from shipped components. Native composition comes from the
+sealed Cargo graph, host notices and linker-input identities; source companions,
+examples and documentation receive separate compositions. Machine-readable
+coverage records describe the boundaries of each claim.
+
+The read-only build generates and checks the sidecars after the final files
+exist. Native test jobs and the publisher independently recheck source/run
+identities, subjects, sizes and hashes with pinned shared code. Only the
+explicit validated asset set is attested and published; the transfer envelope
+is retained as CI evidence. A local test uses the same shared checker and never
+downloads schemas during validation.
 
 == Validate a change
 
@@ -113,7 +171,8 @@ Run the affected benchmark family when a change touches rendering, routing,
 graph work, allocation, recording, or a scaling-sensitive data structure. Run
 the complete specification suite before integrating a cross-cutting change.
 
-When changing an effect, update `wip/resource-access-inventory.md` after reading
+When changing an effect, review the resource model and the
+https://github.com/lukewilliamboswell/roc-gui/issues/1[resource authority issue] after reading
 the public API, hosted ABI, native owner, configuration source, and verifying
 specifications. Mark missing enforcement or evidence `Unverified`; never infer security
 from an absent public function or an opaque Roc type.
@@ -202,6 +261,9 @@ committed files.
 
 == Documentation
 
+Keep documentation focused on current reader tasks. Remove superseded guidance and status narratives; keep release changes in release records and investigations or unresolved work in issues. Follow the
+https://lukewilliamboswell.github.io/roc-automation/documentation.html#write-project-documentation[shared documentation guide].
+
 AsciiDoc sources live in `docs/`; `docs/index.adoc` is the complete book. Build
 the HTML site, standalone PDF, static Markdown, and compiler API reference with:
 
@@ -220,13 +282,12 @@ Pass renderer options after `--`, for example
 `blueprint run docs -- --docs-version main --roc-command /path/to/roc`.
 Use `--output-directory` to select another output directory inside the repository.
 
-Mermaid source stays beside the prose. After editing a diagram, install
-`@mermaid-js/mermaid-cli@11.16.0` and its Chromium runtime, then run
-`python3 scripts/prepare_docs_diagrams.py`. Commit the source, PNG and SVG
-inputs under `docs/images/diagrams/`, and `docs/prepared-diagrams.json` together.
-The manifest binds the source and prepared assets by SHA-256; the renderer
-rejects stale assets. Diagram preparation is an authoring step. Ordinary manual
-builds consume those inputs without a browser or external converter.
+Mermaid source stays beside the prose. The released renderer parses supported
+Mermaid blocks and draws their SVG and PDF output directly during the ordinary
+documentation build. Commit the source blocks; generated diagram assets belong
+in `.docs-out/`. A changed source produces a new content-addressed SVG path.
+Unsupported syntax fails the build and must be expressed using the shared
+renderer’s documented diagram syntax.
 
 Headings receive IDs automatically. Use those IDs in cross-references and
 reserve explicit IDs for intentional permalinks.
@@ -237,7 +298,7 @@ handing inert site files to the Pages deployment job. Release assembly builds th
 same documentation before the separate publishing job receives its archives.
 
 Documentation describes the product and its enduring contracts. Put defects,
-missing capabilities, and implementation tasks in `wip/issues-backlog.md`, then
+missing capabilities, and implementation tasks in GitHub issues, then
 remove entries when they are resolved.
 
 == Native linker inputs and releases
@@ -362,10 +423,10 @@ fingerprint; only FreeType-exclusive paths move to component admission.
 Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
 must never fall back to a local build. Development builds require current reviewed authority.
-`./build.py --source-inputs` selects the macOS source interfaces explicitly. A Linux host
+`blueprint run build -- --source-inputs` selects the macOS source interfaces explicitly. A Linux host
 build takes its build-time ALSA interface from the admitted linker inputs: the unified
 release, or the producer's own candidate through
-`./build.py --skip-inputs --candidate-inputs <directory>` while it validates fresh
+`blueprint run build -- --skip-inputs --candidate-inputs <directory>` while it validates fresh
 components; the producer then stages its exact candidate archives before final-link
 validation.
 Final platform releases accept only locked, released, and attested inputs.

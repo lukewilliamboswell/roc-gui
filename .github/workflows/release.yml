@@ -16,9 +16,18 @@ on:
       - .github/workflows/release.yml
       - docs/releases/**
       - link-inputs.lock.json
-      - scripts/bundle_examples.py
+      - scripts/release_suite.roc
+      - scripts/suite_archive.py
+      - scripts/archived_semantic.py
+      - sbom/**
+      - Blueprint.roc
+      - Blueprint.lock
       - scripts/bundle_platform.py
-      - scripts/check_platform_bundle.py
+      - scripts/release.roc
+      - scripts/sbom_composition.roc
+      - scripts/native_inventory.py
+      - scripts/merge_sbom_evidence.roc
+      - .github/actions/sbom-release/**
       - scripts/release_notes.roc
       - scripts/src/Notes.roc
 
@@ -49,6 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: echo "tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)" >> "$GITHUB_OUTPUT"
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8afe656ea7de5586233683088eb6972b770f6832
       - id: version
         env:
           EVENT: ${{ github.event_name }}
@@ -56,22 +66,7 @@ jobs:
           REF: ${{ github.ref }}
           DEFAULT_REF: refs/heads/${{ github.event.repository.default_branch }}
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$EVENT" = workflow_dispatch ]; then
-            version="$REQUESTED"
-            test "$REF" = "$DEFAULT_REF" || { echo "::error::release from $DEFAULT_REF only"; exit 1; }
-            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$version" >/dev/null 2>&1; then
-              echo "::error::tag $version already exists"; exit 1
-            fi
-          else
-            version=$(ls docs/releases/*.adoc | sed 's|docs/releases/||; s|\.adoc$||' | sort -V | tail -n 1)
-          fi
-          echo "$version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$' \
-            || { echo "::error::version must be SemVer without a v prefix: $version"; exit 1; }
-          test -f "docs/releases/$version.adoc" || { echo "::error::write docs/releases/$version.adoc first"; exit 1; }
-          case "$version" in *-*) prerelease=true ;; *) prerelease=false ;; esac
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+        run: blueprint run release-version
 
   check:
     name: Roc pins, scripts and applications
@@ -87,7 +82,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8afe656ea7de5586233683088eb6972b770f6832
         with:
           cache: 'true'
           cache-workload: check
@@ -138,7 +133,11 @@ jobs:
     name: Build the release
     needs: [validate, check, candidate]
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
+    outputs:
+      assets: ${{ steps.sbom.outputs.assets }}
+      subjects: ${{ steps.sbom.outputs.subjects }}
+      producing-attempt: ${{ github.run_attempt }}
     permissions:
       contents: read
       attestations: read
@@ -149,63 +148,38 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
-      - name: Verify the locked linker inputs' attestations
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/verify_release_attestations.py link-inputs.lock.json --cache "$RUNNER_TEMP/cache"
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8afe656ea7de5586233683088eb6972b770f6832
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: gui-host-*
           merge-multiple: true
           path: ${{ runner.temp }}/hosts
-      - name: Bundle the tested hosts and locked linker inputs once
-        run: python3 scripts/bundle_platform.py --link-inputs link-inputs.lock.json --hosts "$RUNNER_TEMP/hosts" --output "$RUNNER_TEMP/release" --cache "$RUNNER_TEMP/cache"
-      - name: Archive the examples against the release's bundle URL
-        env:
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-        run: >-
-          python3 scripts/bundle_examples.py --output "$RUNNER_TEMP/release"
-          --version "$RELEASE_VERSION"
-          --manifest "$RUNNER_TEMP/release/release-manifest.json"
-      - id: renderer
-        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@ff89350926987a316333acf983f09591f19a946e
+      - uses: ./.github/actions/setup-native-test
         with:
-          task: docs-path
-          label: roc-docs tools-0.6.0
-      - name: Build the manual that documents these bytes
-        uses: lukewilliamboswell/roc-automation/actions/build-docs@ff89350926987a316333acf983f09591f19a946e
+          target: x64glibc
+      - id: release
+        name: Assemble the release through Roc tasks
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/headless_wayland.py -- blueprint run release-build -- "$RELEASE_VERSION" dist "$RUNNER_TEMP/hosts" .release-out/cache
+      - id: sbom
+        uses: ./.github/actions/sbom-release
         with:
-          renderer-binary: ${{ steps.renderer.outputs.binary }}
-          pdf-filename: roc-gui.pdf
-          docs-version: ${{ needs.validate.outputs.version }}
-          api-entrypoint: platform/main.roc
-          site-url: https://lukewilliamboswell.github.io/roc-gui/
-      - name: Check the complete documentation site
-        run: python3 scripts/check_docs.py
-      - name: Archive the manual and complete documentation site
-        env:
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          cp .docs-out/roc-gui.pdf "$RUNNER_TEMP/release/roc-gui-$RELEASE_VERSION.pdf"
-          (cd .docs-out/site && zip -qr "$RUNNER_TEMP/release/roc-gui-docs-$RELEASE_VERSION.zip" .)
-      - name: Render the release notes with the bundle's URL and the compilers
-        env:
-          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-        run: |
-          bundle=$(jq -r .bundle.name "$RUNNER_TEMP/release/release-manifest.json")
-          blueprint run release-notes -- "$RELEASE_VERSION" "$bundle" "$RUNNER_TEMP/release-notes.md"
-          mkdir "$RUNNER_TEMP/notes" && mv "$RUNNER_TEMP/release-notes.md" "$RUNNER_TEMP/notes/"
+          version: ${{ needs.validate.outputs.version }}
+          bundle: ${{ steps.release.outputs.bundle }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-candidate
-          path: ${{ runner.temp }}/release/
+          path: |
+            ${{ steps.sbom.outputs.assets }}
+            dist/sbom-evidence.json
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-notes
-          path: ${{ runner.temp }}/notes/release-notes.md
+          path: .release-out/cache/release-notes.md
           if-no-files-found: error
           retention-days: 30
 
@@ -239,28 +213,46 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@8afe656ea7de5586233683088eb6972b770f6832
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-candidate
-          path: ${{ runner.temp }}/release
-      # The applications' fixtures are recorded by this run's own host for the
-      # target, the bytes the bundle carries, admitted rather than rebuilt.
-      - uses: ./.github/actions/setup-native-test
+          path: dist
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          target: ${{ matrix.target }}
-      # Observatory's fixture records real-window sessions, so Linux presents
-      # them through a private headless compositor, as CI does.
-      - name: Serve and test the exact content-addressed bundle
-        run: |
-          if [ "$RUNNER_OS" = Linux ]; then present=(python3 scripts/headless_wayland.py --); else present=(); fi
-          "${present[@]}" python3 scripts/check_platform_bundle.py --directory "$RUNNER_TEMP/release"
+          repository: lukewilliamboswell/roc-automation
+          ref: 8afe656ea7de5586233683088eb6972b770f6832
+          path: .roc-automation
+          persist-credentials: false
+      - name: Verify transferred final artifact SBOM bindings
+        env:
+          INPUT_SUBJECTS: ${{ needs.build.outputs.subjects }}
+          INPUT_ASSETS: ${{ needs.build.outputs.assets }}
+          INPUT_PRODUCING_ATTEMPT: ${{ needs.build.outputs.producing-attempt }}
+          INPUT_VERSION: ${{ needs.validate.outputs.version }}
+        run: python3 .roc-automation/actions/sbom-sidecars/verify_transferred.py
+      - name: Install native runtime prerequisites
+        run: python3 scripts/nightly_prerequisites.py
+      - name: Test the immutable published suite against the exact candidate bundle
+        env:
+          RP_OUTPUT: dist
+          RP_DIRECTORY: ${{ runner.temp }}/archive-test
+          RP_REPOSITORY: lukewilliamboswell/roc-gui
+        run: blueprint run test-archive
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: archive-evidence-${{ matrix.target }}
+          path: ${{ runner.temp }}/archive-test
+          if-no-files-found: ignore
+          retention-days: 14
 
-  # The only job that can write. It checks out nothing and runs no repository
-  # code: it attests the tested files and hands them to publish-release.
+  # Publication executes only pinned shared controller code on inert files.
+  # It never checks out or runs the candidate product sources.
   publish:
     name: Publish the tested release
     if: github.event_name == 'workflow_dispatch'
-    needs: [validate, test]
+    needs: [validate, build, test]
     runs-on: ubuntu-24.04
     environment: release
     permissions:
@@ -271,29 +263,30 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-candidate
-          path: candidate
+          path: dist
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-notes
           path: notes
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: lukewilliamboswell/roc-automation
+          ref: 8afe656ea7de5586233683088eb6972b770f6832
+          path: .roc-automation
+          persist-credentials: false
+      - name: Verify transferred final artifact SBOM bindings
+        env:
+          INPUT_SUBJECTS: ${{ needs.build.outputs.subjects }}
+          INPUT_ASSETS: ${{ needs.build.outputs.assets }}
+          INPUT_PRODUCING_ATTEMPT: ${{ needs.build.outputs.producing-attempt }}
+          INPUT_VERSION: ${{ needs.validate.outputs.version }}
+        run: python3 .roc-automation/actions/sbom-sidecars/verify_transferred.py
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
-          subject-path: |
-            candidate/*.tar.zst
-            candidate/*.tar
-            candidate/*.tar.gz
-            candidate/*.pdf
-            candidate/*.zip
-            candidate/release-manifest.json
-      - uses: lukewilliamboswell/roc-automation/actions/publish-release@7aff4132691ad4fc348abe9df146a57512b49bd6
+          subject-path: ${{ needs.build.outputs.assets }}
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@8afe656ea7de5586233683088eb6972b770f6832
         with:
           version: ${{ needs.validate.outputs.version }}
           prerelease: ${{ needs.validate.outputs.prerelease }}
           notes-file: notes/release-notes.md
-          assets: |
-            candidate/*.tar.zst
-            candidate/*.tar
-            candidate/*.tar.gz
-            candidate/*.pdf
-            candidate/*.zip
-            candidate/release-manifest.json
+          assets: ${{ needs.build.outputs.assets }}

@@ -1197,7 +1197,7 @@ list_folder! = |access, selection, id| match selection.directory.list!() {
 		# The listing is bound before the record is built. Written inline
 		# beside `directory: selection.directory`, an optimized build loses
 		# a reference to the capability: see "A value used twice in one
-		# record literal" in wip/issues-backlog.md.
+		# record literal" in https://github.com/lukewilliamboswell/roc-gui/issues/60.
 		captures = list_captures!(selection.directory, entries)
 		# A folder that cannot be watched is still read; it is
 		# just not read again when it changes.
@@ -1803,7 +1803,7 @@ open_sources = |state| match state.capture {
 			run: || match state.access.pick_directory!() {
 				Ok(Chosen(selection)) => {
 					# Each value is bound before the record is built: see "A value
-					# used twice in one record literal" in wip/issues-backlog.md.
+					# used twice in one record literal" in https://github.com/lukewilliamboswell/roc-gui/issues/60.
 					name = selection.name
 					directory = selection.directory
 					result = locate!(opened, directory, name, mode)
