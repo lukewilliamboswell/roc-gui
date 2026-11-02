@@ -412,7 +412,7 @@ def run_specs(specs: list[str], output: Path, *flags: str) -> None:
         "--output",
         str(output),
         "--roc",
-        os.environ.get("ROC", "roc"),
+        os.environ.get("ROC_GUI_APP_COMPILER", "roc"),
     ]
     subprocess.run(command, cwd=ROOT, env={**os.environ, GUARD: "1"}, check=True)
 

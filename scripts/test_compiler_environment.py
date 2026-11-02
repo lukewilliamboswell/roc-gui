@@ -1,6 +1,9 @@
 """Archive contract checks independent of the Roc release driver."""
 import hashlib
 import json
+import os
+import runpy
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -16,6 +19,30 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CompilerEnvironmentTests(unittest.TestCase):
+    def test_fixture_bootstrap_keeps_configuration_and_product_compilers_separate(self):
+        import run_specs
+        with tempfile.TemporaryDirectory() as temporary:
+            case = run_specs.Case(ROOT / 'examples/counter/specs/counting.scm',
+                                  ROOT / 'examples/counter/main.roc',
+                                  Path(temporary) / 'counter', Path(temporary) / 'counting.rgstats')
+            with patch.dict(os.environ, {'ROC': 'configuration-compiler'}), \
+                    patch('toolchain.compiler_version', return_value='product-compiler'), \
+                    patch('run_specs.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '', '')) as command:
+                run_specs.build([case], 'product-compiler', True)
+            bootstrap = command.call_args_list[0]
+            self.assertEqual(bootstrap.args[0], ['blueprint', 'run', 'bootstrap'])
+            self.assertEqual(bootstrap.kwargs['env']['ROC'], 'configuration-compiler')
+            self.assertEqual(bootstrap.kwargs['env'][run_specs.APP_COMPILER], 'product-compiler')
+
+    def test_observatory_nested_runs_use_the_product_compiler(self):
+        generator = runpy.run_path(str(ROOT / 'examples/observatory/generate_fixture.py'))
+        with patch.dict(os.environ, {'ROC': 'configuration-compiler', 'ROC_GUI_APP_COMPILER': 'product-compiler'}), \
+                patch('subprocess.run') as command:
+            generator['run_specs'](['examples/counter/specs/counting.scm'], Path('fixture-output'))
+        arguments = command.call_args.args[0]
+        self.assertEqual(arguments[arguments.index('--roc') + 1], 'product-compiler')
+        self.assertEqual(command.call_args.kwargs['env']['ROC'], 'configuration-compiler')
+
     def test_every_application_has_specifications(self):
         for directory in ('examples', 'benchmarks'):
             for app in (ROOT / directory).glob('*/main.roc'):

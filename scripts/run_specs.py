@@ -184,6 +184,7 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 # development backend keeps routine checks quick; --roc-opt also exercises
 # optimized builds without an automatic retry or fallback. The Rust host's
 # build profile is independent of this option.
+APP_COMPILER = "ROC_GUI_APP_COMPILER"
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
 SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
 # Specifications that fail intermittently, skipped everywhere they would run and
@@ -212,7 +213,7 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
         ["blueprint", "run", "bootstrap"],
         cwd=ROOT,
         check=True,
-        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1",
+        env={**os.environ, APP_COMPILER: roc, SKIP_HOST_BUILD: "1",
              SELECTED_APPS: os.pathsep.join(sorted({case.app.parent.relative_to(ROOT).as_posix() for case in cases}))},
     )
     by_app = {case.app: case.executable for case in cases}
@@ -548,7 +549,7 @@ def parse_args() -> argparse.Namespace:
                              "runners cannot grant screen recording")
     parser.add_argument("--window-retries", type=int, default=0,
                         help="retry a failed window case this many times with fresh artifacts")
-    parser.add_argument("--roc", default=os.environ.get("ROC", "roc"))
+    parser.add_argument("--roc", default=os.environ.get(APP_COMPILER, "roc"))
     parser.add_argument("--roc-opt", choices=("dev", "speed", "size"), default="dev",
                         help="Roc application backend (default: dev); speed and size are LLVM diagnostic builds")
     args = parser.parse_args()

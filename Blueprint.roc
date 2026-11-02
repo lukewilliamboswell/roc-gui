@@ -44,6 +44,7 @@ config = [
 	Environment("scripts", script_runtime.concat([Expect(["roc", "git"])])),
 
 	Environment("producer", script_runtime.concat([Expect(["git", "python3"])])),
+	Environment("release-metadata", [Extend("producer"), Expect(["gh"])]),
 	Environment("archive-test", [Programs([Fetch("release-package", release_package)]), Expect(["roc", "git", "unzip"])]),
 	# Glue formatting uses the Rust toolchain selected by rustup.
 	Environment("glue", [Extend("scripts"), Expect(["cargo"])]),
@@ -104,7 +105,7 @@ config = [
 	Task("bootstrap", [Use("scripts"), Run(["scripts/bootstrap.roc"])]),
 	Task("test-archive", [Use("archive-test"), Run(["release-package", "test-archive"])]),
 	Task("link-inputs", [Use("producer"), Run(["scripts/link_inputs.roc"])]),
-	Task("release-version", [Use("scripts"), Run(["scripts/release_version.roc"])]),
+	Task("release-version", [Use("release-metadata"), Run(["scripts/release_version.roc"])]),
 	Task("release-build", [Use("scripts"), Run(["scripts/release.roc"])]),
 	Task("merge-sbom-evidence", [Use("scripts"), Run(["scripts/merge_sbom_evidence.roc"])]),
 	Task("sbom-composition", [Use("scripts"), Run(["scripts/sbom_composition.roc"])]),

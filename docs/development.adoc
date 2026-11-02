@@ -71,6 +71,11 @@ scripts only. To move it, change the tag in `Blueprint.roc` and in every
 script header, run `blueprint update`, format the scripts with
 `roc-stable fmt scripts`, and merge once CI passes.
 
+The specification runner selects the application compiler with `--roc` or
+`ROC_GUI_APP_COMPILER` and propagates that choice to nested fixture runs.
+`ROC` is Blueprint’s configuration-compiler override; it is independent of the
+application compiler.
+
 Install the repository hooks with `pre-commit install` and run them inside
 `blueprint shell`. The Roc hooks run `scripts/check_all.roc`; with `--staged`
 it checks only what the next commit records for machine code. Specification
