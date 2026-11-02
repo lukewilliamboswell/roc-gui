@@ -43,6 +43,20 @@ The `check` task needs no Nix: it fetches `roc-stable` and expects `roc` and
 `git` on the machine. The native tasks take their toolchain and libraries from
 the pinned Nix package set.
 
+=== Automation and native adapters
+
+Roc scripts own product orchestration: build selection, fixture generation,
+release version selection, native producer comparisons, release assembly, immutable suite planning and SBOM
+composition. Blueprint exposes each operation as a named task. Linux and macOS
+scope their Nix tools with `ToolsFor`; Windows uses native tools installed by
+its toolchain setup and does not evaluate a Nix development environment.
+
+Native archive/toolchain adapters and the independent SCM harness use Python.
+They own native file formats, admission and process/runtime integration. They do
+not replace the production host's specification parser, graph, event route or
+measurements. Shared executable utilities own archive execution, documentation
+rendering and SBOM generation/checking.
+
 === Two compilers
 
 The platform, its applications and its benchmarks name no compiler. They are
@@ -88,6 +102,45 @@ https://github.com/lukewilliamboswell/roc-gui/issues[GitHub issues].
 Release packaging records the compiler that bundled the release in its
 manifest, and the release notes name it with `roc-stable`. Archived examples
 name only the released platform, like the branch sources.
+
+=== Immutable release suites and SBOMs
+
+`blueprint run release-build -- VERSION OUTPUT HOSTS CACHE` assembles the
+platform from sealed hosts and admitted linker inputs, records production
+fixtures, and packages the complete semantic suite as
+`roc-gui-examples-VERSION.zip`. The host classifies every adjacent SCM file;
+all semantic cases, including benchmark scaling cases, enter `spec.json`.
+Window specifications remain native presentation checks.
+
+The ZIP retains source bytes except for the released platform dependency.
+Its portable physical filenames and content deduplication are described by
+`fixture-aliases.json`; the independent runtime harness restores the original
+logical fixture filenames before execution. The harness retains production
+captures and failure evidence under the extracted suite’s `semantic-evidence/`
+directory for the shared runner’s diagnostic artifact. Captures originate in the production
+recorder. No compiler, host binary or alternate application implementation is
+included in the harness.
+
+`blueprint run test-archive` invokes the shared utility against `RP_OUTPUT`.
+It verifies the archive and runs its recorded cases against the exact candidate
+bundle through a loopback mapping with an empty compiler package cache. The
+shared nightly workflow runs that same immutable suite against the selected
+published release and compiler on Linux, macOS and Windows. Missing releases,
+skips, timeouts and incomplete target evidence cannot establish compatibility.
+
+Every final release file has SPDX 3.0.1, SPDX 2.3 and CycloneDX 1.7 sidecars plus
+a binding manifest. Reviewed dispositions in `sbom/composition.json` distinguish
+environment tools from shipped components. Native composition comes from the
+sealed Cargo graph, host notices and linker-input identities; source companions,
+examples and documentation receive separate compositions. Machine-readable
+coverage records describe the boundaries of each claim.
+
+The read-only build generates and checks the sidecars after the final files
+exist. Native test jobs and the publisher independently recheck source/run
+identities, subjects, sizes and hashes with pinned shared code. Only the
+explicit validated asset set is attested and published; the transfer envelope
+is retained as CI evidence. A local test uses the same shared checker and never
+downloads schemas during validation.
 
 == Validate a change
 
@@ -365,10 +418,10 @@ fingerprint; only FreeType-exclusive paths move to component admission.
 Consumers verify locked bytes before extraction and on cache hits. A digest,
 size, manifest, target, provenance, or attestation mismatch is a hard failure and
 must never fall back to a local build. Development builds require current reviewed authority.
-`./build.py --source-inputs` selects the macOS source interfaces explicitly. A Linux host
+`blueprint run build -- --source-inputs` selects the macOS source interfaces explicitly. A Linux host
 build takes its build-time ALSA interface from the admitted linker inputs: the unified
 release, or the producer's own candidate through
-`./build.py --skip-inputs --candidate-inputs <directory>` while it validates fresh
+`blueprint run build -- --skip-inputs --candidate-inputs <directory>` while it validates fresh
 components; the producer then stages its exact candidate archives before final-link
 validation.
 Final platform releases accept only locked, released, and attested inputs.

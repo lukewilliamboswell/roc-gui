@@ -11,7 +11,7 @@
 # `roc-stable` is the nightly named below; it runs the scripts under scripts/.
 # Bare `roc` is the latest nightly, which the machine provides: the platform,
 # its applications and its benchmarks name no compiler.
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.10.0/GG2eFy18xVEiep6QDfgJaqbi7SPaNPRsGE5LvWKAeKas.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.11.0/EuSPs8vc71qJNFg29YzegvVRL1bR9pKqUYDHFiSCPTQ1.tar.zst" }
 
 import pf.Recipes
 import pf.Config
@@ -24,24 +24,28 @@ docs_renderer = |system| match system {
 	_ => Unavailable
 }
 
+release_package : System -> Config.Download
+release_package = |system| File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.9.0/release-package-${system.to_str()}")
+
+script_runtime : List(Config.EnvironmentSetting)
+script_runtime = [
+	Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-11-01-48d3369"))]),
+	# Every bundle the scripts depend on, including dependencies of
+	# dependencies: `roc-stable deps scripts/check_all.roc` lists them.
+	RocPackages([
+		"https://github.com/roc-lang/basic-cli/releases/download/0.26.0/GddgvsGjiNXrHFW6au5i5dUDbTs8FinQdrgE2Gqmw53t.tar.zst",
+		"https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
+	]),
+]
+
 config = [
 	Name("roc-gui"),
-	Systems(["x86_64-linux", "aarch64-darwin"]),
-	Environment(
-		"scripts",
-		[
-			Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-10-28-bad769b"))]),
-			# Every bundle the scripts depend on, including dependencies of
-			# dependencies: `roc-stable deps scripts/check_all.roc` lists them.
-			RocPackages([
-				"https://github.com/roc-lang/basic-cli/releases/download/0.26.0/GddgvsGjiNXrHFW6au5i5dUDbTs8FinQdrgE2Gqmw53t.tar.zst",
-				"https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
-			]),
-			Expect(["roc", "git"]),
-		],
-	),
-	# Regenerating the host bindings formats them with the repository's Rust
-	# toolchain, which rustup selects from rust-toolchain.toml.
+	Systems(["x86_64-linux", "aarch64-darwin", "x86_64-windows"]),
+	Environment("scripts", script_runtime.concat([Expect(["roc", "git"])])),
+
+	Environment("producer", script_runtime.concat([Expect(["git", "python3"])])),
+	Environment("archive-test", [Programs([Fetch("release-package", release_package)]), Expect(["roc", "git", "unzip"])]),
+	# Glue formatting uses the Rust toolchain selected by rustup.
 	Environment("glue", [Extend("scripts"), Expect(["cargo"])]),
 	# The renderer is a verified native download; API generation uses the
 	# caller's compiler, independently of the tooling compiler above.
@@ -50,21 +54,19 @@ config = [
 		"dev",
 		[
 			Extend("scripts"),
-			Tools([
-				"nix#rustup",
-				"nix#zig_0_16",
-				"nix#python3",
-				"nix#pre-commit",
-				"nix#pkg-config",
-				"nix#clang",
-				"nix#cmake",
-				"nix#gnumake",
-				"nix#curl",
-				"nix#zstd",
-			]),
 			ToolsFor(
 				"x86_64-linux",
 				[
+					"nix#rustup",
+					"nix#zig_0_16",
+					"nix#python3",
+					"nix#pre-commit",
+					"nix#pkg-config",
+					"nix#clang",
+					"nix#cmake",
+					"nix#gnumake",
+					"nix#curl",
+					"nix#zstd",
 					"nix#freetype",
 					"nix#fontconfig",
 					"nix#wayland",
@@ -75,14 +77,38 @@ config = [
 					"nix#vulkan-headers",
 				],
 			),
+			ToolsFor(
+				"aarch64-darwin",
+				[
+					"nix#rustup",
+					"nix#zig_0_16",
+					"nix#python3",
+					"nix#pre-commit",
+					"nix#pkg-config",
+					"nix#clang",
+					"nix#cmake",
+					"nix#gnumake",
+					"nix#curl",
+					"nix#zstd",
+				],
+			),
+
 		],
 	),
 	Shell("default", [Use("dev")]),
 	Task("check", [Use("scripts"), Run(["scripts/check_all.roc"])]),
-	Task("build", [Use("dev"), Run(["python3", "build.py"])]),
+	Task("build", [Use("dev"), Run(["scripts/build.roc"])]),
 	Task("test", [Use("dev"), Run(["python3", "scripts/run_specs.py", "--roc", "roc"])]),
 	Task("lint", [Use("dev"), Run(["python3", "scripts/run_cargo.py", "clippy", "--locked", "--package", "roc-gui-host", "--all-targets", "--no-deps", "--", "-D", "warnings"])]),
 	Task("docs", [Use("docs"), Run(["roc-docs", "build", "--workspace", ".", "--pdf-filename", "roc-gui.pdf", "--site-url", "https://lukewilliamboswell.github.io/roc-gui/", "--api-entrypoint", "platform/main.roc"])]),
+	Task("bootstrap", [Use("scripts"), Run(["scripts/bootstrap.roc"])]),
+	Task("test-archive", [Use("archive-test"), Run(["release-package", "test-archive"])]),
+	Task("link-inputs", [Use("producer"), Run(["scripts/link_inputs.roc"])]),
+	Task("release-version", [Use("scripts"), Run(["scripts/release_version.roc"])]),
+	Task("release-build", [Use("scripts"), Run(["scripts/release.roc"])]),
+	Task("merge-sbom-evidence", [Use("scripts"), Run(["scripts/merge_sbom_evidence.roc"])]),
+	Task("sbom-composition", [Use("scripts"), Run(["scripts/sbom_composition.roc"])]),
+	Task("release-suite", [Use("scripts"), Run(["scripts/release_suite.roc"])]),
 	Task("docs-path", [Use("docs"), Run(["sh", "-c", "realpath \"$(command -v roc-docs)\""])]),
 	# Regenerate the committed host bindings: regenerate-glue -- <roc source>.
 	Task("regenerate-glue", [Use("glue"), Run(["scripts/regenerate_glue.roc"])]),

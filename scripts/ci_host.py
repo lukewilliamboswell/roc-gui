@@ -7,7 +7,7 @@ that exercises it.
 - `built`: the release producer (`prepare_host_build.py`) builds it once, with
   evidence, beside the locked linker inputs.
 - `development`: the linker inputs themselves are not yet released, so
-  `build.py` stages them from their recipes.
+  `blueprint run build` stages them from their recipes.
 
 A host whose source fingerprint and linker-input lock match an earlier run's is
 restored from the cache that run saved, already sealed; `decide` is not asked.

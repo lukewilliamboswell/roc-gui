@@ -2,13 +2,13 @@
 
 == `roc build` cannot find `libhost.a`
 
-Run `python3 build.py` from the repository root. It creates
+Run `blueprint run build` from the repository root. It creates
 `platform/targets/x64glibc/libhost.a`, the archive selected by the platform's
 `x64glibc` target. Rebuild it after Rust host changes.
 
 == The Windows build rejects the SDK's shader tools
 
-`build.py` compiles GPUI's shaders with the Windows SDK's `fxc.exe` and its
+`blueprint run build` compiles GPUI's shaders with the Windows SDK's `fxc.exe` and its
 `d3dcompiler_47.dll`. CI and release builds admit only the reviewed pair, by
 hash and signing certificate, recorded in `scripts/windows_gnu_build.py`. A
 development machine receives SDK servicing updates that re-sign and re-hash

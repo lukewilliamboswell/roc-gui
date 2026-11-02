@@ -1,13 +1,16 @@
-"""Release example regression checks."""
+"""Archive contract checks independent of the Roc release driver."""
+import hashlib
 import json
 from pathlib import Path
-import sys
-import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
+import zipfile
 
+import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import bundle_examples
+
+import suite_archive
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,29 +21,49 @@ class CompilerEnvironmentTests(unittest.TestCase):
             for app in (ROOT / directory).glob('*/main.roc'):
                 self.assertTrue(list(app.parent.glob('specs/*.scm')), str(app))
 
-    def test_archive_binds_every_app_and_is_reproducible(self):
+    def test_archive_preserves_bytes_and_logical_names_reproducibly(self):
         with tempfile.TemporaryDirectory() as temporary:
-            directory = Path(temporary)
-            manifest = directory / 'release-manifest.json'
-            compiler = 'Roc compiler version nightly-2026-10-20-7a8a800'
-            manifest.write_text(json.dumps({'schema_version': 3, 'compiler': compiler,
-                                            'bundle': {'name': 'platform.tar.zst'}}))
-            archive = bundle_examples.archive(directory, '0.1.0', manifest)
-            original = archive.read_bytes()
-            with tarfile.open(archive) as packed:
-                roots = [m for m in packed.getmembers() if m.name.endswith('/main.roc')]
-                self.assertEqual(len(roots), len(list((ROOT / 'examples').glob('*/main.roc'))))
-                for member in roots:
-                    source = packed.extractfile(member).read().decode()
-                    # Archived headers float on the compiler, as the repository's do.
-                    self.assertNotRegex(source.split('}', 1)[0], r'\broc\s*:')
-                    self.assertIn('/releases/download/0.1.0/platform.tar.zst', source)
-                readme = next(m for m in packed.getmembers() if m.name.endswith('/README.md'))
-                self.assertIn(compiler, packed.extractfile(readme).read().decode())
-            self.assertEqual(bundle_examples.archive(directory, '0.1.0', manifest).read_bytes(), original)
-            manifest.write_text(json.dumps({'schema_version': 3}))
+            root = Path(temporary)
+            (root / 'examples/demo').mkdir(parents=True)
+            (root / 'examples/demo/main.roc').write_text('original')
+            (root / 'examples/demo/A track.wav').write_bytes(b'recording')
+            (root / 'examples/demo/fixture').mkdir()
+            (root / 'examples/demo/fixture/duplicate.wav').write_bytes(b'recording')
+            plan = {'version': '1.0.0', 'url': 'https://example.org/platform.tar.zst',
+                    'spec': {'schema_version': 1, 'release': '1.0.0', 'dependencies': [], 'apps': []},
+                    'files': [{'source': 'examples/demo/main.roc', 'destination': 'examples/demo/main.roc',
+                               'replacement': {'Ok': 'released'}},
+                              {'source': 'examples/demo/A track.wav', 'destination': 'examples/demo/A track.wav',
+                               'replacement': {'Err': 'Missing'}}]}
+            with patch.object(suite_archive, 'ROOT', root), patch.object(suite_archive, 'RUNTIME', ()), \
+                    patch.object(suite_archive, 'FIXTURES', ('examples/demo/fixture',)):
+                archive = suite_archive.pack(plan, root / 'out')
+                first = archive.read_bytes()
+                with zipfile.ZipFile(archive) as packed:
+                    names = packed.namelist()
+                    self.assertTrue(all(' ' not in name for name in names))
+                    prefix = 'roc-gui-examples-1.0.0/'
+                    self.assertEqual(packed.read(prefix + 'examples/demo/main.roc'), b'released')
+                    aliases = json.loads(packed.read(prefix + 'fixture-aliases.json'))
+                    self.assertEqual(len(aliases), 2)
+                    for alias in aliases:
+                        self.assertEqual(hashlib.sha256(packed.read(prefix + alias['source'])).hexdigest(), alias['sha256'])
+                self.assertEqual(suite_archive.pack(plan, root / 'out').read_bytes(), first)
+                self.assertEqual((root / 'examples/demo/main.roc').read_text(), 'original')
+
+    def test_archive_refuses_symlink_sources(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'original').write_text('bytes')
+            (root / 'alias').symlink_to('original')
+            plan = {'version': '1.0.0', 'files': [{'source': 'alias', 'destination': 'alias', 'replacement': {}}]}
+            with patch.object(suite_archive, 'ROOT', root), self.assertRaisesRegex(ValueError, 'regular'):
+                suite_archive.pack(plan, root / 'out')
+
+    def test_archive_refuses_unsafe_names(self):
+        for name in ('../escape', '/absolute', 'a//b', 'a/./b', 'a\\b'):
             with self.assertRaises(ValueError):
-                bundle_examples.archive(directory, '0.1.0', manifest)
+                suite_archive.safe_name(name)
 
 
 if __name__ == '__main__':

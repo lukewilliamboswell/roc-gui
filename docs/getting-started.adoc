@@ -44,11 +44,11 @@ The host archive is part of every Roc GUI executable. Build it first:
 
 [source,sh]
 ----
-python3 build.py
+blueprint run build
 ----
 
 The result is `platform/targets/<target>/libhost.a`, where `<target>` is
-`x64glibc`, `arm64mac`, or `x64mingw`. Re-run `build.py` after a host change.
+`x64glibc`, `arm64mac`, or `x64mingw`. Re-run `blueprint run build` after a host change.
 
 == Build and run the example
 

@@ -27,5 +27,5 @@ if target == "x64glibc" and environment.get("IN_NIX_SHELL") and sys.argv[1:2] ==
         raise SystemExit("Nix Cargo tests require the ALSA runtime from the development shell")
     existing = environment.get("LD_LIBRARY_PATH")
     environment["LD_LIBRARY_PATH"] = alsa_library + (os.pathsep + existing if existing else "")
-with cargo_environment(environment, target) as environment:
+with cargo_environment(environment, target, os.environ.get("ROC_GUI_CANDIDATE_ALSA")) as environment:
     subprocess.run(["cargo", *sys.argv[1:]], cwd=ROOT, env=environment, check=True)

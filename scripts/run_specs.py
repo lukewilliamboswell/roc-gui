@@ -205,11 +205,11 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
     print(f"Roc compiler: {compiler_version(roc)}", flush=True)
     print(f"Roc application build mode: {roc_opt}", flush=True)
     if not skip_host_build:
-        subprocess.run([sys.executable, str(ROOT / "build.py")], cwd=ROOT, check=True)
+        subprocess.run(["blueprint", "run", "build"], cwd=ROOT, check=True)
     # A generator that runs specifications itself builds with this compiler,
     # against the host just built, so its nested runs never build it again.
     subprocess.run(
-        [sys.executable, str(ROOT / "scripts/bootstrap.py")],
+        ["blueprint", "run", "bootstrap"],
         cwd=ROOT,
         check=True,
         env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1",
