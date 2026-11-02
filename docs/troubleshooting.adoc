@@ -57,8 +57,7 @@ rejects incomplete captures before calculating ratios.
 
 == The documentation build cannot render diagrams
 
-Run `python3 scripts/prepare_docs_diagrams.py` with Mermaid CLI 11.16.0 and its
-Chromium runtime after changing a Mermaid block. Commit its prepared PNG, SVG,
-and manifest together with the source. The shared renderer checks their digests
-and rejects a missing or stale preparation. Run `blueprint run docs` to build
-the manual and API reference with the updated inputs.
+Run `blueprint run docs` with the locked native renderer. Keep Mermaid source
+in the manual and use the supported syntax in the
+https://lukewilliamboswell.github.io/roc-automation/roc-docs.html#images-and-diagrams[diagram reference].
+A rejected block names the source and diagnostic; correct that source and rebuild.

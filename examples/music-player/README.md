@@ -28,17 +28,6 @@ its status line and nothing else changes. The sleeve reads
 binary from the repository root if you want the cover art; without it the sleeve
 stays a bare tile and says "Cover art unavailable".
 
-## Not yet built
-
-- Only `.wav` decodes. The host builds Rodio with the `wav` feature alone, so
-  any other extension is filtered out of the queue entirely.
-- No volume control, no shuffle or repeat, no seek bar, and no elapsed-time
-  readout — position is a number a button prints on demand.
-- A track that reaches its end does not advance the queue; the transport has to
-  be pressed.
-- No metadata is read. A row's title is its file name with the last four
-  characters removed.
-
 ## Assets
 
 `library/` holds four CC0 recordings of public-domain piano music and one file
@@ -50,10 +39,4 @@ fixture of test tones for the scaling case.
 
 ## Specifications
 
-Thirteen semantic specifications cover playback, pause and resume, stop, queue
-stepping at both ends, transport from rest, seek and position, stale load
-identity, the decode error, the cover art read, and a 200-track library. Two run
-against the real window: they photograph the player's identity and the decode
-failure. Every one of them grants a folder and a paced null audio sink, so CI
-needs no audio device and runs the same Rodio graph the desktop player does. The
-200-track case needs the generated fixture on disk before it will run.
+The [specifications](specs/) exercise audio authority, playback and task lifetime.

@@ -25,15 +25,6 @@ a panel. Run without it and the chooser is refused, which is a state the
 application is designed for — a band says nothing was read, nothing on screen
 has changed, and Open folder is the control that answers it.
 
-## Not yet built
-
-- No recursive scanning. Only files directly inside the chosen folder are read.
-- No sorting, no rotation, no zoom or pan, and no editing or writing of any
-  kind.
-- The filter matches the file name only, and is case-sensitive.
-- The scan is one pass with every file held in memory; there is no incremental
-  or cancellable load.
-
 ## Assets
 
 `icons/unreadable.svg` is vendored artwork; `icons/NOTICE.md` records its source
@@ -41,9 +32,4 @@ and licence, alongside `THIRD_PARTY_LICENSES.md`.
 
 ## Specifications
 
-`specs/` holds eight semantic specifications, covering browsing, metadata,
-corrupt and unsupported entries, filtering, transform reversal, stale scan
-identity, refusal with no grant, and a 24-image 8000x6000 collection reached
-through the ordinary folder workflow. Three more run against the real window:
-they photograph the empty and populated wall, assert a thumbnail's laid-out
-square, and photograph the refusal.
+The [specifications](specs/) exercise image decoding, metadata, refusal and retry.

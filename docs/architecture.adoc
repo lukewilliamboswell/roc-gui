@@ -574,63 +574,12 @@ remain visible as the implementation evolves.
 
 == Origin of the Action-State model
 
-The Action-State model this platform implements originates with Richard
-Feldman, who described it in
-https://gist.githubusercontent.com/lukewilliamboswell/5c41387f4e3ee1d494d0c445616acffd/raw/4945dba566f9f27bd895c82765d038f2539dcfe2/gistfile1.txt[_Design Idea: Action-State_].
-That write-up proposes a user interface API for Roc in which a renderer is a
-pure function from state to an `Elem` value, event handlers return an `Action`
-rather than a message, and a translation function relates a component's state to
-its parent's state while marking the unit of re-rendering. roc-gui is an
-development of that design. `Gui.Action.update`, `Gui.Action.none()`, the shared `state`
-type variable on `Elem` and `Action`, and adapting child renderers through
-getters and setters follow its central idea: state ownership can identify the
-subtree an action needs to update. Pure translations express that boundary;
-explicit keys preserve logical identity through parent rebuilding, while the
-host owns mounted lifetimes.
-
-The motivation is worth restating, because it explains the shape of the API
-more than any implementation detail does. A renderer takes state and returns a
-description; it performs no effect, invokes no capability, and observes no clock, so
-calling it twice with the same state yields the same description and calling it
-is never a way to make something happen. Everything that can make something
-happen is an `Action` returned from a handler, and an `Action` is a value: it
-describes a transition rather than performing one. Constructing
-`Gui.Action.update(next)` changes nothing. The platform changes state only when it
-receives that value back from a handler and accepts its graph transaction.
-
-That division is what makes the concurrency tractable. Application state lives
-on one thread, and every state transition is applied there, one at a time, by
-the dispatcher installed for the currently mounted graph. Each turn takes the
-state, runs one handler, applies the single action it returned, renders the
-required scope, commits one graph decision, and installs its successor. Two transitions
-cannot interleave, no handler can observe a half-applied update, and a handler
-always receives the state that precedes it rather than a snapshot captured when
-the tree was rendered. A handler's first argument is therefore the state to
-build the next state from.
-
-`Gui.Action.task` extends the same discipline to work that must not block the
-interface. It commits its `pending` state before handing the effect body
-to a worker thread, which returns a reducer rather than a state value. The UI
-thread applies that reducer to whatever the latest state is by then, so events
-that arrived while the task was in flight are not overwritten by a stale
-snapshot. The effect runs off the UI thread; the state transition it produces
-still happens on the UI thread, in the same serialised order as every other
-transition. Effects thus stay out of rendering entirely, and concurrency is
-confined to the body of the work rather than spread through the state model.
-
-Several ideas in the early write-up are useful independently of its proposed
-surface syntax. Pure descriptions leave execution to the platform. Delegation
-lets the parent decide whether to accept a child's proposal. Fallible state
-projections make removal explicit. Deferred rendering enables memoized
-subtrees. roc-gui gives those ideas one coherent ownership model through
-pure translations, `Gui.Action.delegate`, host-owned keyed lifetimes, and explicit
-memo equivalence.
-
-Periodic work uses `Gui.Action.task` around a timer handle in application state,
-with explicit cadence and cancellation. There is no string-keyed global effect
-tracker. Instance liveness answers whether an owner still exists; application
-request identity answers whether a result remains relevant to that live owner.
-Those are distinct questions, and neither replaces the other.
+Richard Feldman’s
+https://gist.githubusercontent.com/lukewilliamboswell/5c41387f4e3ee1d494d0c445616acffd/raw/4945dba566f9f27bd895c82765d038f2539dcfe2/gistfile1.txt[_Design Idea: Action-State_]
+explains the design behind pure rendering, action values and translations
+between parent and child state. Roc GUI combines that model with explicit keys,
+host-owned mounted lifetimes and memo equivalence. State ownership identifies
+the subtree an accepted action needs to update.
 
 == How this compares
 

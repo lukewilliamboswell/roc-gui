@@ -37,7 +37,7 @@ ones.
 
 `docs/` is authored guidance in AsciiDoc and describes the intended, enduring
 state. It does not carry caveats, TODOs, or "currently". Gaps, defects, and
-unfinished work go in `wip/issues-backlog.md` and are removed when closed. Never
+unfinished work belong in GitHub issues. Never
 weaken a document to match a shortcoming; record the shortcoming instead.
 
 `README.md` is the landing page. It orients a newcomer and points into `docs/`.
@@ -58,3 +58,5 @@ command lines, application text, or machine identifiers.
 - Do not commit or push unless asked. Do not rewrite history.
 - When a request conflicts with these principles, say so in a sentence, then do
   the work the principles allow.
+
+Keep documentation focused on current reader tasks. Remove superseded guidance and status narratives; keep release changes in release records and investigations or unresolved work in issues. See the [contributor guide](docs/development.adoc#documentation).

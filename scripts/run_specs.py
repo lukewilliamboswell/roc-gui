@@ -187,7 +187,7 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
 SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
 # Specifications that fail intermittently, skipped everywhere they would run and
-# named on every run. Each is tracked in wip/issues-backlog.md and removed when
+# named on every run. Each is tracked in https://github.com/lukewilliamboswell/roc-gui/issues/60 and removed when
 # its cause is fixed.
 INTERMITTENT = {
     # TODO(release blocker): Observatory's folder rewatch sometimes counts one

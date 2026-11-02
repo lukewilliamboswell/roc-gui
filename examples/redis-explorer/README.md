@@ -29,13 +29,6 @@ cannot derive another, so it can only connect where the host already pointed it.
 This is development provisioning, not a consent flow: there is no Connect dialog
 and no name resolution.
 
-## Not yet built
-
-- Read-only. No writing, deleting, expiring, or renaming of keys.
-- No database selection, authentication, cluster support, or server statistics.
-- One glob pattern at a time; results are a flat list, not a tree.
-- Values are rendered as lines of text, with no per-type editor or formatter.
-
 ## Assets
 
 The three marks in `icons/` are vendored; their provenance and licences are in
@@ -43,10 +36,4 @@ The three marks in `icons/` are vendored; their provenance and licences are in
 
 ## Specifications
 
-Fourteen specifications run on the semantic runner, most of them against a
-Python fixture server, and cover connecting, disconnecting and reconnecting,
-scanning and filtering, inspecting each supported type, unsupported types,
-refusal, an unreachable endpoint, a timeout, a protocol failure, single-stream
-ownership under repeated presses, and a 10,000-key catalogue traversed by
-ordinary SCAN. One runs against the real window and photographs the console
-offline, connected, scanned, and inspected.
+The [specifications](specs/) exercise endpoint authority, commands and response handling.

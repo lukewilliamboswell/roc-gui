@@ -31,17 +31,6 @@ The grant names the profile the workspace may spawn: `local-shell` for your
 login shell, or `test-program` for the deterministic child the specifications
 drive. Launched without it, the well says so and names the flag.
 
-## Not yet built
-
-- Two side-by-side workspaces with one divider; no tabs or nested split layout.
-- No terminal emulation: escape sequences are discarded rather than interpreted,
-  so there is no cursor addressing, colour, or full-screen program support.
-- The filter is a plain substring match, with no regular expressions, no
-  highlighting, and no jump-to-match.
-- Scrollback is unbounded and lives only in memory; it is cleared when a new
-  session starts, and never written to disk.
-- The terminal size is fixed at 100×30 and does not follow the window.
-
 ## Assets
 
 The two marks in `icons/` are vendored; their provenance and licences are in
@@ -49,15 +38,4 @@ The two marks in `icons/` are vendored; their provenance and licences are in
 
 ## Specifications
 
-Twelve specifications run on the semantic runner, most against the
-deterministic `test-program` child, covering a session's life, command
-submission, filtering, searching, restarting, refusal and retry, a stale
-completion after cancellation, two split workspaces with independent state and
-sessions, a resource-bearing component that opts out of equality, the divider
-resized by drag and by keyboard and folded without unmounting the second
-workspace (`resize-divider.scm`), and a scaling case that produces a hundred
-lines through an ordinary command. Five run against the real window: the
-gallery journey, the instrument idle, attached, and dense with scrollback, the
-refusal placard, a keyed terminal keeping its process through a parent
-rebuild, and the divider dragged, folded, and restored with the window's own
-pointer and keyboard (`window-divider.scm`).
+The [specifications](specs/) exercise process authority, session ownership and teardown.

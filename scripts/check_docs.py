@@ -70,6 +70,7 @@ def check(output: Path) -> None:
     expected = Counter(
         (match.group("lang") or "", match.group("body"))
         for source in (ROOT / "docs").rglob("*.adoc")
+        if "releases" not in source.relative_to(ROOT / "docs").parts
         for match in SOURCES.finditer(source.read_text())
         if match.group("kind") != "mermaid"
     )
@@ -81,6 +82,7 @@ def check(output: Path) -> None:
     diagrams = [
         match.group("body")
         for source in (ROOT / "docs").rglob("*.adoc")
+        if "releases" not in source.relative_to(ROOT / "docs").parts
         for match in SOURCES.finditer(source.read_text())
         if match.group("kind") == "mermaid"
     ]
