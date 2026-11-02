@@ -90,6 +90,20 @@ def cargo_graph(notice, metadata, host_id, target):
     return components, relationships
 
 
+def linker_source(name, original):
+    """Use the source distribution selected by the recorded native recipe."""
+    source = original.get("source", {})
+    if name != "windows-gnu-runtime":
+        return source, ""
+    # The owning runtime producer emits 3 for native Windows and 4 for Linux.
+    if original["schema_version"] not in (3, 4):
+        raise ValueError("unsupported Windows runtime source evidence")
+    source = source["native_toolchain" if original["schema_version"] == 3 else "toolchain"]
+    if original["schema_version"] == 3 and original["build"]["toolchain_sha256"] != source["sha256"]:
+        raise ValueError("Windows runtime source differs from its native builder")
+    return source, "Download and SHA-256 identify the recorded Zig source distribution. Only selected runtime portions and corresponding sources are delivered; the compiler executable is not included."
+
+
 def inventory(release, hosts, cache):
     manifest = json.loads((release / "release-manifest.json").read_text())
     archives = manifest["hosts"]["archives"]
@@ -137,13 +151,13 @@ def inventory(release, hosts, cache):
         if admitted["target"] != target or admitted["input_fingerprint"] != lock["source"]["input_fingerprint"]:
             raise ValueError("linker-input component metadata differs from the selected release")
         for name, original in sorted(admitted["components"].items()):
-            source = original.get("source", {})
+            source, modified = linker_source(name, original)
             digest = source.get("sha256", "")
             version = original.get("version", "sha256-" + original.get("catalog_sha256", admitted["input_fingerprint"]))
             source_url = source.get("url", "NOASSERTION")
             identity = source_url if source_url != "NOASSERTION" else "urn:roc-gui:link-interface:" + name + ":" + version
             child = component(target + "-native-" + name, name, version, identity, source_url, digest,
-                              "UPL-1.0" if name in ("alsa", "macos-interfaces") else "NOASSERTION", SYSTEMS[target])
+                              "UPL-1.0" if name in ("alsa", "macos-interfaces") else "NOASSERTION", SYSTEMS[target], modified=modified)
             platform_components.append(child)
             platform_edges.append(edge(identifier, child["id"], "contains", "", "The admitted dependency.json records this component's exact source/recipe identity"))
 

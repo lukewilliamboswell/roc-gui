@@ -7,7 +7,7 @@ import unittest
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from native_inventory import cargo_graph, checked_archive
+from native_inventory import cargo_graph, checked_archive, linker_source
 
 
 class NativeInventoryTests(unittest.TestCase):
@@ -41,6 +41,25 @@ class NativeInventoryTests(unittest.TestCase):
             path.write_bytes(b'replaced')
             with self.assertRaisesRegex(ValueError, 'digest'):
                 checked_archive(root, record)
+
+    def test_windows_runtime_preserves_its_selected_distribution(self):
+        native = {'url': 'https://example.org/zig-windows.zip', 'sha256': 'a' * 64}
+        cross = {'url': 'https://example.org/zig-linux.tar.xz', 'sha256': 'b' * 64}
+        original = {'schema_version': 3, 'source': {'native_toolchain': native, 'toolchain': cross},
+                    'build': {'toolchain_sha256': native['sha256']}}
+        for schema, expected in ((3, native), (4, cross)):
+            with self.subTest(schema=schema):
+                original['schema_version'] = schema
+                source, modified = linker_source('windows-gnu-runtime', original)
+                self.assertEqual(source, expected)
+                self.assertIn('compiler executable is not included', modified)
+        original['schema_version'] = 3
+        original['build']['toolchain_sha256'] = 'c' * 64
+        with self.assertRaisesRegex(ValueError, 'native builder'):
+            linker_source('windows-gnu-runtime', original)
+        original['schema_version'] = 99
+        with self.assertRaisesRegex(ValueError, 'unsupported'):
+            linker_source('windows-gnu-runtime', original)
 
 
 if __name__ == '__main__':
