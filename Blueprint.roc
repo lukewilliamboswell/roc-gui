@@ -20,7 +20,7 @@ import dependencies/FreeType
 
 docs_renderer : System -> Config.Download
 docs_renderer = |system| match system {
-	"x86_64-linux" | "aarch64-darwin" => File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.7.0/roc-docs-${system.to_str()}")
+	"x86_64-linux" | "aarch64-darwin" => File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.9.0/roc-docs-${system.to_str()}")
 	_ => Unavailable
 }
 

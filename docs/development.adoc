@@ -220,13 +220,12 @@ Pass renderer options after `--`, for example
 `blueprint run docs -- --docs-version main --roc-command /path/to/roc`.
 Use `--output-directory` to select another output directory inside the repository.
 
-Mermaid source stays beside the prose. After editing a diagram, install
-`@mermaid-js/mermaid-cli@11.16.0` and its Chromium runtime, then run
-`python3 scripts/prepare_docs_diagrams.py`. Commit the source, PNG and SVG
-inputs under `docs/images/diagrams/`, and `docs/prepared-diagrams.json` together.
-The manifest binds the source and prepared assets by SHA-256; the renderer
-rejects stale assets. Diagram preparation is an authoring step. Ordinary manual
-builds consume those inputs without a browser or external converter.
+Mermaid source stays beside the prose. The released renderer parses supported
+Mermaid blocks and draws their SVG and PDF output directly during the ordinary
+documentation build. Commit the source blocks; generated diagram assets belong
+in `.docs-out/`. A changed source produces a new content-addressed SVG path.
+Unsupported syntax fails the build and must be expressed using the shared
+renderer’s documented diagram syntax.
 
 Headings receive IDs automatically. Use those IDs in cross-references and
 reserve explicit IDs for intentional permalinks.
