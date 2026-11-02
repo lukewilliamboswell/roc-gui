@@ -23,7 +23,7 @@ main! = |raw_args| {
 		return fail!("release assembly requires clean committed sources")
 	}
 	Cmd.new("python3").args(["scripts/verify_release_attestations.py", "link-inputs.lock.json", "--cache", OsStr.from_str(cache)]).call!()?
-	run!("python3", ["scripts/bundle_platform.py", "--link-inputs", "link-inputs.lock.json", "--hosts", hosts, "--output", output, "--cache", cache])?
+	run!("python3", ["scripts/bundle_platform.py", "--link-inputs", "link-inputs.lock.json", "--hosts", hosts, "--output", output, "--cache", cache, "--stage-native"])?
 	run!("blueprint", ["run", "bootstrap"])?
 	describer = "${cache}/suite-describer"
 	run!("roc", ["build", "--no-cache", "--opt=dev", "--output=${describer}", "examples/counter/main.roc"])?
@@ -41,7 +41,7 @@ main! = |raw_args| {
 	}
 }
 
-run! = |program, args| Cmd.new(OsStr.from_str(program)).clear_envs().envs(Env.dict!().keep_if(|(name, _)| !["GH_TOKEN", "GITHUB_TOKEN"].contains(name.display()))).args(args.map(OsStr.from_str)).call!()
+run! = |program, args| Cmd.new(OsStr.from_str(program)).clear_envs().envs(Env.dict!().keep_if(|(name, _)| !["GH_TOKEN", "GITHUB_TOKEN"].contains(name.display()))).env("ROC_GUI_SKIP_HOST_BUILD", "1").env("ROC_GUI_APP_COMPILER", "roc").args(args.map(OsStr.from_str)).call!()
 
 fail! = |message| {
 	Stderr.line!(message)?

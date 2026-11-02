@@ -43,15 +43,18 @@ def native_target() -> str:
         raise ValueError(f"unsupported native host: {platform.system()} {platform.machine()}") from error
 
 
-def stage(target: str, hosts: Path, root: Path = ROOT) -> None:
+def stage(target: str, hosts: Path, root: Path = ROOT, *,
+          link_lock: Path | None = None, cache: Path | None = None) -> None:
     """Stage the host files in `hosts` beside the target's locked link inputs."""
     targets = root / "platform/targets"
     targets.mkdir(parents=True, exist_ok=True)
     destination = targets / target
     with tempfile.TemporaryDirectory(dir=targets, prefix=".built-host-") as temporary:
         staged_target = Path(temporary) / "targets" / target
-        from link_input_artifacts import install as install_link_inputs
-        link_inputs = install_link_inputs(target, staged_target, root / "link-inputs.lock.json")
+        from link_input_artifacts import CACHE, install as install_link_inputs
+        link_inputs = install_link_inputs(target, staged_target,
+                                         link_lock if link_lock is not None else root / "link-inputs.lock.json",
+                                         cache if cache is not None else CACHE)
         for name in HOST_FILES[target]:
             shutil.copyfile(hosts / name, staged_target / name)
         (staged_target / "link-inputs.json").write_text(json.dumps(link_inputs, indent=2) + "\n")

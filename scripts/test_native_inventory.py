@@ -15,7 +15,7 @@ class NativeInventoryTests(unittest.TestCase):
         def package(identifier, name):
             return {'id': identifier, 'name': name, 'version': '1.0.0',
                     'source': 'registry+https://github.com/rust-lang/crates.io-index',
-                    'crate_sha256': 'a' * 64, 'declared_license': 'MIT'}
+                    'crate_sha256': 'a' * 64, 'declared_license': 'Unlicense/MIT' if name == 'transitive' else 'MIT'}
         packages = [package('library', 'library'), package('transitive', 'transitive'), package('macro', 'macro')]
         def node(identifier, dependencies):
             return {'id': identifier, 'deps': [{'pkg': other, 'dep_kinds': [{'kind': None}]} for other in dependencies]}
@@ -30,6 +30,8 @@ class NativeInventoryTests(unittest.TestCase):
         transitive = next(c for c in components if c['name'] == 'transitive')
         self.assertEqual(transitive['identity'], 'pkg:cargo/transitive@1.0.0')
         self.assertIn('static.crates.io', transitive['download'])
+        self.assertEqual(transitive['license'], 'Unlicense OR MIT')
+        self.assertIn('Unlicense/MIT', transitive['modified'])
 
     def test_native_inventory_refuses_swapped_archive_bytes(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -75,9 +77,9 @@ class NativeInventoryTests(unittest.TestCase):
         self.assertNotEqual(glibc['identity'], changed['identity'])
 
     def test_git_crates_in_one_repository_retain_distinct_source_archive_identities(self):
-        source = 'git+https://example.org/monorepo.git?rev=' + 'c' * 40 + '#' + 'c' * 40
+        source = 'git+https://github.com/example/monorepo.git?rev=' + 'c' * 40 + '#' + 'c' * 40
         packages = [{'id': name, 'name': name, 'version': '1.0.0', 'source': source,
-                     'declared_license': 'MIT', 'git_source': {'repository': 'https://example.org/monorepo.git',
+                     'declared_license': 'MIT / Apache-2.0', 'git_source': {'repository': 'https://github.com/example/monorepo.git',
                      'revision': 'c' * 40, 'path': 'crates/' + name, 'archive_sha256': digest * 64}}
                     for name, digest in [('first', 'a'), ('second', 'b')]]
         metadata = {'packages': [{'id': 'root', 'name': 'roc-gui-host', 'source': None}] +
@@ -88,9 +90,11 @@ class NativeInventoryTests(unittest.TestCase):
         for entry, package in zip(components, packages, strict=True):
             self.assertEqual(entry['sha256'], package['git_source']['archive_sha256'])
             self.assertIn(entry['sha256'], entry['identity'])
-            self.assertEqual(entry['source_refs'], [{'type': 'vcs', 'url': source.removeprefix('git+')}])
+            self.assertEqual(entry['source_refs'], [{'type': 'vcs', 'url': 'https://github.com/example/monorepo/tree/' + 'c' * 40 + '/' + package['git_source']['path']}])
             self.assertIn(package['git_source']['path'], entry['modified'])
             self.assertEqual(entry['download'], 'NOASSERTION')
+            self.assertEqual(entry['license'], 'MIT OR Apache-2.0')
+            self.assertIn('MIT / Apache-2.0', entry['modified'])
 
 
 if __name__ == '__main__':

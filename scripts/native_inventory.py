@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import sys
 import tarfile
+from urllib.parse import quote
 
 CONTACT = "https://github.com/lukewilliamboswell/roc-gui/issues"
 SYSTEMS = {"x64glibc": "x86_64-linux", "arm64mac": "aarch64-darwin", "x64mingw": "x86_64-windows"}
@@ -65,10 +66,23 @@ def cargo_graph(notice, metadata, host_id, target):
             sha256 = git["archive_sha256"]
             identity = f"urn:roc-gui:cargo-source:{package['name']}:{package['version']}:sha256:{sha256}"
             url = git.get("archive_url", "NOASSERTION")
-            source_refs = [{"type": "vcs", "url": source.removeprefix("git+")}]
+            repository = git["repository"].removesuffix(".git")
+            if not repository.startswith("https://github.com/"):
+                raise ValueError("Git source needs a reviewed immutable SBOM tree locator")
+            vcs = f"{repository}/tree/{git['revision']}"
+            if git["path"] != ".":
+                vcs += "/" + quote(git["path"], safe="/")
+            source_refs = [{"type": "vcs", "url": vcs}]
             modified = f"Canonical Cargo source archive for {git['repository']}, revision {git['revision']}, path {git['path']}; digest identifies retained archive bytes."
+        declared = package["declared_license"] or "NOASSERTION"
+        license_expression = declared
+        if "/" in declared:
+            # Cargo's documented historical slash separator means OR:
+            # https://doc.rust-lang.org/stable/style-guide/cargo.html
+            license_expression = " ".join(declared.replace("/", " OR ").split())
+            modified = (modified + " Cargo's original slash-form license declaration: " + declared).strip()
         entry = component(identifiers[key], package["name"], package["version"], identity,
-                          url, sha256, package["declared_license"] or "NOASSERTION", SYSTEMS[target], modified=modified)
+                          url, sha256, license_expression, SYSTEMS[target], modified=modified)
         entry["source_refs"] = source_refs
         components.append(entry)
     metadata_packages = {p["id"]: p for p in metadata["packages"]}
