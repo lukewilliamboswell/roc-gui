@@ -5,5 +5,6 @@ Read the https://github.com/lukewilliamboswell/roc-gui/releases[published releas
 for version-specific changes and upgrade instructions.
 
 ifdef::release-records[]
+include::releases/0.1.0.adoc[leveloffset=+1]
 include::releases/0.1.0-rc1.adoc[leveloffset=+1]
 endif::[]

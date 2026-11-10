@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
-	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.26.0/GddgvsGjiNXrHFW6au5i5dUDbTs8FinQdrgE2Gqmw53t.tar.zst",
-	roc: "nightly-2026-11-01-48d3369",
+	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.27.0/9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g.tar.zst",
+	roc: "nightly-2026-11-10-f7d1f19",
 }
 
 import cli.Cmd
@@ -43,7 +43,7 @@ main! = |raw_args| {
 	own = component("roc-gui", "roc-gui", version, "https://github.com/lukewilliamboswell/roc-gui/tree/${commit}", "UPL-1.0")
 	compiler_version = Cmd.new("roc").arg("version").capture!()?.trim().drop_prefix("Roc compiler version ")
 	compiler = component("roc-compiler", "Roc compiler", compiler_version, "https://github.com/roc-lang/nightlies/releases/tag/${compiler_version}", "UPL-1.0")
-	renderer = component("roc-docs", "roc-docs renderer", "tools-0.9.0", "https://github.com/lukewilliamboswell/roc-automation/releases/tag/tools-0.9.0", "UPL-1.0")
+	renderer = component("roc-docs", "roc-docs renderer", "tools-0.10.1", "https://github.com/lukewilliamboswell/roc-automation/releases/tag/tools-0.10.1", "UPL-1.0")
 	for filename in files {
 		var $fragment = empty_fragment
 		if filename.ends_with(".tar.zst") {
@@ -54,7 +54,7 @@ main! = |raw_args| {
 		} else if filename.ends_with(".pdf") or filename.starts_with("roc-gui-docs-") {
 			font_source = "https://github.com/lukewilliamboswell/roc-font/releases/download/0.1.0-rc4/3Es9Gca6KTySYDqcDPHwVqpAqJk6KwT9G4xkcLoYaSsx.tar.zst"
 			fonts = ["Inter", "Merriweather", "FiraCode"].map(|name| component("font-${name}", name, "roc-font-0.1.0-rc4", "${font_source}#fonts/${name}", "OFL-1.1"))
-			$fragment = { components: fonts.concat([renderer, component("roc-docs-theme", "roc-docs shared theme", "8afe656ea7de5586233683088eb6972b770f6832", "https://github.com/lukewilliamboswell/roc-automation/tree/8afe656ea7de5586233683088eb6972b770f6832/tools/roc-docs", "UPL-1.0")]), relationships: fonts.map(|font| edge("Subject", font.id, "contains", "", "Licensed font data embedded by the reviewed renderer")).concat([edge("Subject", renderer.id, "dependsOn", "build", "The renderer produced this document; its executable is not distributed in it"), edge("Subject", "roc-docs-theme", "contains", "", "Shared styling and presentation templates delivered in the rendered documentation")]), coverage: [gap("document-fonts", "The renderer embeds licensed font data/subsets. This inventory identifies the source font distribution, not a separately measured hash for each embedded subset.")] }
+			$fragment = { components: fonts.concat([renderer, component("roc-docs-theme", "roc-docs shared theme", "0ad737abd3cad3d14d7e409e91161cd42c05142c", "https://github.com/lukewilliamboswell/roc-automation/tree/0ad737abd3cad3d14d7e409e91161cd42c05142c/tools/roc-docs", "UPL-1.0")]), relationships: fonts.map(|font| edge("Subject", font.id, "contains", "", "Licensed font data embedded by the reviewed renderer")).concat([edge("Subject", renderer.id, "dependsOn", "build", "The renderer produced this document; its executable is not distributed in it"), edge("Subject", "roc-docs-theme", "contains", "", "Shared styling and presentation templates delivered in the rendered documentation")]), coverage: [gap("document-fonts", "The renderer embeds licensed font data/subsets. This inventory identifies the source font distribution, not a separately measured hash for each embedded subset.")] }
 		} else if filename.starts_with("roc-gui-examples-") {
 			# Native compilation is a later consumer operation; a source suite
 			# depends on the bundle without containing its host binaries.

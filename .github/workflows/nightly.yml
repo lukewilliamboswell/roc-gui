@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-    uses: lukewilliamboswell/roc-automation/.github/workflows/nightly-compatibility.yml@8afe656ea7de5586233683088eb6972b770f6832
+    uses: lukewilliamboswell/roc-automation/.github/workflows/nightly-compatibility.yml@6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
     with:
       nightly-tag: ${{ inputs.nightly-tag || '' }}
       release-tag: ${{ inputs.release-tag || '' }}

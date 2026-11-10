@@ -1,0 +1,37 @@
+= roc-gui 0.1.0
+
+This release updates the native host bindings for Roc's captured-callback ABI.
+If you used 0.1.0-rc1, update the platform URL and rebuild your application
+with the Roc nightly listed under Compilers.
+
+== Use this release
+
+[source,roc]
+----
+app [State, main] { pf: platform "{package-url}" }
+----
+
+Download the examples ZIP for complete applications with this platform URL
+already in their headers. From an example's directory, build and run it:
+
+[source,sh]
+----
+roc build --opt=dev --output=my-app main.roc
+./my-app
+----
+
+The bundle supports Linux x86-64 with glibc, Apple silicon macOS, and
+Windows x86-64. On Linux, install FreeType, Fontconfig, libxkbcommon,
+libxkbcommon-x11 and ALSA from your distribution.
+
+== Verify the release
+
+The examples ZIP carries the semantic specifications and their fixtures.
+The release manifest records the platform bundle, its compiler, and the
+identities of the native hosts and linker inputs. The final artifacts carry
+SPDX and CycloneDX sidecars bound to their exact bytes.
+
+[source,sh]
+----
+gh attestation verify <asset> --repo lukewilliamboswell/roc-gui
+----

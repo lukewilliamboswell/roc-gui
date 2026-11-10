@@ -11,7 +11,7 @@
 # `roc-stable` is the nightly named below; it runs the scripts under scripts/.
 # Bare `roc` is the latest nightly, which the machine provides: the platform,
 # its applications and its benchmarks name no compiler.
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.11.0/EuSPs8vc71qJNFg29YzegvVRL1bR9pKqUYDHFiSCPTQ1.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.12.0/GSb71LxYHqLohZz8jMfawWEwQcyev9ZdVC26sfsDwfq8.tar.zst" }
 
 import pf.Recipes
 import pf.Config
@@ -20,20 +20,20 @@ import dependencies/FreeType
 
 docs_renderer : System -> Config.Download
 docs_renderer = |system| match system {
-	"x86_64-linux" | "aarch64-darwin" => File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.9.0/roc-docs-${system.to_str()}")
+	"x86_64-linux" | "aarch64-darwin" => File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.10.1/roc-docs-${system.to_str()}")
 	_ => Unavailable
 }
 
 release_package : System -> Config.Download
-release_package = |system| File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.9.0/release-package-${system.to_str()}")
+release_package = |system| File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.10.1/release-package-${system.to_str()}")
 
 script_runtime : List(Config.EnvironmentSetting)
 script_runtime = [
-	Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-11-01-48d3369"))]),
+	Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-11-10-f7d1f19"))]),
 	# Every bundle the scripts depend on, including dependencies of
 	# dependencies: `roc-stable deps scripts/check_all.roc` lists them.
 	RocPackages([
-		"https://github.com/roc-lang/basic-cli/releases/download/0.26.0/GddgvsGjiNXrHFW6au5i5dUDbTs8FinQdrgE2Gqmw53t.tar.zst",
+		"https://github.com/roc-lang/basic-cli/releases/download/0.27.0/9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g.tar.zst",
 		"https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 	]),
 ]

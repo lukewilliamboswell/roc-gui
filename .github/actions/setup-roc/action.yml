@@ -7,9 +7,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: roc-lang/setup-roc@f5a74bf90aa694b43ab4a7cbfdb19273bc6aa697
+    - uses: roc-lang/setup-roc@30af91a173612e462a5df47f3b697c53c211f48c
       with:
         version: nightly-new-compiler
+        download-method: asset-api
         nightly-tag: ${{ inputs.nightly-tag }}
     - name: Keep downloaded compiler outside release source
       shell: bash
