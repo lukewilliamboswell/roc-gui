@@ -15,7 +15,7 @@ import cli.Stderr
 Manifest : { bundle : { name : Str } }
 
 main! = |raw_args| {
-	(version, output, hosts, cache) = match raw_args.map(|arg| OsStr.from_raw(arg).display()) {
+	(version, output, hosts, cache) = match raw_args.map(OsStr.display) {
 		[a, b, c, d] => (a, b, c, d)
 		_ => return fail!("usage: blueprint run release-build -- VERSION OUTPUT HOSTS CACHE")
 	}

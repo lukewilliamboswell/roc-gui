@@ -19,7 +19,7 @@ import src/Notes
 ## hash and so is known only once the release has built it. A "Compilers"
 ## section records the `roc` and `roc-stable` that built and tested the release.
 main! = |args| {
-	(version, bundle, output) = match args.map(|arg| OsStr.from_raw(arg).display()) {
+	(version, bundle, output) = match args.map(OsStr.display) {
 		[a, b, c] => (a, b, c)
 		_ => return fail!("usage: release_notes.roc <version> <bundle filename> <output>")
 	}
