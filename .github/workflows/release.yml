@@ -149,7 +149,7 @@ jobs:
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
       - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: gui-host-*
           merge-multiple: true
@@ -168,7 +168,7 @@ jobs:
         with:
           version: ${{ needs.validate.outputs.version }}
           bundle: ${{ steps.release.outputs.bundle }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-candidate
           path: |
@@ -176,7 +176,7 @@ jobs:
             dist/sbom-evidence.json
           if-no-files-found: error
           retention-days: 30
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-notes
           path: .release-out/cache/release-notes.md
@@ -214,7 +214,7 @@ jobs:
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
       - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: release-candidate
           path: dist
@@ -244,7 +244,7 @@ jobs:
           RP_DIRECTORY: ${{ runner.temp }}/archive-test
           RP_REPOSITORY: lukewilliamboswell/roc-gui
         run: blueprint run test-archive
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: archive-evidence-${{ matrix.target }}
@@ -265,11 +265,11 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: release-candidate
           path: dist
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: release-notes
           path: notes
