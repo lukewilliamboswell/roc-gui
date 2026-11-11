@@ -10,7 +10,7 @@ import cli.Path
 import cli.Stderr
 
 ## Orchestrate independent native productions and exact-byte comparisons.
-main! = |raw_args| match raw_args.map(|arg| OsStr.from_raw(arg).display()) {
+main! = |raw_args| match raw_args.map(OsStr.display) {
 	["linux", first, second] => {
 		sandbox!()?
 		for name in ["alsa_interface", "freetype", "glibc", "unwind", "xkbcommon"] {
