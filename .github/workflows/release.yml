@@ -58,7 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: echo "tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)" >> "$GITHUB_OUTPUT"
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
       - id: version
         env:
           EVENT: ${{ github.event_name }}
@@ -82,7 +82,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
         with:
           cache: 'true'
           cache-workload: check
@@ -148,7 +148,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: gui-host-*
@@ -213,7 +213,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-candidate
@@ -221,7 +221,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: lukewilliamboswell/roc-automation
-          ref: 6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
+          ref: f2c40def4ca269e4a29b4096edc86f600251aa5d
           path: .roc-automation
           persist-credentials: false
       - name: Verify transferred final artifact SBOM bindings
@@ -271,7 +271,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: lukewilliamboswell/roc-automation
-          ref: 6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
+          ref: f2c40def4ca269e4a29b4096edc86f600251aa5d
           path: .roc-automation
           persist-credentials: false
       - name: Verify transferred final artifact SBOM bindings
@@ -284,7 +284,7 @@ jobs:
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-path: ${{ needs.build.outputs.assets }}
-      - uses: lukewilliamboswell/roc-automation/actions/publish-release@6c3305f0beb11c44b4db13e9a5d96e196f1cb9d7
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@f2c40def4ca269e4a29b4096edc86f600251aa5d
         with:
           version: ${{ needs.validate.outputs.version }}
           prerelease: ${{ needs.validate.outputs.prerelease }}

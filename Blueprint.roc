@@ -11,7 +11,7 @@
 # `roc-stable` is the nightly named below; it runs the scripts under scripts/.
 # Bare `roc` is the latest nightly, which the machine provides: the platform,
 # its applications and its benchmarks name no compiler.
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.12.0/GSb71LxYHqLohZz8jMfawWEwQcyev9ZdVC26sfsDwfq8.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.13.0/DBtzmMfrSgt6nCGVAcZYCVPxWbhpqw3MXpm6sdQzMn4v.tar.zst" }
 
 import pf.Recipes
 import pf.Config
