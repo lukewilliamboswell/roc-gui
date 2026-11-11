@@ -112,7 +112,7 @@ config = [
     Name("roc-gui-nightly"),
     Systems([{json.dumps(system)}]),
     Environment("compiler", [Programs([Fetch("roc", Recipes.roc_nightly({json.dumps(nightly_tag)}))])]),
-    Task("path", [Use("compiler"), Run(["python3", "-c", "import pathlib, shutil; print(pathlib.Path(shutil.which('roc')).resolve())"])]),
+    Task("version", [Use("compiler"), Run(["roc", "version"])]),
 ]
 """
     # Seed the immutable release's published pin. Blueprint owns archive
@@ -134,8 +134,15 @@ config = [
         project = Path(temporary)
         (project / "Blueprint.roc").write_text(config)
         (project / "Blueprint.lock").write_text(lock)
-        executable = Path(subprocess.check_output(
-            ["blueprint", "run", "path"], cwd=project, env=environment, text=True).strip()).resolve(strict=True)
+        subprocess.run(["blueprint", "run", "version"], cwd=project, env=environment,
+                       check=True, stdout=subprocess.DEVNULL)
+        # Blueprint exposes a temporary executable copy on Windows. Select
+        # the complete persistent distribution from its documented v1 store.
+        artifacts = Path(os.environ["BLUEPRINT_ARTIFACTS_DIRECTORY"])
+        kind = extension.removeprefix(".")
+        program = "roc.exe" if system == "x86_64-windows" else "roc"
+        executable = (artifacts.parent / "trees" / "sha256" / f"{digest}.{kind}"
+                      / archive_name.removesuffix(extension) / program).resolve(strict=True)
         if executable.is_relative_to(project) or executable.is_relative_to(ROOT):
             raise ValueError("Blueprint must retain the compiler outside the temporary project and checkout")
         verify_compiler(str(executable), f"Roc compiler version {nightly_tag}")
