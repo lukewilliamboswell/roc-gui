@@ -298,6 +298,7 @@ plot = |state| Theme.panel(
 
 ## Newest first. A log that can only show its first rows should show the rows a
 ## person came to read.
+log_items : List(Gui.SystemMonitor.Snapshot) -> List(Gui.VirtualListItem(Monitor.State))
 log_items = |history| {
 	held = history.len()
 	var $items = []

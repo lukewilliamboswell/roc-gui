@@ -353,6 +353,7 @@ entry_row = |folder, entry, selected| {
 	)
 }
 
+entry_items : State, Folder -> List(Gui.VirtualListItem(State))
 entry_items = |state, folder| {
 	selected_name = match state.selection {
 		NoneSelected => ""

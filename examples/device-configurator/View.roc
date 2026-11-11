@@ -422,6 +422,7 @@ profile_field = |config| Gui.col(
 	],
 )
 
+control_items : U16 -> List(Gui.VirtualListItem(Configurator.State))
 control_items = |count| {
 	var $items = []
 	var $index = 0

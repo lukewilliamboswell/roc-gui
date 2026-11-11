@@ -12,7 +12,7 @@ import cli.System
 
 ## Build the native host and stage the admitted linker inputs.
 main! = |raw_args| {
-	args = raw_args.map(|arg| OsStr.from_raw(arg).display())
+	args = raw_args.map(OsStr.display)
 	target = match (System.target!().os(), System.target!().arch()) {
 		(Linux(_), X64) => "x64glibc"
 		(MacOS(_), Arm64) => "arm64mac"

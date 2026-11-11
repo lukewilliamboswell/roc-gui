@@ -205,6 +205,7 @@ key_row = |state, key, stream, ready| {
 	})
 }
 
+keyspace : Explorer.State -> Gui.Elem(Explorer.State)
 keyspace = |state| {
 	held = match state.link {
 		Idle(stream) => Some({ stream, ready: True })

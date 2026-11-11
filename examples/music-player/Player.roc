@@ -424,6 +424,7 @@ track_row = |library, index, track, marker| {
 	})
 }
 
+track_items : State, { directory : Gui.Files.Dir.Read, output : Gui.Audio.Output, tracks : List(Track) } -> List(Gui.VirtualListItem(State))
 track_items = |state, library| {
 	marker = active_index(state)
 	var $index = 0
