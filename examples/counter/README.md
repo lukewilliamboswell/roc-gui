@@ -20,19 +20,6 @@ roc build --output=counter examples/counter/main.roc
 
 There is no grant. The application performs no I/O and has no capability.
 
-## Not yet built
-
-- No reset, no step size, no keyboard shortcut beyond activating a focused
-  control with Enter or Space.
-- No persistence: the counts start at -1 and 3 on every run.
-- A count is an `I64` and nothing guards its bounds. What keeps a very large
-  value a presentation problem rather than a layout one is the numeral's size
-  scale and its ellipsis, not any check on the arithmetic.
-
 ## Specifications
 
-`counting.scm` and `independence.scm` run on the semantic runner and cover
-counting across zero, reversal, and the independence of the two cards.
-`keyboard.scm`, `pointer.scm`, `on-screen.scm`, and `screenshots.scm` run
-against the real window: they assert that the cards and controls were laid out
-on screen at the expected sizes, and photograph the result.
+The [specifications](specs/) exercise independent state and subtree replacement.

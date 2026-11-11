@@ -29,7 +29,12 @@ def host_archives(directory: Path) -> dict:
             for name in sorted(names)}
 
 
-def assemble(output: Path, roc: str, link_lock: Path, host_directory: Path, cache: Path) -> Path:
+def assemble(output: Path, roc: str, link_lock: Path, host_directory: Path, cache: Path,
+             *, stage_native: bool = False) -> Path:
+    # The bundler runs inside a fresh platform staging tree. Resolve caller
+    # paths before that working-directory change so relative CLI paths retain
+    # their original meaning.
+    output, link_lock, host_directory, cache = (path.resolve() for path in (output, link_lock, host_directory, cache))
     compiler = compiler_version(roc)
     external_lock = read_link_lock(link_lock)
     if external_lock["repository"] != "lukewilliamboswell/roc-gui":
@@ -84,6 +89,11 @@ def assemble(output: Path, roc: str, link_lock: Path, host_directory: Path, cach
             cwd=platform,
             check=True,
         )
+        if stage_native:
+            from ci_host import native_target, stage
+            target = native_target()
+            stage(target, hosts / f"gui-host-{target}" / "targets" / target,
+                  link_lock=link_lock, cache=cache / "link-inputs")
     bundles = [path for path in output.iterdir() if path.is_file() and path.name.endswith(".tar.zst")]
     if len(bundles) != 1:
         raise ValueError("roc bundle must emit exactly one content-addressed .tar.zst")
@@ -113,5 +123,8 @@ if __name__ == "__main__":
                         help="Directory holding every target's tested host and source companion")
     parser.add_argument("--cache", type=Path, default=Path.home() / ".cache/roc-gui/dependencies")
     parser.add_argument("--roc", default="roc")
+    parser.add_argument("--stage-native", action="store_true",
+                        help="Stage the validated native release host for fixture and suite generation")
     args = parser.parse_args()
-    print(assemble(args.output, args.roc, args.link_inputs, args.hosts, args.cache))
+    print(assemble(args.output, args.roc, args.link_inputs, args.hosts, args.cache,
+                   stage_native=args.stage_native))

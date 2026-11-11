@@ -2,32 +2,32 @@
   "schema_version": 2,
   "kind": "roc-gui-link-inputs",
   "repository": "lukewilliamboswell/roc-gui",
-  "release": "link-inputs-sha256-6337f6acdcc661ef8e1460b1edcf0d9315ac54016912839fd73b223af0297db0",
+  "release": "link-inputs-sha256-43fd5cbb8078f85d71e1dc649e6b1b16d19c278cc7e5f50a2469dddbb6527d4b",
   "manifest": {
     "asset": "build-input-release.json",
-    "sha256": "6337f6acdcc661ef8e1460b1edcf0d9315ac54016912839fd73b223af0297db0"
+    "sha256": "43fd5cbb8078f85d71e1dc649e6b1b16d19c278cc7e5f50a2469dddbb6527d4b"
   },
   "source": {
-    "input_fingerprint": "b25b256891cf35e9e5a67fda7784129f961792ba4a36a8618524971a6784a2ad",
-    "ref": "refs/heads/refactor/blueprint-0.7-freetype",
+    "input_fingerprint": "9fc4d90eaa616cf1ca3bfb656841f22f7b3844249941904934dee8f0cbf8c484",
+    "ref": "refs/heads/upgrade/nightly-2026-10-28-automation",
     "repository": "lukewilliamboswell/roc-gui",
-    "sha": "94c85d27d4b8a7839fb90e1937f1e125294a767c",
+    "sha": "a51f4810b24c2bd3d83c297d3fb46b3c21e1a6f8",
     "workflow": "lukewilliamboswell/roc-gui/.github/workflows/link-inputs.yml"
   },
   "targets": {
     "arm64mac": {
       "asset": "link-inputs-arm64mac.tar",
-      "sha256": "adc0df9aa8bb22c5441eadd93a66f214e25637afda3b5cffbf9eba6a3b520056",
+      "sha256": "3efc258fdbc0bef5128a9adc2a2940a3e451b76c472781ec4347983fdca2e0a5",
       "size": 573440
     },
     "x64glibc": {
       "asset": "link-inputs-x64glibc.tar",
-      "sha256": "88616fc0639098b59570b328a9c855402b5d319ab2db04f8d86f259c89207615",
+      "sha256": "414849f1d93a523d3081c9b9850e1443d36ab81ba845c84116d0b68eb463276d",
       "size": 13168640
     },
     "x64mingw": {
       "asset": "link-inputs-x64mingw.tar",
-      "sha256": "f7b24dcc2c46afba48ab8ea6234f592164f2be16954b5414289b17bf8905a11d",
+      "sha256": "88494bc4473ed21c7ab56b60f7a12d35508f87edd3e389f27523ba447517a030",
       "size": 15626240
     }
   },

@@ -1,0 +1,375 @@
+{
+  "profile": "blueprint-spdx-3.0-v2",
+  "components": [],
+  "relationships": [],
+  "coverage": [],
+  "inputs": [
+    {
+      "input": "build-source:roc-6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "build-source:roc-9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "build:freetype",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:release-package:aarch64-darwin",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:release-package:x86_64-linux",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:release-package:x86_64-windows",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:roc-docs:aarch64-darwin",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:roc-docs:x86_64-linux",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:roc-stable:aarch64-darwin",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:roc-stable:x86_64-linux",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "program:roc-stable:x86_64-windows",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "roc-package:6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "roc-package:9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "source:freetype-source",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "source:nix",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:bootstrap",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:build",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:check",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:compiler-version",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:docs",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:docs-path",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:lint",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:regenerate-glue",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:release-notes",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:release-suite",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:sbom-composition",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:test",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:test-archive",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#alsa-lib",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#bash",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#binutils",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#brotli.dev",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#brotli.lib",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#bzip2.dev",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#bzip2.out",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#clang",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#cmake",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#coreutils",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#curl",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#fontconfig",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#freetype",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#glibc",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#gnumake",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#harfbuzz",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#harfbuzz.dev",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#libglvnd",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#libpng",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#libpng.dev",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#libxkbcommon",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#patchelf",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#pkg-config",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#pre-commit",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#python3",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#rustup",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#vulkan-headers",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#vulkan-loader",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#wayland",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#zig_0_16",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#zlib",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#zlib.dev",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "tool:nix#zstd",
+      "component": "",
+      "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
+    },
+    {
+      "input": "task:release-build",
+      "component": "",
+      "reason": "Release orchestration; shipped composition is bound from each final file and its native evidence."
+    },
+    {
+      "input": "task:merge-sbom-evidence",
+      "component": "",
+      "reason": "Evidence handoff orchestration; it does not add components to delivered artifacts."
+    },
+    {
+      "input": "task:release-version",
+      "component": "",
+      "reason": "Selects release metadata and checks tag availability; no code from this task is shipped."
+    },
+    {
+      "input": "build-file:freetype:dependencies/FreeType.roc",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "build-file:freetype:dependencies/freetype.json",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "build-file:freetype:dependencies/linux/zig-toolchain.cmake",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "build-file:freetype:scripts/build_freetype.py",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "build-file:freetype:scripts/blueprint_link_inputs.py",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "build-file:freetype:scripts/dependency_archive.py",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "build-file:freetype:scripts/dependency_artifacts.py",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "build-file:freetype:test/dependencies/freetype.c",
+      "component": "",
+      "reason": "Declared original FreeType build input; native output/source composition is accounted for from the sealed artifacts."
+    },
+    {
+      "input": "task:link-inputs",
+      "component": "",
+      "reason": "Independent native producer orchestration; final native composition is taken from admitted archive evidence."
+    }
+  ],
+  "imported_documents": [],
+  "unavailable_sboms": []
+}

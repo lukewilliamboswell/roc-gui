@@ -33,17 +33,6 @@ example runs without a person at the panel. It is development provisioning, not
 a person's consent; with no grant the chooser refuses, which the explorer
 explains rather than swallows.
 
-## Not yet built
-
-- Multi-selection, sorting and filtering, and file watching.
-- Mutation of any kind: create, rename, copy, move, trash, drag-and-drop, and
-  clipboard file operations.
-- Tabs and split views.
-- Breadcrumb navigation is root-only. The segments between the root and the
-  current folder are text, because this slice retains a handle for the root and
-  for where you are, not for every level in between.
-- Links get a marker but are not followed.
-
 ## Assets
 
 `icons/` holds three glyphs whose licences are recorded per file in
@@ -51,11 +40,4 @@ explains rather than swallows.
 
 ## Specifications
 
-Eleven specifications run on the semantic runner and cover navigation and the
-ends of the history, the empty state, closing a project and dismissing that
-confirmation, a refusal and the press that follows it, a dismissal, reading a
-file, and revocation of a grant and of a handle derived from one. They assert
-the capability counters alongside what is on screen, so an operation that never
-reached the host cannot pass by looking right. `open-dialog-100.scm` is the
-scaling case. Four `window-*.scm` cases drive the real window, scroll the
-listing, and photograph the rows, the selection, the refusal, and the dismissal.
+The [specifications](specs/) exercise folder authority, navigation, editing and failure recovery.

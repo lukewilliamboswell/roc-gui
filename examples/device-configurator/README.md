@@ -29,7 +29,7 @@ once when the application starts, so without it discovery is refused for as long
 as the window is open: the window says what was not done, withholds the control
 that could only give the same answer again, and says that a device is granted at
 launch. A trusted device picker whose selection is itself the grant is an open
-gap, recorded in `wip/issues-backlog.md`.
+limitation; report affected workflows in [GitHub issues](https://github.com/lukewilliamboswell/roc-gui/issues).
 
 ## What is editable
 
@@ -40,17 +40,6 @@ the whole configuration at once; a transaction that fails because the device
 went away gives up the connection along with the error, so no control is left
 offering to act on hardware that is gone.
 
-## Not yet built
-
-- The device's own path and serial number are never shown, and cannot be.
-- The list of controls is read back and displayed; individual controls cannot be
-  remapped or named.
-- Nothing is saved. There are no stored profiles and no export.
-- Only one device is connected at a time, and a discovery is withheld while a
-  connection is open rather than queued.
-- A device is named by a launch flag. There is no trusted picker to choose one
-  from, so a refusal cannot be resolved without restarting the application.
-
 ## Assets
 
 `icons/` holds two SVGs imported into the executable at compile time. Their
@@ -59,11 +48,4 @@ sources and licences are recorded in `icons/NOTICE.md` and in
 
 ## Specifications
 
-Nine semantic specifications in `specs/` cover a press before anything has been
-discovered, a denied grant, discovery, a superseded discovery, connection and
-resynchronisation, a withheld second discovery, editing at both ends of the
-sensitivity range, the acknowledged apply, and a scaling case that connects a
-hundred-control device. Two window specifications drive the real window and
-photograph a connection and a refusal. Every specification but the two
-grant-free ones asks for `--host-cap-device virtual`; the runner supplies it
-from the specification's own `grants` form.
+The [specifications](specs/) exercise device grants, configuration transactions and failure recovery.

@@ -9,7 +9,7 @@ Read the [manual](https://lukewilliamboswell.github.io/roc-gui/) to get started.
 - Builtin behavioural and performance testing harness using a S-expression format
 - Builtin performance observatory streaming to a SQLite db 
 
-**Work In Progress / Experimental** this platform combines a lot of experimental ideas, and is early in development. The docs are BETA and needs a lot of refinement -- if you want to help let me know! I have chosen to include LLM generated docs and am gradually refining things and rapidly iterate on ideas, expect significant breaking changes.
+The platform is experimental; review the release notes before upgrading.
 
 | | | |
 |:---:|:---:|:---:|

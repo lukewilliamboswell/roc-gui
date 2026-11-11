@@ -2,13 +2,13 @@
 
 == `roc build` cannot find `libhost.a`
 
-Run `python3 build.py` from the repository root. It creates
+Run `blueprint run build` from the repository root. It creates
 `platform/targets/x64glibc/libhost.a`, the archive selected by the platform's
 `x64glibc` target. Rebuild it after Rust host changes.
 
 == The Windows build rejects the SDK's shader tools
 
-`build.py` compiles GPUI's shaders with the Windows SDK's `fxc.exe` and its
+`blueprint run build` compiles GPUI's shaders with the Windows SDK's `fxc.exe` and its
 `d3dcompiler_47.dll`. CI and release builds admit only the reviewed pair, by
 hash and signing certificate, recorded in `scripts/windows_gnu_build.py`. A
 development machine receives SDK servicing updates that re-sign and re-hash
@@ -57,8 +57,7 @@ rejects incomplete captures before calculating ratios.
 
 == The documentation build cannot render diagrams
 
-Run `python3 scripts/prepare_docs_diagrams.py` with Mermaid CLI 11.16.0 and its
-Chromium runtime after changing a Mermaid block. Commit its prepared PNG, SVG,
-and manifest together with the source. The shared renderer checks their digests
-and rejects a missing or stale preparation. Run `blueprint run docs` to build
-the manual and API reference with the updated inputs.
+Run `blueprint run docs` with the locked native renderer. Keep Mermaid source
+in the manual and use the supported syntax in the
+https://lukewilliamboswell.github.io/roc-automation/roc-docs.html#images-and-diagrams[diagram reference].
+A rejected block names the source and diagnostic; correct that source and rebuild.

@@ -47,22 +47,9 @@ jobs:
         with:
           extra-conf: |
             sandbox = true
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
-      - name: Require sandboxed production
-        run: test "$(nix config show sandbox)" = true
-      - name: Build every Linux component twice
-        run: |
-          for script in build_alsa_interface build_freetype build_glibc build_unwind build_xkbcommon; do
-            python3 "scripts/$script.py" --output "$RUNNER_TEMP/candidate"
-            python3 "scripts/$script.py" --rebuild --output "$RUNNER_TEMP/rebuild"
-          done
-          for archive in "$RUNNER_TEMP/candidate"/*.tar; do
-            cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
-          done
-      - name: Admit the exact FreeType build and selected snapshot
-        run: python3 scripts/blueprint_admission.py "$RUNNER_TEMP/candidate/freetype-x64glibc.tar" --output "$RUNNER_TEMP/candidate/freetype-x64glibc.tar.blueprint.json"
-      - name: Reproduce derivations from corresponding sources
-        run: python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate"
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      - name: Produce, compare and admit every Linux component
+        run: blueprint run link-inputs -- linux "$RUNNER_TEMP/candidate" "$RUNNER_TEMP/rebuild"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: link-input-components-linux
@@ -88,7 +75,7 @@ jobs:
         with:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
       - name: Build the production host against the candidate ALSA interface
         run: blueprint run build -- --skip-inputs --candidate-inputs "$RUNNER_TEMP/candidate"
       - name: Install native desktop runtime for portability validation
@@ -110,19 +97,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Generate the reviewed interfaces twice
-        run: |
-          python3 scripts/build_macos_interfaces.py --output "$RUNNER_TEMP/candidate"
-          python3 scripts/build_macos_interfaces.py --output "$RUNNER_TEMP/rebuild"
-          cmp "$RUNNER_TEMP/candidate/macos-interfaces-macos-sysroot.tar" "$RUNNER_TEMP/rebuild/macos-interfaces-macos-sysroot.tar"
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      - name: Generate and compare the reviewed interfaces
+        run: blueprint run link-inputs -- macos "$RUNNER_TEMP/candidate" "$RUNNER_TEMP/rebuild"
       - uses: ./.github/actions/setup-toolchain
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+        with:
+          install-nix: 'true'
       # TODO(release blocker): Observatory's window-timeline.scm fails on the
-      # hosted macOS runner's 1024-point-wide screen; see wip/issues-backlog.md.
+      # hosted macOS runner's 1024-point-wide screen; see https://github.com/lukewilliamboswell/roc-gui/issues/60.
       - name: Final-link and run the production platform
         run: |
-          ./build.py --source-inputs
+          blueprint run build -- --source-inputs
           python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300 --exclude "examples/clipboard-history/specs/window-*.scm" --exclude "examples/system-monitor/specs/window-plot-width.scm" --exclude "examples/observatory/specs/window-timeline.scm"
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
@@ -152,13 +140,13 @@ jobs:
         with:
           version: 0.16.0
           use-cache: false
-      # The runtime's probe is part of its recipe, so it names its own compiler.
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      # The runtime probe is part of its recipe and has its own compiler.
       - id: probe
         shell: bash
-        run: echo "tag=$(python -c 'import json; print(json.load(open("dependencies/windows-gnu-runtime.json"))["probe_roc_version"])')" >> "$GITHUB_OUTPUT"
-      - uses: roc-lang/setup-roc@f5a74bf90aa694b43ab4a7cbfdb19273bc6aa697
+        run: blueprint run link-inputs -- probe-tag
+      - uses: ./.github/actions/setup-roc
         with:
-          version: nightly-new-compiler
           nightly-tag: ${{ steps.probe.outputs.tag }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
@@ -166,19 +154,17 @@ jobs:
           path: ${{ runner.temp }}/candidate
       - name: Execute the exact runtime
         run: |
-          rustup toolchain install 1.95.0 --profile minimal --target x86_64-pc-windows-gnullvm
+          rustup show active-toolchain
+          rustup target add x86_64-pc-windows-gnullvm
           python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/candidate/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/runtime-evidence'
 
-      - name: Build native Windows runtime and resource twice
+      - name: Produce and compare native Windows inputs
         shell: bash
-        run: |
-          for output in native-first native-second; do
-            python scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/$output"
-            python scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-$output"
-          done
-          cmp "$RUNNER_TEMP/native-first/windows-gnu-runtime-x64mingw.tar" "$RUNNER_TEMP/native-second/windows-gnu-runtime-x64mingw.tar"
-          cmp "$RUNNER_TEMP/resource-native-first/roc-gui.res" "$RUNNER_TEMP/resource-native-second/roc-gui.res"
-          cmp "$RUNNER_TEMP/candidate/roc-gui.res" "$RUNNER_TEMP/resource-native-first/roc-gui.res"
+        run: >-
+          blueprint run link-inputs -- windows-native
+          "$RUNNER_TEMP/native-first" "$RUNNER_TEMP/native-second"
+          "$RUNNER_TEMP/resource-native-first" "$RUNNER_TEMP/resource-native-second"
+          "$RUNNER_TEMP/candidate"
       - name: Execute the native-built runtime
         run: python scripts/test_windows_gnu_runtime_artifact.py '${{ runner.temp }}/native-first/windows-gnu-runtime-x64mingw.tar' --require-native --evidence '${{ runner.temp }}/native-runtime-evidence'
 
@@ -196,22 +182,13 @@ jobs:
         with:
           extra-conf: |
             sandbox = true
-      - name: Require sandboxed production
-        run: test "$(nix config show sandbox)" = true
-      - name: Build the runtime and resource twice
-        run: |
-          python3 scripts/build_windows_gnu_runtime.py --output "$RUNNER_TEMP/candidate"
-          python3 scripts/build_windows_gnu_runtime.py --rebuild --output "$RUNNER_TEMP/rebuild"
-          python3 scripts/build_windows_resource.py --output "$RUNNER_TEMP/resource-candidate"
-          python3 scripts/build_windows_resource.py --rebuild --output "$RUNNER_TEMP/resource-rebuild"
-          python3 scripts/check_linux_reproduction.py "$RUNNER_TEMP/candidate" --target x64mingw
-          for archive in "$RUNNER_TEMP/candidate"/*.tar; do
-            cmp "$archive" "$RUNNER_TEMP/rebuild/$(basename "$archive")"
-          done
-          cmp "$RUNNER_TEMP/resource-candidate/roc-gui.res" "$RUNNER_TEMP/resource-rebuild/roc-gui.res"
-          mkdir "$RUNNER_TEMP/windows-components"
-          cp "$RUNNER_TEMP/candidate"/*.tar "$RUNNER_TEMP/windows-components/"
-          cp "$RUNNER_TEMP/resource-candidate/roc-gui.res" "$RUNNER_TEMP/windows-components/"
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      - name: Produce and compare Windows cross inputs
+        run: >-
+          blueprint run link-inputs -- windows-cross
+          "$RUNNER_TEMP/candidate" "$RUNNER_TEMP/rebuild"
+          "$RUNNER_TEMP/resource-candidate" "$RUNNER_TEMP/resource-rebuild"
+          "$RUNNER_TEMP/windows-components"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: link-input-components-windows
@@ -241,7 +218,7 @@ jobs:
           pattern: link-input-components-*
           merge-multiple: true
           path: ${{ runner.temp }}/components
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@7aff4132691ad4fc348abe9df146a57512b49bd6
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
       - name: Compose the independently releasable set
         run: python3 scripts/prepare_link_input_release.py --components "$RUNNER_TEMP/components" --resource "$RUNNER_TEMP/components/roc-gui.res" --output "$RUNNER_TEMP/release"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8

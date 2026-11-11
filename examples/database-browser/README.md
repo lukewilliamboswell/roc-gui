@@ -49,15 +49,6 @@ repository already and is not a database, which is what the failure paths open.
 provisioning, not a person's consent. With no grant the chooser refuses, and the
 browser names the grant that would answer it.
 
-## Not yet built
-
-- No editing of any kind: no write statements, no schema changes, no import or
-  export.
-- No query history, no saved queries, no result sorting or filtering.
-- One database open at a time, and only a direct child of the granted folder.
-- The dismissed-chooser state is reachable only interactively; a specification
-  configures the picker rather than opening one.
-
 ## Assets
 
 `icons/` holds three glyphs whose licences are recorded per file in
@@ -65,22 +56,4 @@ browser names the grant that would answer it.
 
 ## Specifications
 
-Sixteen specifications run on the semantic runner and cover the first frame,
-schema browsing, typed results, an empty result, an invalid database, a rejected
-write, recovery after each kind of failure, a refused folder grant, the
-authority readout, reopening, a superseded query, a running statement cancelled
-and one superseded where it runs, a result turned page by page, and a result
-that fits one page. Each asserts the SQLite capability counters or the task
-counters, so a query that never reached the host, or a superseded one whose
-result arrived anyway, cannot pass by looking right.
-`scale-supersede-10.scm`, `scale-supersede-100.scm`, and
-`scale-supersede-1k.scm` run the statement again that many times in a row over
-a 10,000-row result and prove that each run superseded the last.
-`scale-100.scm`, `scale-1k.scm`, and `scale-10k.scm` scale the rows in a result
-and prove with `expect-rows` that the same 64 rows are built at every size;
-`scale-pages-20k.scm`, `scale-pages-50k.scm`, and `scale-pages-100k.scm` keep one
-page resident and scale how deep in the result it lies. `window-ledger.scm`
-drives the real window and photographs the ledger, and `window-rows.scm`
-scrolls ten thousand rows, jumps to the last and first rows, and photographs
-each. `window-cancel-query.scm` types a statement that would run for minutes,
-photographs its Cancel key, and cancels it.
+The [specifications](specs/) exercise read-only queries, typed results, paging and cancellation.

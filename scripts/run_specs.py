@@ -144,7 +144,7 @@ def fixture_services(cases: list[Case], described: dict[Path, dict], output: Pat
                 process.wait(timeout=5)
 
 
-def discover(patterns: list[str], output: Path, excludes: list[str] | None = None, roc_opt: str = "dev") -> list[Case]:
+def discover(patterns: list[str], output: Path, excludes: list[str] | None = None) -> list[Case]:
     specs = sorted(
         [*ROOT.glob("examples/*/specs/*.scm"), *ROOT.glob("benchmarks/*/specs/*.scm")]
     )
@@ -160,14 +160,6 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
             for spec in specs
             if not any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in excludes)
         ]
-    for spec in [spec for spec in specs if spec.relative_to(ROOT).as_posix() in INTERMITTENT]:
-        print(f"SKIP {spec.relative_to(ROOT).as_posix()}: {INTERMITTENT[spec.relative_to(ROOT).as_posix()]}", flush=True)
-        specs.remove(spec)
-    blocked = [spec for spec in specs if (spec.parent.parent.relative_to(ROOT).as_posix(), roc_opt) in COMPILER_BLOCKED]
-    for directory in sorted({spec.parent.parent.relative_to(ROOT).as_posix() for spec in blocked}):
-        count = sum(spec.parent.parent.relative_to(ROOT).as_posix() == directory for spec in blocked)
-        print(f"SKIP {directory} --opt={roc_opt}: {count} specs ({COMPILER_BLOCKED[(directory, roc_opt)]})", flush=True)
-    specs = [spec for spec in specs if spec not in blocked]
     cases = []
     for spec in specs:
         app = spec.parent.parent / "main.roc"
@@ -186,36 +178,12 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 
 
 # Use one explicit application backend across examples and benchmarks. The
-# selected compiler's LLVM callback/state corruption is tracked in the backlog;
-# --roc-opt allows intentional compiler diagnostics without an automatic retry
-# or fallback. The Rust host's build profile is independent of this option.
+# development backend keeps routine checks quick; --roc-opt also exercises
+# optimized builds without an automatic retry or fallback. The Rust host's
+# build profile is independent of this option.
+APP_COMPILER = "ROC_GUI_APP_COMPILER"
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
 SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
-# Applications the current nightly cannot build, by build mode. Their
-# specifications are skipped and named on every run; each is tracked in
-# wip/issues-backlog.md under "Compiler and toolchain defects" and removed when
-# its fix lands.
-COMPILER_BLOCKED = {
-    # TODO(release blocker): nightly-2026-10-23-18478ff segfaults in
-    # post-check lambda_solve building Observatory with --no-cache
-    # --opt=speed after 9 s; nightly-2026-10-21-5349569 was killed by signal
-    # 9 after 38 s at 24.4 GiB peak RSS. See the backlog for earlier nightly
-    # results. Reduce, report upstream, and remove this entry once a nightly
-    # builds it and its specifications pass.
-    ("examples/observatory", "speed"): "the speed backend does not finish building it; see the backlog",
-}
-# Specifications that fail intermittently, skipped everywhere they would run and
-# named on every run. Each is tracked in wip/issues-backlog.md and removed when
-# its cause is fixed.
-INTERMITTENT = {
-    # TODO(release blocker): Observatory's folder rewatch sometimes counts one
-    # change, [2, 1, 0, 0, 1] where [2, 0, 0, 0, _] is expected, on the hosted
-    # macOS runner (run 39515606523) and the Linux Blueprint job (run
-    # 39522990540); it never failed locally. The suspected cause is SQLite
-    # creating and removing -wal/-shm files beside the captures Observatory
-    # opens. Find the cause, fix it, and remove this entry.
-    "examples/observatory/specs/folder-rewatch.scm": "fails intermittently in CI; see the backlog",
-}
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
@@ -223,14 +191,14 @@ def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "de
     print(f"Roc compiler: {compiler_version(roc)}", flush=True)
     print(f"Roc application build mode: {roc_opt}", flush=True)
     if not skip_host_build:
-        subprocess.run([sys.executable, str(ROOT / "build.py")], cwd=ROOT, check=True)
+        subprocess.run(["blueprint", "run", "build"], cwd=ROOT, check=True)
     # A generator that runs specifications itself builds with this compiler,
     # against the host just built, so its nested runs never build it again.
     subprocess.run(
-        [sys.executable, str(ROOT / "scripts/bootstrap.py")],
+        ["blueprint", "run", "bootstrap"],
         cwd=ROOT,
         check=True,
-        env={**os.environ, "ROC": roc, SKIP_HOST_BUILD: "1",
+        env={**os.environ, APP_COMPILER: roc, SKIP_HOST_BUILD: "1",
              SELECTED_APPS: os.pathsep.join(sorted({case.app.parent.relative_to(ROOT).as_posix() for case in cases}))},
     )
     by_app = {case.app: case.executable for case in cases}
@@ -566,7 +534,7 @@ def parse_args() -> argparse.Namespace:
                              "runners cannot grant screen recording")
     parser.add_argument("--window-retries", type=int, default=0,
                         help="retry a failed window case this many times with fresh artifacts")
-    parser.add_argument("--roc", default=os.environ.get("ROC", "roc"))
+    parser.add_argument("--roc", default=os.environ.get(APP_COMPILER, "roc"))
     parser.add_argument("--roc-opt", choices=("dev", "speed", "size"), default="dev",
                         help="Roc application backend (default: dev); speed and size are LLVM diagnostic builds")
     args = parser.parse_args()
@@ -581,7 +549,7 @@ def main() -> int:
     args = parse_args()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output = (args.output or ROOT / ".test-out" / "specs" / stamp).resolve()
-    cases = discover(args.patterns, output, args.exclude, args.roc_opt)
+    cases = discover(args.patterns, output, args.exclude)
     cases = [case for index, case in enumerate(cases) if index % args.shard_count == args.shard_index]
     if not cases:
         print("error: no .scm specs selected", file=sys.stderr)

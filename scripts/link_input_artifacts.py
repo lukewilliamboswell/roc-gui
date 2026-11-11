@@ -50,6 +50,7 @@ SOURCE_PATHS = (
     "scripts/test_windows_gnu_runtime_artifact.py",
     "scripts/build_xkbcommon.py", "scripts/dependency_archive.py", "scripts/link_input_artifacts.py",
     ".github/workflows/link-inputs.yml",
+    "scripts/link_inputs.roc", "scripts/build.roc", "scripts/native_build.py", "scripts/run_cargo.py",
 )
 
 

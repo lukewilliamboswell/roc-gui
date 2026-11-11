@@ -1,5 +1,5 @@
 name: Install the Roc nightly
-description: Install the nightly this run resolved once, outside the checkout, and report it.
+description: Realise the run's exact Roc nightly through Blueprint's verified download cache.
 inputs:
   nightly-tag:
     description: The roc-lang/nightlies tag the run's first job resolved
@@ -7,13 +7,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: roc-lang/setup-roc@f5a74bf90aa694b43ab4a7cbfdb19273bc6aa697
+    - id: blueprint
+      uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
       with:
-        version: nightly-new-compiler
-        nightly-tag: ${{ inputs.nightly-tag }}
-    - name: Keep downloaded compiler outside release source
+        cache: 'true'
+        cache-workload: roc-${{ inputs.nightly-tag }}
+    - name: Realise the compiler through Blueprint
       shell: bash
-      run: python3 scripts/toolchain.py --relocate-for-ci
-    - name: Report the compiler
-      shell: bash
-      run: roc version
+      env:
+        NIGHTLY_TAG: ${{ inputs.nightly-tag }}
+        GH_TOKEN: ${{ github.token }}
+        BLUEPRINT_ARTIFACTS_DIRECTORY: ${{ steps.blueprint.outputs.artifacts-directory }}
+      run: python3 scripts/toolchain.py --install-for-ci "$NIGHTLY_TAG"

@@ -6,7 +6,7 @@ specification, benchmark, and recorded interactive session. It answers two quest
 *how does this application perform?* and *can I trust that answer?*
 
 This document holds the user stories and placeholder wireframes for the ideal application.
-Unfinished work is tracked in `wip/issues-backlog.md` under "Observatory example", not here.
+Track unfinished work in [GitHub issues](https://github.com/lukewilliamboswell/roc-gui/issues/60).
 
 ## 1. Purpose
 
