@@ -21,7 +21,7 @@ import src/Pins
 ## others. Bare `roc` is the latest nightly: the platform, its applications and
 ## its benchmarks carry no compiler pin and must check, warning-free, with it.
 main! = |args| {
-	if args.map(OsStr.display) == ["--staged"] {
+	if args.map(|arg| OsStr.from_raw(arg).display()) == ["--staged"] {
 		return machine_code!(Staged)
 	}
 

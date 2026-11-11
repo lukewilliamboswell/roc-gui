@@ -19,7 +19,7 @@ import cli.Stdout
 ## describes the host interface that nightly expects; CI regenerates the
 ## bindings the same way and requires the committed files to match.
 main! = |args| {
-	source = match args.map(OsStr.display) {
+	source = match args.map(|arg| OsStr.from_raw(arg).display()) {
 		[only] => only
 		_ => return fail!("usage: regenerate_glue.roc <roc source>")
 	}

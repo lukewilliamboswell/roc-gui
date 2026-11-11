@@ -158,7 +158,6 @@ cancel = |state| match state.phase {
 ## One scrollback row holds exactly what the child wrote. An earlier version
 ## prefixed every row with "Terminal line: " — an accessibility name that leaked
 ## into the visible column and doubled the width of forty characters of output.
-visible_lines : State -> List(Gui.VirtualListItem(State))
 visible_lines = |state| {
 	var $items = []
 	var $key = 0

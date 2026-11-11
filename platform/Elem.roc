@@ -1879,7 +1879,7 @@ Elem(a) :: [
 						{ children: entries.map(|entry| item_elem(entry.key)), keys: entries.map(|entry| entry.key) }
 					},
 				)
-				Work.next(|| done!(KeyedColumn({ base_revision: transition.base_revision, children: $children, full, keys: $keys, operations: $operations, props: Frame.{ label: props.label, style: style_of(props) }, revision: transition.revision })))
+				Work.next(|| done!(KeyedColumn({ base_revision: transition.base_revision, children: $children, full, keys: $keys, operations: $operations, props: { label: props.label, style: style_of(props) }, revision: transition.revision })))
 			},
 			exists: |_parent, done!| Work.next(|| done!(True)),
 			remember: None,

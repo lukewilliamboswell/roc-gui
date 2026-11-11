@@ -19,7 +19,7 @@ Envelope : {
 
 ## Combine same-run envelopes without altering their subjects or byte identities.
 main! = |raw_args| {
-	(output, inputs) = match raw_args.map(OsStr.display) {
+	(output, inputs) = match raw_args.map(|arg| OsStr.from_raw(arg).display()) {
 		[first, second, .. as rest] => (first, [second].concat(rest))
 		_ => return fail!("usage: merge-sbom-evidence OUTPUT ENVELOPE...")
 	}

@@ -24,7 +24,7 @@ Native : { bundle : Fragment, sources : List({ filename : Str, components : List
 ## Prepare per-deliverable compositions. Shared Blueprint tooling generates and
 ## independently checks the standard documents against each final file's bytes.
 main! = |raw_args| {
-	(version, directory, hosts, cache, output) = match raw_args.map(OsStr.display) {
+	(version, directory, hosts, cache, output) = match raw_args.map(|arg| OsStr.from_raw(arg).display()) {
 		[a, b, c, d, e] => (a, b, c, d, e)
 		_ => return fail!("usage: blueprint run sbom-composition -- VERSION RELEASE HOSTS CACHE OUTPUT")
 	}

@@ -87,7 +87,6 @@ chosen_name_of = |state| match state.selected {
 	None => ""
 }
 
-item_rows : List(Gallery.Item), Str -> List(Gui.VirtualListItem(State))
 item_rows = |items, chosen_name| {
 	var $key = 0
 	var $rows = []
