@@ -48,7 +48,7 @@ jobs:
       - uses: ./.github/actions/setup-toolchain
         with:
           nightly-tag: ${{ inputs.nightly-tag }}
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ~/.cache/roc-gui/link-inputs
           key: link-inputs-${{ runner.os }}-${{ hashFiles('link-inputs.lock.json') }}
@@ -68,7 +68,7 @@ jobs:
         run: echo "value=$(python3 scripts/ci_host.py fingerprint)" >> "$GITHUB_OUTPUT"
       - id: cache
         if: ${{ !inputs.release }}
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ${{ runner.temp }}/ci-host
           key: ci-host-v1-${{ inputs.target }}-${{ steps.fingerprint.outputs.value }}-${{ hashFiles('link-inputs.lock.json') }}
@@ -94,17 +94,17 @@ jobs:
         run: python3 scripts/ci_host.py seal --mode "${{ steps.decide.outputs.mode }}" --output "$RUNNER_TEMP/ci-host"
       - name: Cache the sealed host for runs with the same inputs
         if: steps.decide.outputs.mode != 'cached' && !inputs.release
-        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: ${{ runner.temp }}/ci-host
           key: ci-host-v1-${{ inputs.target }}-${{ steps.fingerprint.outputs.value }}-${{ hashFiles('link-inputs.lock.json') }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ci-host-${{ inputs.target }}
           path: ${{ runner.temp }}/ci-host
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: steps.decide.outputs.mode == 'built'
         with:
           name: ci-host-evidence-${{ inputs.target }}
