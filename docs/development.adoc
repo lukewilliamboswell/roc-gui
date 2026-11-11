@@ -64,6 +64,13 @@ written for the latest Roc nightly, which is bare `roc`, and CI resolves that
 nightly once per run. A nightly that breaks them fails the scheduled
 compatibility workflow, and the fix is a change to the platform.
 
+CI realises the resolved nightly with `Recipes.roc_nightly` in a temporary
+Blueprint project. Blueprint retains and verifies the complete compiler archive
+in its program store, including the macOS sysroot. The shared setup action
+caches those archive bytes by runner, nightly and repository lock, and Blueprint
+verifies restored bytes before using them. The Windows runtime probe uses the
+same installation path with the compiler its recipe names.
+
 `roc-stable` is the one pinned compiler. `Blueprint.roc` fetches it with
 `Recipes.roc_nightly`, and every script under `scripts/` names the same tag in
 its `roc` header field, which `check` enforces. It runs the repository's Roc

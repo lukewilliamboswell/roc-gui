@@ -14,8 +14,93 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import suite_archive
+import toolchain
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class CompilerInstallationTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.project = self.directory / "project"
+        self.project.mkdir()
+        (self.project / "Blueprint.roc").write_text('app [config] { pf: platform "https://example.org/blueprint.tar.zst" }\n')
+        self.compiler = self.directory / "store/compiler/roc"
+        self.compiler.parent.mkdir(parents=True)
+        self.compiler.write_text("verified compiler fixture")
+        self.path_file = self.directory / "github-path"
+        self.nightly = "nightly-2026-11-10-f7d1f19"
+        name = "roc_nightly-linux_x86_64-2026-11-10-f7d1f19.tar.gz"
+        self.release = {"tag_name": self.nightly, "immutable": True, "draft": False, "assets": [{
+            "name": name, "size": 123, "digest": "sha256:" + "a" * 64,
+            "browser_download_url": f"https://github.com/roc-lang/nightlies/releases/download/{self.nightly}/{name}",
+        }]}
+        environment = patch.dict(os.environ, {
+            "RUNNER_TEMP": str(self.directory), "RUNNER_OS": "Linux", "RUNNER_ARCH": "X64",
+            "GITHUB_PATH": str(self.path_file), "BLUEPRINT_ROOT": "caller-project", "BLUEPRINT_TARGET": "caller-target",
+            "GH_TOKEN": "metadata-only-token", "GITHUB_TOKEN": "another-metadata-only-token",
+        })
+        environment.start()
+        self.addCleanup(environment.stop)
+        root = patch.object(toolchain, "ROOT", self.project)
+        root.start()
+        self.addCleanup(root.stop)
+
+    def test_installer_uses_blueprint_store_and_the_resolved_nightly(self):
+        projects = []
+
+        def realise(command, **options):
+            if command[0] == "gh":
+                self.assertEqual(command, ["gh", "api", f"repos/roc-lang/nightlies/releases/tags/{self.nightly}"])
+                return json.dumps(self.release)
+            self.assertEqual(command, ["blueprint", "run", "path"])
+            cwd, env = options["cwd"], options["env"]
+            self.assertNotIn("BLUEPRINT_ROOT", env)
+            self.assertNotIn("BLUEPRINT_TARGET", env)
+            self.assertNotIn("GH_TOKEN", env)
+            self.assertNotIn("GITHUB_TOKEN", env)
+            config = (cwd / "Blueprint.roc").read_text()
+            self.assertIn(f'Recipes.roc_nightly("{self.nightly}")', config)
+            self.assertIn('Systems(["x86_64-linux"])', config)
+            lock = (cwd / "Blueprint.lock").read_text()
+            self.assertIn('"' + "a" * 64 + '"', lock)
+            self.assertIn("(obtained Published)", lock)
+            projects.append(cwd)
+            return str(self.compiler)
+
+        with patch.object(toolchain.subprocess, "check_output", side_effect=realise) as output, patch.object(
+            toolchain, "compiler_version", return_value=f"Roc compiler version {self.nightly}"
+        ) as version:
+            toolchain.install_for_ci(self.nightly)
+        self.assertEqual(output.call_count, 2)
+        version.assert_called_once_with(str(self.compiler))
+        self.assertEqual(self.path_file.read_text(), str(self.compiler.parent) + "\n")
+        self.assertFalse(projects[0].exists())
+        self.assertTrue(self.compiler.is_file())
+
+    def test_installer_rejects_another_compiler_before_exporting_path(self):
+        with patch.object(toolchain.subprocess, "check_output", side_effect=[json.dumps(self.release), str(self.compiler)]), patch.object(
+            toolchain, "compiler_version", return_value="Roc compiler version another-nightly"
+        ), self.assertRaisesRegex(ValueError, "compiler differs"):
+            toolchain.install_for_ci(self.nightly)
+        self.assertFalse(self.path_file.exists())
+
+    def test_installer_rejects_malformed_nightly_tags_before_running_blueprint(self):
+        with patch.object(toolchain.subprocess, "check_output") as command:
+            for tag in ("latest", "nightly", self.nightly + '\"', self.nightly + "\n"):
+                with self.subTest(tag=tag), self.assertRaisesRegex(ValueError, "exact Roc nightly"):
+                    toolchain.install_for_ci(tag)
+            command.assert_not_called()
+
+    def test_installer_requires_the_published_archive_digest(self):
+        self.release["assets"][0]["digest"] = ""
+        with patch.object(toolchain.subprocess, "check_output", return_value=json.dumps(self.release)) as command:
+            with self.assertRaisesRegex(ValueError, "official URL, size and SHA-256"):
+                toolchain.install_for_ci(self.nightly)
+            self.assertEqual(command.call_count, 1)
+        self.assertFalse(self.path_file.exists())
 
 
 class CompilerEnvironmentTests(unittest.TestCase):

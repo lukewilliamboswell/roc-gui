@@ -7,19 +7,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+    - uses: ./.github/actions/setup-roc
+      with:
+        nightly-tag: ${{ inputs.nightly-tag }}
     - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
       with:
         version: 0.16.0
         use-cache: false
-    - uses: roc-lang/setup-roc@30af91a173612e462a5df47f3b697c53c211f48c
-      with:
-        version: nightly-new-compiler
-        download-method: asset-api
-        nightly-tag: ${{ inputs.nightly-tag }}
-    - name: Keep downloaded compiler outside release source
-      shell: bash
-      run: python3 scripts/toolchain.py --relocate-for-ci
-    - name: Report the compiler
-      shell: bash
-      run: roc version

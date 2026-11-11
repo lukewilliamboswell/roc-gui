@@ -145,10 +145,8 @@ jobs:
       - id: probe
         shell: bash
         run: blueprint run link-inputs -- probe-tag
-      - uses: roc-lang/setup-roc@30af91a173612e462a5df47f3b697c53c211f48c
+      - uses: ./.github/actions/setup-roc
         with:
-          version: nightly-new-compiler
-          download-method: asset-api
           nightly-tag: ${{ steps.probe.outputs.tag }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
