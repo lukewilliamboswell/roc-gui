@@ -154,6 +154,13 @@ class CompilerEnvironmentTests(unittest.TestCase):
         self.assertEqual(arguments[arguments.index('--roc') + 1], 'product-compiler')
         self.assertEqual(command.call_args.kwargs['env']['ROC'], 'configuration-compiler')
 
+    def test_folder_rewatch_is_discovered_through_the_normal_spec_runner(self):
+        import run_specs
+        with tempfile.TemporaryDirectory() as temporary:
+            cases = run_specs.discover(['examples/observatory/specs/folder-rewatch.scm'], Path(temporary))
+        self.assertEqual([case.spec.relative_to(ROOT).as_posix() for case in cases],
+                         ['examples/observatory/specs/folder-rewatch.scm'])
+
     def test_every_application_has_specifications(self):
         for directory in ('examples', 'benchmarks'):
             for app in (ROOT / directory).glob('*/main.roc'):

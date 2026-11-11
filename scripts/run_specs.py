@@ -160,9 +160,6 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
             for spec in specs
             if not any(fnmatch.fnmatch(spec.relative_to(ROOT).as_posix(), pattern) for pattern in excludes)
         ]
-    for spec in [spec for spec in specs if spec.relative_to(ROOT).as_posix() in INTERMITTENT]:
-        print(f"SKIP {spec.relative_to(ROOT).as_posix()}: {INTERMITTENT[spec.relative_to(ROOT).as_posix()]}", flush=True)
-        specs.remove(spec)
     cases = []
     for spec in specs:
         app = spec.parent.parent / "main.roc"
@@ -187,18 +184,6 @@ def discover(patterns: list[str], output: Path, excludes: list[str] | None = Non
 APP_COMPILER = "ROC_GUI_APP_COMPILER"
 SKIP_HOST_BUILD = "ROC_GUI_SKIP_HOST_BUILD"
 SELECTED_APPS = "ROC_GUI_SELECTED_APPS"
-# Specifications that fail intermittently, skipped everywhere they would run and
-# named on every run. Each is tracked in https://github.com/lukewilliamboswell/roc-gui/issues/60 and removed when
-# its cause is fixed.
-INTERMITTENT = {
-    # TODO(release blocker): Observatory's folder rewatch sometimes counts one
-    # change, [2, 1, 0, 0, 1] where [2, 0, 0, 0, _] is expected, on the hosted
-    # macOS runner (run 39515606523) and the Linux Blueprint job (run
-    # 39522990540); it never failed locally. The suspected cause is SQLite
-    # creating and removing -wal/-shm files beside the captures Observatory
-    # opens. Find the cause, fix it, and remove this entry.
-    "examples/observatory/specs/folder-rewatch.scm": "fails intermittently in CI; see the backlog",
-}
 
 
 def build(cases: list[Case], roc: str, skip_host_build: bool, roc_opt: str = "dev") -> None:
