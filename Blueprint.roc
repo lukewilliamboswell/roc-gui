@@ -25,7 +25,7 @@ docs_renderer = |system| match system {
 }
 
 release_package : System -> Config.Download
-release_package = |system| File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.0/release-package-${system.to_str()}")
+release_package = |system| File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.1/release-package-${system.to_str()}")
 
 script_runtime : List(Config.EnvironmentSetting)
 script_runtime = [

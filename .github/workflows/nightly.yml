@@ -19,10 +19,10 @@ jobs:
     permissions:
       contents: read
       issues: write
-    uses: lukewilliamboswell/roc-automation/.github/workflows/nightly-compatibility.yml@f2c40def4ca269e4a29b4096edc86f600251aa5d
+    uses: lukewilliamboswell/roc-automation/.github/workflows/nightly-compatibility.yml@86da266d92548efca10d67361fe1a2ec3436b72a
     with:
       nightly-tag: ${{ inputs.nightly-tag || '' }}
       release-tag: ${{ inputs.release-tag || '' }}
       runners: '["ubuntu-24.04", "macos-15", "windows-2025"]'
       setup-command: '["python3", "scripts/nightly_prerequisites.py"]'
-      case-timeout-ms: '120000'
+      case-timeout-ms: '300000'

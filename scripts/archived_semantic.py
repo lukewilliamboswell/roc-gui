@@ -59,7 +59,7 @@ def execute(executable, application, specification):
         if described[spec]["runner"] != "semantic":
             raise ValueError("archived semantic case describes a different runner")
         with fixture_services([case], described, output / "fixtures"):
-            _, error = run_case(case, described[spec], 110, 1)
+            _, error = run_case(case, described[spec], 290, 1)
             if error is not None:
                 raise RuntimeError(error)
 

@@ -27,27 +27,27 @@
 		(name "release-package")
 		(obtained Both)
 		(served ("release-assets.githubusercontent.com"))
-		(sha256 "2be86963e543d76f32e0221e1d84b02f1233db58d8fca7951ce7e0e5d5757fb2")
+		(sha256 "5a51f94866cac270c58605d198a8423267a434b5158a46934f412f08221c0f27")
 		(size 3149944)
 		(system "x86_64-linux")
-		(urls ("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.0/release-package-x86_64-linux"))
-		(witness "https://api.github.com/repos/lukewilliamboswell/roc-automation/releases/tags/tools-0.11.0")) (
+		(urls ("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.1/release-package-x86_64-linux"))
+		(witness "https://api.github.com/repos/lukewilliamboswell/roc-automation/releases/tags/tools-0.11.1")) (
 		(name "release-package")
 		(obtained Published)
 		(served ())
-		(sha256 "b981ec94f5e47525f60dfd5cd7e5e12e78f8a8f7a015b0bf2741b83deb3f63fc")
+		(sha256 "31701271914cbd60959dcf4fcc25fbc38a9b0652c9972b0b38a708477f7b4bb1")
 		(size 1914544)
 		(system "aarch64-darwin")
-		(urls ("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.0/release-package-aarch64-darwin"))
-		(witness "https://api.github.com/repos/lukewilliamboswell/roc-automation/releases/tags/tools-0.11.0")) (
+		(urls ("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.1/release-package-aarch64-darwin"))
+		(witness "https://api.github.com/repos/lukewilliamboswell/roc-automation/releases/tags/tools-0.11.1")) (
 		(name "release-package")
 		(obtained Published)
 		(served ())
-		(sha256 "0ad06998150e17b89d8a3d238a597ae34ccd0b202d6dd45a5d02c31dd9b816f6")
+		(sha256 "d4634db3aca83e2f02575bdd696271c60f056f29984205553b63d6ff018d8951")
 		(size 5047296)
 		(system "x86_64-windows")
-		(urls ("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.0/release-package-x86_64-windows"))
-		(witness "https://api.github.com/repos/lukewilliamboswell/roc-automation/releases/tags/tools-0.11.0")) (
+		(urls ("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.1/release-package-x86_64-windows"))
+		(witness "https://api.github.com/repos/lukewilliamboswell/roc-automation/releases/tags/tools-0.11.1")) (
 		(name "roc-docs")
 		(obtained Both)
 		(served ("release-assets.githubusercontent.com"))

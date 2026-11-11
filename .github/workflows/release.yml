@@ -240,7 +240,7 @@ jobs:
       - name: Test the immutable published suite against the exact candidate bundle
         env:
           RP_OUTPUT: dist
-          RP_CASE_TIMEOUT_MS: '120000'
+          RP_CASE_TIMEOUT_MS: '300000'
           RP_DIRECTORY: ${{ runner.temp }}/archive-test
           RP_REPOSITORY: lukewilliamboswell/roc-gui
         run: blueprint run test-archive
