@@ -15,7 +15,7 @@ import src/Pins
 ## Everything `blueprint run check` checks of the repository's Roc.
 ##
 ##     blueprint run check              # every section below
-##     scripts/check_all.roc -- --staged   # the machine-code section, over the Git index
+##     scripts/check_all.roc --staged   # the machine-code section, over the Git index
 ##
 ## `roc-stable`, which Blueprint.roc fetches, runs this script and checks the
 ## others. Bare `roc` is the latest nightly: the platform, its applications and
