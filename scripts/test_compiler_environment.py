@@ -189,6 +189,23 @@ class CompilerEnvironmentTests(unittest.TestCase):
                 self.assertEqual(suite_archive.pack(plan, root / 'out').read_bytes(), first)
                 self.assertEqual((root / 'examples/demo/main.roc').read_text(), 'original')
 
+    def test_archived_runtime_reports_protocol_bytes_on_every_system(self):
+        program = (
+            "import pathlib,runpy,sys\n"
+            "script=sys.argv.pop()\n"
+            "sys.path.insert(0,str(pathlib.Path(script).parent))\n"
+            "sys.stderr.reconfigure(newline='\\r\\n')\n"
+            "runpy.run_path(script,run_name='__main__')\n"
+        )
+        ran = subprocess.run([sys.executable, '-c', program, str(ROOT / 'scripts/archived_semantic.py')],
+                             capture_output=True, timeout=10)
+        self.assertEqual(ran.returncode, 1)
+        self.assertEqual(ran.stdout, b'')
+        self.assertIn(b'FAIL semantic specification:', ran.stderr)
+        self.assertTrue(ran.stderr.endswith(b'\n'))
+        self.assertNotIn(b'\r', ran.stderr)
+        ran.stderr.decode('utf-8')
+
     def test_archive_refuses_symlink_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

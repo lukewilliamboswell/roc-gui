@@ -65,6 +65,8 @@ def execute(executable, application, specification):
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
+    sys.stderr.reconfigure(encoding="utf-8", newline="\n")
     diagnostics = io.StringIO()
     try:
         with redirect_stdout(diagnostics), redirect_stderr(diagnostics):

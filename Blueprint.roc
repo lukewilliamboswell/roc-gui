@@ -25,7 +25,7 @@ docs_renderer = |system| match system {
 }
 
 release_package : System -> Config.Download
-release_package = |system| File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.10.1/release-package-${system.to_str()}")
+release_package = |system| File("https://github.com/lukewilliamboswell/roc-automation/releases/download/tools-0.11.0/release-package-${system.to_str()}")
 
 script_runtime : List(Config.EnvironmentSetting)
 script_runtime = [
@@ -45,7 +45,7 @@ config = [
 
 	Environment("producer", script_runtime.concat([Expect(["git", "python3"])])),
 	Environment("release-metadata", [Extend("producer"), Expect(["gh"])]),
-	Environment("archive-test", [Programs([Fetch("release-package", release_package)]), Expect(["roc", "git", "unzip"])]),
+	Environment("archive-test", [Programs([Fetch("release-package", release_package)]), Expect(["roc", "git", "python3"])]),
 	# Glue formatting uses the Rust toolchain selected by rustup.
 	Environment("glue", [Extend("scripts"), Expect(["cargo"])]),
 	# The renderer is a verified native download; API generation uses the

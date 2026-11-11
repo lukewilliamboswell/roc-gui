@@ -219,12 +219,16 @@ jobs:
           name: release-candidate
           path: dist
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        if: runner.os != 'Windows'
         with:
           repository: lukewilliamboswell/roc-automation
           ref: f2c40def4ca269e4a29b4096edc86f600251aa5d
           path: .roc-automation
           persist-credentials: false
       - name: Verify transferred final artifact SBOM bindings
+        # This verifier uses POSIX descriptor checks. The publisher repeats
+        # the complete artifact-set check in its dedicated Linux job.
+        if: runner.os != 'Windows'
         env:
           INPUT_SUBJECTS: ${{ needs.build.outputs.subjects }}
           INPUT_ASSETS: ${{ needs.build.outputs.assets }}
@@ -236,6 +240,7 @@ jobs:
       - name: Test the immutable published suite against the exact candidate bundle
         env:
           RP_OUTPUT: dist
+          RP_CASE_TIMEOUT_MS: '120000'
           RP_DIRECTORY: ${{ runner.temp }}/archive-test
           RP_REPOSITORY: lukewilliamboswell/roc-gui
         run: blueprint run test-archive
