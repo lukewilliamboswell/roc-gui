@@ -17,7 +17,7 @@ Manifest : { schema_version : U64, compiler : Str, bundle : { name : Str } }
 Description : { path : Str, runner : Str }
 
 main! = |raw_args| {
-	(version, manifest_path, output, describer) = match raw_args.map(|arg| OsStr.from_raw(arg).display()) {
+	(version, manifest_path, output, describer) = match raw_args.map(OsStr.display) {
 		[a, b, c, d] => (a, b, c, d)
 		_ => return fail!("usage: blueprint run release-suite -- VERSION MANIFEST OUTPUT DESCRIBER")
 	}
