@@ -22,7 +22,6 @@ load = |count| Gui.button({ caption: "Load ${count.to_str()} rows", label: "Load
 
 provide = |count| Gui.button({ caption: "Provide ${count.to_str()} rows", label: "Provide ${count.to_str()} rows", on_press: |_, _| Gui.Action.update({ rows: [], provided: count, on_demand: True, selected: count, jump: None }) })
 
-rows_list : State -> Gui.Elem(State)
 rows_list = |state| if state.on_demand {
 	Gui.virtual_rows({ label: "Rows", row_height: 28, count: state.provided, render_row: row_button, scroll_to: state.jump })
 } else {

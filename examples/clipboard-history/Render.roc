@@ -246,7 +246,6 @@ entry_row = |entry, run_state| {
 	)
 }
 
-render : History.State -> Gui.Elem(History.State)
 render = |state| {
 	running = match state.run_state {
 		Running(_, _) => True
