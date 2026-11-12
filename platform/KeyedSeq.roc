@@ -1056,7 +1056,7 @@ expect {
 		$valid = $valid and KeyedSeq.to_list($sequence) == $model and KeyedSeq.debug_valid($sequence)
 		$next = $next + 1
 	}
-	var $step = 0
+	var $step = 0.U64
 	while $model.len() > 1 {
 		at = ($step * 19).rem_by($model.len())
 		key = ($model.get(at) ?? crash "model removal").key
