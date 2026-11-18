@@ -64,7 +64,7 @@ jobs:
           --skip-host-build --output="$RUNNER_TEMP/spec-evidence"
       - name: Upload privacy-safe failure evidence
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semantic-failure-${{ inputs.target }}
           path: |
@@ -102,7 +102,7 @@ jobs:
           --skip-host-build --output="$RUNNER_TEMP/spec-evidence"
       - name: Upload privacy-safe failure evidence
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: scaling-failure-${{ inputs.target }}
           path: |
@@ -136,7 +136,7 @@ jobs:
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/${{ inputs.smoke_executable }}" --failure-record="$RUNNER_TEMP/smoke-evidence/failure.json"
       - name: Upload privacy-safe failure evidence
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: smoke-failure-${{ inputs.target }}
           path: ${{ runner.temp }}/smoke-evidence/failure.json
@@ -177,7 +177,7 @@ jobs:
           ${{ inputs.missing_shots }}
       - name: Upload privacy-safe failure evidence
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: window-failure-${{ inputs.target }}
           path: |
@@ -216,7 +216,7 @@ jobs:
         run: python3 scripts/run_specs.py "examples/*/specs/gallery.scm" --only window --window-retries=1 --skip-host-build --output="$RUNNER_TEMP/gallery-captures"
       - name: Upload privacy-safe failure evidence
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: gallery-failure-${{ inputs.target }}
           path: |
@@ -228,7 +228,7 @@ jobs:
           retention-days: 7
       - name: Build thumbnail GIFs
         run: python3 scripts/build_example_gallery.py --captures="$RUNNER_TEMP/gallery-captures" --output="$RUNNER_TEMP/gallery"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: example-gallery
           path: ${{ runner.temp }}/gallery/*.gif
