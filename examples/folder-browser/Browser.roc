@@ -11,14 +11,14 @@ Browser := [].{
 	init : Gui.Access -> State
 	init = |access| { access, next_request: 1, show_files: True, status: Ready, view: Empty }
 	render : State -> Gui.Elem(State)
-	render = render
+	render = render_impl
 
 	## The window's own ground and ink, so `main.roc` can declare the identity
 	## instead of leaving the space behind the root element to the host.
 	ground : Gui.Color
-	ground = ground
+	ground = ground_impl
 	ink : Gui.Color
-	ink = ink
+	ink = ink_impl
 }
 
 Location : { directory : Gui.Files.Dir.Read, name : Str }
@@ -40,7 +40,7 @@ State : { access : Gui.Access, next_request : U64, show_files : Bool, status : S
 ## Deep teal, lit from one direction: the window's ground is the darkest
 ## surface, panels sit one step above it, and rows one step above those. Nothing
 ## in the browser is brighter than the name of the folder you are looking at.
-ground = 0x0e1a21.Gui.Color
+ground_impl = 0x0e1a21.Gui.Color
 
 surface = 0x14232b.Gui.Color
 
@@ -52,7 +52,7 @@ row_hover = 0x27414f.Gui.Color
 
 link_fg = 0x9bdcf0.Gui.Color
 
-ink = 0xdbe7ed.Gui.Color
+ink_impl = 0xdbe7ed.Gui.Color
 
 muted_fg = 0x93a7b2.Gui.Color
 
@@ -333,8 +333,8 @@ counts = |entries, show_files| {
 	}
 }
 
-render : State -> Gui.Elem(State)
-render = |state| {
+render_impl : State -> Gui.Elem(State)
+render_impl = |state| {
 	is_busy = match state.status {
 		Busy(_) => True
 		_ => False
@@ -369,7 +369,7 @@ render = |state| {
 				font_size: 14,
 				bg: chip_bg,
 				hover_bg: row_hover,
-				fg: ink,
+				fg: ink_impl,
 				border_color: rule,
 				border_width: 1,
 				radius: 7,

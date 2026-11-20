@@ -18,7 +18,7 @@ import Widgets
 
 View := [].{
 	render : Observatory.State -> Gui.Elem(Observatory.State)
-	render = render
+	render = render_impl
 }
 
 ## Component boundaries. Every view is a keyed, memoized boundary over the
@@ -2979,8 +2979,8 @@ has_capture = |state| match state.capture {
 	None => False
 }
 
-render : Observatory.State -> Gui.Elem(Observatory.State)
-render = |state| {
+render_impl : Observatory.State -> Gui.Elem(Observatory.State)
+render_impl = |state| {
 	palette = match state.palette {
 		Open(_) => [view_boundary("Palette", PaletteView.same_view, PaletteView.palette)]
 		Closed => []

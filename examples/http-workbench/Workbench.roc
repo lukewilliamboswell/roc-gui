@@ -54,7 +54,7 @@ Workbench := [].{
 	## The bench shows this before anything is sent so a person can see which
 	## authority is about to be exercised rather than discovering it afterwards.
 	origin_of : Str -> Str
-	origin_of = origin_of
+	origin_of = origin_of_impl
 
 	## Submit with explicitly acquired authority; obsolete generations do no UI work.
 	send : State -> Gui.Action(State)
@@ -113,7 +113,7 @@ clear_error = |state| { ..state, error: "", remedy: "" }
 ## `http://host:port` from a URL, or the empty string when the field does not
 ## yet name one. Splitting on `/` is enough: the origin is everything before the
 ## third separator, and anything else is not a URL the bench can send.
-origin_of = |url| {
+origin_of_impl = |url| {
 	parts = Str.split_on(url, "/")
 	scheme = parts.get(0) ?? ""
 	host = parts.get(2) ?? ""
@@ -127,7 +127,7 @@ origin_of = |url| {
 send_method : State, Method -> Gui.Action(State)
 send_method = |state, method| {
 	id = state.next_id
-	origin = origin_of(state.url)
+	origin = origin_of_impl(state.url)
 	url = if state.query.is_empty() state.url else "${state.url}?${state.query}"
 	base_request = Request.from_method(method).with_uri(url).with_body(Str.to_utf8(state.request))
 	request = if state.header_name.is_empty() base_request else base_request.add_header(state.header_name, state.header_value)

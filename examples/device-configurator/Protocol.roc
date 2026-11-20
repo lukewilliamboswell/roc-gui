@@ -4,18 +4,18 @@ Protocol := [].{
 	read_request : List(U8)
 	read_request = [0xa5, 1, 1]
 	apply_request : Config -> List(U8)
-	apply_request = apply_request
+	apply_request = apply_request_impl
 	decode_config : List(U8) -> Try(Config, Error)
-	decode_config = decode_config
+	decode_config = decode_config_impl
 	decode_apply : List(U8) -> Try({}, Error)
-	decode_apply = decode_apply
+	decode_apply = decode_apply_impl
 }
 
 byte = |bytes, index| bytes.get(index) ?? 0
 
 word = |low, high| U8.to_u16(low) + U8.to_u16(high) * 256
 
-apply_request = |config| [0xa5, 1, 2, U16.to_u8_wrap(config.sensitivity), U16.to_u8_wrap(config.sensitivity / 256), if config.lighting 1 else 0, config.profile]
+apply_request_impl = |config| [0xa5, 1, 2, U16.to_u8_wrap(config.sensitivity), U16.to_u8_wrap(config.sensitivity / 256), if config.lighting 1 else 0, config.profile]
 
 header = |bytes, op| if List.len(bytes) < 4 or byte(bytes, 0) != 0x5a or byte(bytes, 2) != op {
 	Err(Malformed)
@@ -27,7 +27,7 @@ header = |bytes, op| if List.len(bytes) < 4 or byte(bytes, 0) != 0x5a or byte(by
 	Ok({})
 }
 
-decode_config = |bytes| {
+decode_config_impl = |bytes| {
 	header(bytes, 1)?
 	if List.len(bytes) != 10 {
 		Err(Malformed)
@@ -36,10 +36,10 @@ decode_config = |bytes| {
 	}
 }
 
-decode_apply = |bytes| {
+decode_apply_impl = |bytes| {
 	header(bytes, 2)?
 	if List.len(bytes) == 8 Ok({}) else Err(Malformed)
 }
 
-expect decode_config([0x5a, 1, 1, 0, 12, 0, 0x20, 3, 1, 2]) == Ok({ controls: 12, sensitivity: 800, lighting: True, profile: 2 })
-expect decode_config([0x5a, 2, 1, 0, 12, 0, 0x20, 3, 1, 2]) == Err(VersionMismatch)
+expect decode_config_impl([0x5a, 1, 1, 0, 12, 0, 0x20, 3, 1, 2]) == Ok({ controls: 12, sensitivity: 800, lighting: True, profile: 2 })
+expect decode_config_impl([0x5a, 2, 1, 0, 12, 0, 0x20, 3, 1, 2]) == Err(VersionMismatch)

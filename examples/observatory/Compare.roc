@@ -34,7 +34,7 @@ Compare := [].{
 	## them: schema and finalisation, the specification and its benchmark
 	## settings, then the environment the timing depends on.
 	gate : List({ key : Str, rule : Rule })
-	gate = gate
+	gate = gate_impl
 
 	## The gate, in words, exactly as `sheet` applies it.
 	rule : Str
@@ -45,32 +45,32 @@ Compare := [].{
 	noise_rule = "An A/A capture is the same executable run again: it must pass the comparability gate against the capture it bounds and name the same executable_hash."
 
 	sheet : Capture.Opened, Capture.Opened -> List(Check)
-	sheet = sheet
+	sheet = sheet_impl
 
 	failures : List(Check) -> List(Str)
-	failures = failures
+	failures = failures_impl
 
 	## The comparison a capture shows against a baseline and an A/A capture.
 	mode : [None, Some(Capture.Opened)], [None, Some(Capture.Opened)], [None, Some(Capture.Opened)] -> Mode
-	mode = mode
+	mode = mode_impl
 
 	## Why an A/A capture cannot bound a reference capture, if it cannot.
 	accept_noise : Capture.Opened, Capture.Opened -> Try({}, Str)
-	accept_noise = accept_noise
+	accept_noise = accept_noise_impl
 
 	## A trigger group against the baseline's group of the same phase,
 	## trigger, and patch kind, by median. Absent when either capture's cycle
 	## timing is not complete or the baseline has no such group.
 	trigger_delta : Mode, Capture.Opened, Capture.Trigger -> [Hidden, Absent(Str), Shown(Delta)]
-	trigger_delta = trigger_delta
+	trigger_delta = trigger_delta_impl
 
 	## One cycle against the median of its trigger group in the baseline.
 	cycle_delta : Mode, Capture.Opened, Capture.Cycle -> [Hidden, Absent(Str), Shown(Delta)]
-	cycle_delta = cycle_delta
+	cycle_delta = cycle_delta_impl
 
 	## A trigger's mean allocated bytes in one span against the baseline's.
 	allocation_delta : Mode, Capture.Opened, Capture.TriggerAlloc -> [Hidden, Absent(Str), Shown(Delta)]
-	allocation_delta = allocation_delta
+	allocation_delta = allocation_delta_impl
 
 	## The size of a delta, for ordering by |Δ|; a hidden or absent one sorts
 	## last.
@@ -82,21 +82,21 @@ Compare := [].{
 
 	## A delta inside its A/A bound.
 	within_noise : Delta -> [None, Some(Bool)]
-	within_noise = within_noise
+	within_noise = within_noise_impl
 
 	## `b` over `a` as a ratio with two decimals.
 	ratio : I64, I64 -> Str
-	ratio = ratio
+	ratio = ratio_impl
 
 	signed_ms : I64 -> Str
-	signed_ms = signed_ms
+	signed_ms = signed_ms_impl
 
 	signed_bytes : I64 -> Str
-	signed_bytes = signed_bytes
+	signed_bytes = signed_bytes_impl
 }
 
-gate : List({ key : Str, rule : Rule })
-gate = [
+gate_impl : List({ key : Str, rule : Rule })
+gate_impl = [
 	{ key: "schema_version", rule: Both(Capture.supported_schema) },
 	{ key: "final_state", rule: Finalised },
 	{ key: "clean_shutdown", rule: Both("1") },
@@ -137,15 +137,15 @@ check = |key, rule, a, b| {
 	}
 }
 
-sheet : Capture.Opened, Capture.Opened -> List(Check)
-sheet = |a, b| gate.map(|entry| check(entry.key, entry.rule, Capture.metadata(a, entry.key), Capture.metadata(b, entry.key)))
+sheet_impl : Capture.Opened, Capture.Opened -> List(Check)
+sheet_impl = |a, b| gate_impl.map(|entry| check(entry.key, entry.rule, Capture.metadata(a, entry.key), Capture.metadata(b, entry.key)))
 
-failures : List(Check) -> List(Str)
-failures = |checks| checks.keep_if(|found| !found.pass).map(|found| found.reason)
+failures_impl : List(Check) -> List(Str)
+failures_impl = |checks| checks.keep_if(|found| !found.pass).map(|found| found.reason)
 
-accept_noise : Capture.Opened, Capture.Opened -> Try({}, Str)
-accept_noise = |reference, noise| {
-	failed = failures(sheet(reference, noise))
+accept_noise_impl : Capture.Opened, Capture.Opened -> Try({}, Str)
+accept_noise_impl = |reference, noise| {
+	failed = failures_impl(sheet_impl(reference, noise))
 	match failed.first() {
 		Ok(reason) => Err(reason)
 		Err(_) => {
@@ -155,16 +155,16 @@ accept_noise = |reference, noise| {
 	}
 }
 
-mode : [None, Some(Capture.Opened)], [None, Some(Capture.Opened)], [None, Some(Capture.Opened)] -> Mode
-mode = |capture, baseline, noise| match (capture, baseline) {
+mode_impl : [None, Some(Capture.Opened)], [None, Some(Capture.Opened)], [None, Some(Capture.Opened)] -> Mode
+mode_impl = |capture, baseline, noise| match (capture, baseline) {
 	(Some(opened), Some(base)) => {
-		reasons = failures(sheet(base, opened))
+		reasons = failures_impl(sheet_impl(base, opened))
 		if !reasons.is_empty() {
 			Refused({ baseline: base, reasons })
 		} else {
 			match noise {
 				None => On({ baseline: base, noise: None, noise_refused: None })
-				Some(twin) => match accept_noise(base, twin) {
+				Some(twin) => match accept_noise_impl(base, twin) {
 					Ok({}) => On({ baseline: base, noise: Some(twin), noise_refused: None })
 					Err(reason) => On({ baseline: base, noise: None, noise_refused: Some(reason) })
 				}
@@ -213,11 +213,11 @@ timed_delta = |current, opened, group, value| match current {
 	_ => Hidden
 }
 
-trigger_delta : Mode, Capture.Opened, Capture.Trigger -> [Hidden, Absent(Str), Shown(Delta)]
-trigger_delta = |current, opened, group| timed_delta(current, opened, group, group.median)
+trigger_delta_impl : Mode, Capture.Opened, Capture.Trigger -> [Hidden, Absent(Str), Shown(Delta)]
+trigger_delta_impl = |current, opened, group| timed_delta(current, opened, group, group.median)
 
-cycle_delta : Mode, Capture.Opened, Capture.Cycle -> [Hidden, Absent(Str), Shown(Delta)]
-cycle_delta = |current, opened, cycle| {
+cycle_delta_impl : Mode, Capture.Opened, Capture.Cycle -> [Hidden, Absent(Str), Shown(Delta)]
+cycle_delta_impl = |current, opened, cycle| {
 	group = { phase: cycle.phase, trigger: cycle.trigger, patch_kind: cycle.patch_kind, count: 0, min: 0, median: 0, max: 0, iqr: 0 }
 	timed_delta(current, opened, group, cycle.duration)
 }
@@ -231,8 +231,8 @@ allocation_in = |opened, row| match opened.allocations.find_first(|found| same_a
 	Err(_) => None
 }
 
-allocation_delta : Mode, Capture.Opened, Capture.TriggerAlloc -> [Hidden, Absent(Str), Shown(Delta)]
-allocation_delta = |current, opened, row| match current {
+allocation_delta_impl : Mode, Capture.Opened, Capture.TriggerAlloc -> [Hidden, Absent(Str), Shown(Delta)]
+allocation_delta_impl = |current, opened, row| match current {
 	On(applied) => {
 		if !(Capture.complete(opened, "roc_work_spans") and Capture.complete(applied.baseline, "roc_work_spans")) {
 			Absent("roc_work_spans is not complete in both captures")
@@ -255,8 +255,8 @@ allocation_delta = |current, opened, row| match current {
 	_ => Hidden
 }
 
-within_noise : Delta -> [None, Some(Bool)]
-within_noise = |found| match found.bound {
+within_noise_impl : Delta -> [None, Some(Bool)]
+within_noise_impl = |found| match found.bound {
 	Some(bound) => Some((if found.delta < 0 -found.delta else found.delta) <= bound)
 	None => None
 }
@@ -268,19 +268,19 @@ hundredths = |value| {
 	"${(value / 100).to_str()}.${if fraction < 10 "0" else ""}${fraction.to_str()}"
 }
 
-ratio : I64, I64 -> Str
-ratio = |b, a| if a <= 0 or b < 0 "—" else "${hundredths(b * 100 / a)}×"
+ratio_impl : I64, I64 -> Str
+ratio_impl = |b, a| if a <= 0 or b < 0 "—" else "${hundredths(b * 100 / a)}×"
 
-signed_ms : I64 -> Str
-signed_ms = |ns| {
+signed_ms_impl : I64 -> Str
+signed_ms_impl = |ns| {
 	micros = (if ns < 0 -ns else ns) / 1000
 	fraction = micros % 1000
 	padding = if fraction < 10 "00" else if fraction < 100 "0" else ""
 	"${if ns < 0 "−" else "+"}${(micros / 1000).to_str()}.${padding}${fraction.to_str()} ms"
 }
 
-signed_bytes : I64 -> Str
-signed_bytes = |count| {
+signed_bytes_impl : I64 -> Str
+signed_bytes_impl = |count| {
 	size = if count < 0 -count else count
 	sign = if count < 0 "−" else "+"
 	if size >= 1024 {
@@ -291,15 +291,15 @@ signed_bytes = |count| {
 	}
 }
 
-expect ratio(92, 100) == "0.92×"
-expect ratio(1000, 100) == "10.00×"
-expect ratio(5, 0) == "—"
-expect signed_ms(-40000) == "−0.040 ms"
-expect signed_ms(1250000) == "+1.250 ms"
-expect signed_bytes(2048) == "+2.0 KiB"
-expect signed_bytes(-10) == "−10 B"
+expect ratio_impl(92, 100) == "0.92×"
+expect ratio_impl(1000, 100) == "10.00×"
+expect ratio_impl(5, 0) == "—"
+expect signed_ms_impl(-40000) == "−0.040 ms"
+expect signed_ms_impl(1250000) == "+1.250 ms"
+expect signed_bytes_impl(2048) == "+2.0 KiB"
+expect signed_bytes_impl(-10) == "−10 B"
 expect check("job_count", Same, "1", "2") == { key: "job_count", a: "1", b: "2", pass: False, reason: "job_count differs: 1 against 2" }
 expect check("final_state", Finalised, "complete", "recording") == { key: "final_state", a: "complete", b: "recording", pass: False, reason: "capture not yet finalised" }
 expect check("cpu_model", Same, "unavailable", "unavailable").reason == "cpu_model is absent from A"
-expect within_noise({ value: 10, base: 12, delta: -2, bound: Some(3) }) == Some(True)
-expect within_noise({ value: 10, base: 15, delta: -5, bound: Some(3) }) == Some(False)
+expect within_noise_impl({ value: 10, base: 12, delta: -2, bound: Some(3) }) == Some(True)
+expect within_noise_impl({ value: 10, base: 15, delta: -5, bound: Some(3) }) == Some(False)

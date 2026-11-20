@@ -13,7 +13,7 @@ Workspace := [].{
 		{ terminal: start(access) }
 	}
 	render : State -> Gui.Elem(State)
-	render = render
+	render = render_impl
 }
 
 State : { terminal : Terminal.State }
@@ -58,8 +58,8 @@ header = Gui.row(
 	],
 )
 
-render : State -> Gui.Elem(State)
-render = |_state| Gui.col(
+render_impl : State -> Gui.Elem(State)
+render_impl = |_state| Gui.col(
 	{
 		label: "Terminal workspace",
 		width: Fill,

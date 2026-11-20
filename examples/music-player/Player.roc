@@ -8,7 +8,7 @@ Player := [].{
 	init : Gui.Access -> State
 	init = |access| { access, alarm: False, art: NoArt, chosen: Nothing, generation: 0, library: Empty, playback: Idle, status: "Choose a music folder" }
 	render : State -> Gui.Elem(State)
-	render = render
+	render = render_impl
 }
 
 ## A queue row. `name` is the file the decoder is asked for; `title` is what a
@@ -505,8 +505,8 @@ now_playing_title = |state| match active_index(state) {
 	Silent => "Nothing playing"
 }
 
-render : State -> Gui.Elem(State)
-render = |state| {
+render_impl : State -> Gui.Elem(State)
+render_impl = |state| {
 	library_view = match state.library {
 		Empty => Gui.panel(
 			{ label: "Music library", grow: True, width: Fill, padding: 28, bg: surface, border_color: hairline, radius: 16, fg: muted, font_size: 15 },

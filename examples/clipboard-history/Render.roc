@@ -7,7 +7,7 @@ import "icons/search.svg" as search_icon : List(U8)
 
 Render := [].{
 	render : History.State -> Gui.Elem(History.State)
-	render = render
+	render = render_impl
 }
 
 mark = |bytes, name, size| Gui.image(
@@ -246,7 +246,7 @@ entry_row = |entry, run_state| {
 	)
 }
 
-render = |state| {
+render_impl = |state| {
 	running = match state.run_state {
 		Running(_, _) => True
 		Paused => False

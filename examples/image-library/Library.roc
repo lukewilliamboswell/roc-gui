@@ -15,7 +15,7 @@ Library := [].{
 	init : Gui.Access -> State
 	init = |access| { access, filter: "", next_request: 0, scan: None, selected: None, status: Ready, transform: Viewer.initial }
 	render : State -> Gui.Elem(State)
-	render = render
+	render = render_impl
 }
 
 Status : [Busy(U64), Failed({ detail : Str, headline : Str }), Ready]
@@ -205,7 +205,7 @@ header = Gui.row(
 	],
 )
 
-render = |state| Gui.col(
+render_impl = |state| Gui.col(
 	{ label: "Image library", width: Fill, height: Fill, grow: True, padding: Theme.margin, gap: Theme.between, bg: Theme.paper, fg: Theme.ink, font_size: Theme.body },
 	[header]
 		.concat(status_band(state))

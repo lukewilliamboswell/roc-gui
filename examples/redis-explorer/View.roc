@@ -10,7 +10,7 @@ import "icons/shield-off.svg" as refused_icon : List(U8)
 
 View := [].{
 	render : Explorer.State -> Gui.Elem(Explorer.State)
-	render = render
+	render = render_impl
 }
 
 meta = |caption| Gui.row(
@@ -313,8 +313,8 @@ header = |state| Gui.row(
 	],
 )
 
-render : Explorer.State -> Gui.Elem(Explorer.State)
-render = |state| Gui.col(
+render_impl : Explorer.State -> Gui.Elem(Explorer.State)
+render_impl = |state| Gui.col(
 	{
 		label: "Redis Explorer",
 		width: Fill,
