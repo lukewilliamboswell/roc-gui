@@ -58,6 +58,7 @@ Program(state) := Config(state).{
 	start! : Program(state) => {}
 	start! = |Program.(Config.(config))| {
 		init = config.init
-		Internal.start!(init(Access.mint(Resource.mint_access({}))), config.render, config.window, config.on_open)
+		WindowProps.(window) = config.window
+		Internal.start!(init(Access.mint(Resource.mint_access({}))), config.render, window, config.on_open)
 	}
 }
