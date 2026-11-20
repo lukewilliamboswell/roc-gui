@@ -964,7 +964,8 @@ async fn run_step(
                     modifiers: Default::default(),
                 }),
                 Command::Wheel(_, _, _, dx, dy) => {
-                    gpui::PlatformInput::ScrollWheel(gpui::ScrollWheelEvent {
+                    gpui::PlatformInput::Scroll(gpui::ScrollEvent {
+                        source: gpui::ScrollSource::Pointer,
                         position,
                         // A scroll towards the content's end is negative in GPUI.
                         delta: gpui::ScrollDelta::Pixels(point(
@@ -1675,10 +1676,13 @@ fn dispatch_chord(
     chord: &str,
     cx: &mut AsyncApp,
 ) -> Result<bool, StepError> {
-    let keystroke = Keystroke::parse(chord).map_err(|error| StepError::Keystroke {
-        chord: chord.to_owned(),
-        detail: error.to_string(),
-    })?;
+    let keystroke =
+        Keystroke::parse_with_os(chord, crate::keyboard::host_os()).map_err(|error| {
+            StepError::Keystroke {
+                chord: chord.to_owned(),
+                detail: error.to_string(),
+            }
+        })?;
     // Deliberately `update_window` rather than `window.update`: the latter
     // leases the `Runtime` entity, and the action handlers this keystroke
     // reaches call `runtime.update` themselves, which GPUI refuses as a
@@ -1702,10 +1706,13 @@ fn typed_keystroke(character: char) -> Result<Keystroke, StepError> {
         value if value.is_control() => return Err(StepError::Untypable(value)),
         value => value.to_string(),
     };
-    let mut keystroke = Keystroke::parse(&name).map_err(|error| StepError::Keystroke {
-        chord: name.clone(),
-        detail: error.to_string(),
-    })?;
+    let mut keystroke =
+        Keystroke::parse_with_os(&name, crate::keyboard::host_os()).map_err(|error| {
+            StepError::Keystroke {
+                chord: name.clone(),
+                detail: error.to_string(),
+            }
+        })?;
     // A literal character carries itself as the typed text, which is what an
     // input element consumes.
     if keystroke.key_char.is_none() && !character.is_control() {
@@ -2127,7 +2134,7 @@ pub(crate) fn dispatch_pointer(
         gpui::PlatformInput::MouseMove(event) => Some(event.position),
         gpui::PlatformInput::MouseDown(event) => Some(event.position),
         gpui::PlatformInput::MouseUp(event) => Some(event.position),
-        gpui::PlatformInput::ScrollWheel(event) => Some(event.position),
+        gpui::PlatformInput::Scroll(event) => Some(event.position),
         _ => None,
     };
     if let Some(position) = position {

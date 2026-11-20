@@ -8,7 +8,17 @@
 //! window would never deliver.
 
 use crate::bridge::NodeKind;
-use gpui::{KeyContext, KeybindingKeystroke, Keymap, Keystroke};
+use gpui::{KeyContext, KeybindingKeystroke, Keymap, Keystroke, OperatingSystem};
+
+pub(crate) fn host_os() -> OperatingSystem {
+    if cfg!(target_os = "macos") {
+        OperatingSystem::Mac
+    } else if cfg!(target_os = "windows") {
+        OperatingSystem::Windows
+    } else {
+        OperatingSystem::Linux
+    }
+}
 
 /// The canonical spelling of one declared chord, or why it cannot be one.
 ///
@@ -19,8 +29,9 @@ pub(crate) fn canonical_chord(written: &str) -> Result<String, String> {
     if written.is_empty() || written.contains(char::is_whitespace) {
         return Err(format!("{written:?} is not one key chord"));
     }
-    let keystroke = Keystroke::parse(written).map_err(|error| error.to_string())?;
-    let canonical = keystroke.unparse();
+    let keystroke =
+        Keystroke::parse_with_os(written, host_os()).map_err(|error| error.to_string())?;
+    let canonical = keystroke.unparse(host_os());
     if root_takes(&keystroke) {
         return Err(format!("{canonical} belongs to the host"));
     }
@@ -35,14 +46,18 @@ pub(crate) fn displayed_chord(written: &str) -> Result<(String, String), String>
     if written.is_empty() || written.contains(char::is_whitespace) {
         return Err(format!("{written:?} is not one key chord"));
     }
-    let keystroke = Keystroke::parse(written).map_err(|error| error.to_string())?;
-    Ok((keystroke.unparse(), keystroke.to_string()))
+    let keystroke =
+        Keystroke::parse_with_os(written, host_os()).map_err(|error| error.to_string())?;
+    Ok((
+        keystroke.unparse(host_os()),
+        keystroke.display(host_os()).to_string(),
+    ))
 }
 
 /// A keystroke as the window's platform delivers it for a chord: a printable
 /// key with no command modifier carries the character it types.
 pub(crate) fn delivered(chord: &str) -> Result<Keystroke, String> {
-    Keystroke::parse(chord)
+    Keystroke::parse_with_os(chord, host_os())
         .map(Keystroke::with_simulated_ime)
         .map_err(|error| error.to_string())
 }
@@ -57,7 +72,7 @@ pub(crate) fn types_character(keystroke: &Keystroke) -> bool {
 /// Whether a keystroke matches a declared chord in canonical spelling, by
 /// GPUI's own rule for matching a typed keystroke against a keybinding.
 pub(crate) fn matches(keystroke: &Keystroke, declared: &str) -> bool {
-    Keystroke::parse(declared).is_ok_and(|declared| {
+    Keystroke::parse_with_os(declared, host_os()).is_ok_and(|declared| {
         keystroke.should_match(&KeybindingKeystroke::from_keystroke(declared))
     })
 }
