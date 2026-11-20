@@ -1,29 +1,29 @@
 (
 	(fetched ((
 		(name "roc-stable")
-		(obtained Both)
-		(served ("release-assets.githubusercontent.com"))
-		(sha256 "891f1e05d15494cb7f2a6e4b747e4ce161f4587e6677bac062aefd6738ab58b9")
-		(size 80365025)
+		(obtained Published)
+		(served ())
+		(sha256 "cf1577c32b91c4dbcbcf056cde25388e0606f99acd2e9a035cfb764b617514b2")
+		(size 95047324)
 		(system "x86_64-linux")
-		(urls ("https://github.com/roc-lang/nightlies/releases/download/nightly-2026-11-10-f7d1f19/roc_nightly-linux_x86_64-2026-11-10-f7d1f19.tar.gz"))
-		(witness "https://api.github.com/repos/roc-lang/nightlies/releases/tags/nightly-2026-11-10-f7d1f19")) (
+		(urls ("https://github.com/roc-lang/nightlies/releases/download/nightly-2026-11-19-54c51c9/roc_nightly-linux_x86_64-2026-11-19-54c51c9.tar.gz"))
+		(witness "https://api.github.com/repos/roc-lang/nightlies/releases/tags/nightly-2026-11-19-54c51c9")) (
 		(name "roc-stable")
 		(obtained Published)
 		(served ())
-		(sha256 "68dcc906c8bd9b984a67467258d7cebc3d64e14be4a473b0614887d0eec99c4a")
-		(size 76802942)
+		(sha256 "746878ab7fb56f97dcd0017b7c9330cbb2dee97d61f16a479a0819c3c0f960bd")
+		(size 92703092)
 		(system "aarch64-darwin")
-		(urls ("https://github.com/roc-lang/nightlies/releases/download/nightly-2026-11-10-f7d1f19/roc_nightly-macos_apple_silicon-2026-11-10-f7d1f19.tar.gz"))
-		(witness "https://api.github.com/repos/roc-lang/nightlies/releases/tags/nightly-2026-11-10-f7d1f19")) (
+		(urls ("https://github.com/roc-lang/nightlies/releases/download/nightly-2026-11-19-54c51c9/roc_nightly-macos_apple_silicon-2026-11-19-54c51c9.tar.gz"))
+		(witness "https://api.github.com/repos/roc-lang/nightlies/releases/tags/nightly-2026-11-19-54c51c9")) (
 		(name "roc-stable")
 		(obtained Published)
 		(served ())
-		(sha256 "a3fa20ff851093673d19eee4c98ce40ff7a98911b33c522f8afb49da7cf28b00")
-		(size 77972939)
+		(sha256 "24b85e599d8211c4617abed0ec79653b0febef80ae4b5ed10b91f146e03d6a20")
+		(size 93000767)
 		(system "x86_64-windows")
-		(urls ("https://github.com/roc-lang/nightlies/releases/download/nightly-2026-11-10-f7d1f19/roc_nightly-windows_x86_64-2026-11-10-f7d1f19.zip"))
-		(witness "https://api.github.com/repos/roc-lang/nightlies/releases/tags/nightly-2026-11-10-f7d1f19")) (
+		(urls ("https://github.com/roc-lang/nightlies/releases/download/nightly-2026-11-19-54c51c9/roc_nightly-windows_x86_64-2026-11-19-54c51c9.zip"))
+		(witness "https://api.github.com/repos/roc-lang/nightlies/releases/tags/nightly-2026-11-19-54c51c9")) (
 		(name "release-package")
 		(obtained Both)
 		(served ("release-assets.githubusercontent.com"))
