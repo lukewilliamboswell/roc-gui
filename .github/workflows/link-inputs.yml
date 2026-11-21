@@ -106,12 +106,10 @@ jobs:
       - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
         with:
           install-nix: 'true'
-      # TODO(release blocker): Observatory's window-timeline.scm fails on the
-      # hosted macOS runner's 1024-point-wide screen; see https://github.com/lukewilliamboswell/roc-gui/issues/60.
       - name: Final-link and run the production platform
         run: |
           blueprint run build -- --source-inputs
-          python3 scripts/run_specs.py --skip-host-build --jobs 1 --timeout 300 --window-retries=1 --exclude "examples/clipboard-history/specs/window-*.scm" --exclude "examples/system-monitor/specs/window-plot-width.scm" --exclude "examples/observatory/specs/window-timeline.scm"
+          python3 scripts/run_specs.py --skip-host-build --only semantic --jobs 1 --timeout 300
           roc build --no-cache --target=arm64mac --opt=dev --output="$RUNNER_TEMP/counter" examples/counter/main.roc
           python3 scripts/run_gpui_smoke.py "$RUNNER_TEMP/counter"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

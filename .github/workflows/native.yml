@@ -169,7 +169,7 @@ jobs:
       - name: Run real GPUI window specifications
         run: >-
           python3 scripts/run_specs.py --only window
-          --exclude "examples/*/specs/gallery.scm"
+          ${{ inputs.gallery && '--exclude "examples/*/specs/gallery.scm"' || '' }}
           --exclude "examples/observatory/specs/window-timeline.scm"
           --exclude "examples/clipboard-history/specs/window-*.scm"
           --exclude "examples/system-monitor/specs/window-plot-width.scm"
