@@ -31,7 +31,9 @@ EXAMPLES = (
 WIDTH = 300
 HEIGHT = 188
 MAX_BYTES = 1_000_000
-WINDOW_STEPS = {"settle", "screenshot", "click", "focus", "key", "type", "await-task", "await-count"}
+WINDOW_STEPS = {
+    "settle", "screenshot", "click", "focus", "key", "type", "await-task", "await-count", "expect-visible",
+}
 
 
 def declared_window_steps(source: str) -> set[str]:
