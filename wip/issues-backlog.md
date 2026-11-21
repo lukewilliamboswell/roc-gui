@@ -12,3 +12,8 @@
   the fix for [roc-lang/roc#13338](https://github.com/roc-lang/roc/issues/13338),
   link and launch Counter on Windows with a DWARF-bearing host archive before
   deciding whether to retain the strip step as standard packaging policy.
+- [ ] **Hosted macOS window driver occasionally stalls.** The same GPUI specs
+  pass locally, but the macOS runner can hit the host watchdog at
+  `driver-started`, including on successive launches. The macOS window job
+  allows two fresh retries and still requires a passing attempt. Find why the
+  driver stops progressing on hosted macOS and remove the extra retry.
