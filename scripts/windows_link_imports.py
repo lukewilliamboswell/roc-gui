@@ -325,14 +325,26 @@ def prepare(raw_host, messages, runtime, zig, output):
     Writes `libhost.a`, `windows-imports.lib`, and `windows-imports.def` into
     `output`; returns the normalization receipt, which carries the derivation.
     """
-    from windows_gnu_build import native_link
+    from normalize_host_archive import normalize as strip_debug
+    from windows_gnu_build import ROOT, native_link
     from windows_gnu_coff import archive_inventory, normalize
     native, search = native_link(messages)
     imports = derive(raw_host, runtime, native, search, zig, output)
-    receipt = normalize(raw_host, output / "libhost.a", archive_inventory(raw_host.read_bytes()), zig)
-    # Schema 2: the host's import members are separated against its own
-    # inventory, and the import library derived from them is released with it.
-    receipt["schema_version"] = 2
+    host = output / "libhost.a"
+    receipt = normalize(raw_host, host, archive_inventory(raw_host.read_bytes()), zig)
+    # Prebuilt Rust libraries carry DWARF even when our release profile has
+    # debug disabled. Roc's fast development linker can leave PE section
+    # gaps when moving that DWARF (roc-lang/roc#13338).
+    stripped = strip_debug(host, "x64mingw", ROOT)
+    archive = receipt["archives"][host.name]
+    strip = stripped["archives"][host.name]
+    if strip["input"] != archive["output"]:
+        raise ValueError("debug strip input differs from the separated archive")
+    archive["operation"] = "separate-coff-imports-and-strip-debug-v1"
+    archive["output"] = strip["output"]
+    archive["steps"].extend(strip["steps"])
+    receipt["schema_version"] = 3
+    receipt["tools"].update(stripped["tools"])
     receipt["imports"] = imports
     return receipt
 
