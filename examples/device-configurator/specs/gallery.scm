@@ -8,7 +8,7 @@
     (await-task)
     (click (role button :name "Connect device"))
     (await-task)
-    (settle)
+    (expect-visible (role button :name "Increase sensitivity"))
     (screenshot "connected")
     (click (role button :name "Increase sensitivity"))
     (click (role checkbox :name "Device lighting"))

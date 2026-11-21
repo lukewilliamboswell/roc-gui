@@ -253,12 +253,13 @@ chart = |state, opened| {
 	## window shows them.
 	selected = match state.frame {
 		Some(detail) => {
-			frame = window.frames.keep_if(|mark| mark.bar.id == detail.id).map(
-				|mark| {
-					place = extent(window, plot, mark.start, mark.end)
-					rule({ key: painted(6, 1), label: "Selected frame", x1: place.x, y1: lanes_top - 4, x2: place.x, y2: bottom, stroke: Theme.alarm_ink })
-				},
-			)
+			frame = match detail.clock {
+				Some(clock) if clock.end >= window.start and clock.start <= window.start + window.span => {
+					place = extent(window, plot, clock.start, clock.end)
+					[rule({ key: painted(6, 1), label: "Selected frame", x1: place.x, y1: lanes_top - 4, x2: place.x, y2: bottom, stroke: Theme.alarm_ink })]
+				}
+				_ => []
+			}
 			linked = window.cycles.keep_if(|mark| detail.causes.any(|cause| cause.id == mark.cycle.id)).map_with_index(
 				|mark, index| {
 					place = extent(window, plot, mark.start, mark.end)

@@ -81,6 +81,7 @@ WorkTotal : { metric : I64, total : I64, max : I64 }
 ## zero only because the frame itself was recorded.
 FrameDetail : {
 	id : I64,
+	clock : [None, Some({ start : I64, end : I64 })],
 	run_id : I64,
 	ordinal : I64,
 	layout : I64,
@@ -718,6 +719,8 @@ native_sql = "SELECT metric, kind, sum(count), max(count) FROM gpui_native_work 
 
 work_totals_sql = "SELECT metric, sum(count), max(count) FROM gpui_frame_work GROUP BY metric ORDER BY metric"
 
+frame_clock_sql = "SELECT start_ns, end_ns FROM gpui_frames WHERE id = ?"
+
 frame_native_sql = "SELECT metric, kind, count FROM gpui_native_work WHERE frame_id = ? ORDER BY metric, kind"
 
 frame_work_sql = "SELECT metric, count FROM gpui_frame_work WHERE frame_id = ? ORDER BY metric"
@@ -1190,11 +1193,19 @@ strip_impl! = |database, start, span| {
 
 frame_impl! : Gui.Sqlite.Db, Bar => Try(FrameDetail, Str)
 frame_impl! = |database, bar| {
+	clock = bound_rows!(database, frame_clock_sql, bar.id)?
 	native = bound_rows!(database, frame_native_sql, bar.id)?
 	work = bound_rows!(database, frame_work_sql, bar.id)?
 	causes = bound_rows!(database, frame_causes_sql, bar.id)?
 	Ok({
 		id: bar.id,
+		clock: match clock.first() {
+			Ok(row) => match (option_at(row, 0), option_at(row, 1)) {
+				(Some(start), Some(end)) => Some({ start, end })
+				_ => None
+			}
+			Err(_) => None
+		},
 		run_id: bar.run_id,
 		ordinal: bar.ordinal,
 		layout: bar.layout,
