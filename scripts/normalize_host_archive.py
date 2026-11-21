@@ -25,6 +25,11 @@ def normalize(host, target, source_root):
         tool = Path(shutil.which("strip") or "")
         args = ["--strip-debug", host.name]
         version = subprocess.check_output([str(tool), "--version"], text=True).splitlines()[0]
+    elif target == "x64mingw" and platform.system() == "Windows":
+        target_libdir = Path(subprocess.check_output(["rustc", "--print", "target-libdir"], text=True).strip())
+        tool = target_libdir.parent / "bin" / "llvm-strip.exe"
+        args = ["--strip-debug", host.name]
+        version = subprocess.check_output([str(tool), "--version"], text=True).strip()
     else:
         raise ValueError("host normalization requires its native target runner")
     if not tool.is_file():
