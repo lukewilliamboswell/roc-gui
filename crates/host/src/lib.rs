@@ -97,7 +97,15 @@ fn host_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("escape", ActivateEscape, None),
         KeyBinding::new("space", ActivateSpace, None),
         // The host's own chord for the trusted App access surface.
-        KeyBinding::new("secondary-shift-a", ToggleAppAccess, None),
+        KeyBinding::new(
+            if cfg!(target_os = "macos") {
+                "cmd-shift-a"
+            } else {
+                "ctrl-shift-a"
+            },
+            ToggleAppAccess,
+            None,
+        ),
     ]
 }
 
