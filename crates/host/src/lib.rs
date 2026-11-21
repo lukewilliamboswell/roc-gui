@@ -3186,7 +3186,7 @@ impl Render for NodeView {
                         });
                 }
                 if wheel {
-                    element = element.on_scroll_wheel(move |event, window, cx| {
+                    element = element.on_scroll(move |event, window, cx| {
                         let Some(bounds) = *wheel_bounds.lock().expect("canvas bounds poisoned")
                         else {
                             return;
@@ -9512,7 +9512,8 @@ mod tests {
             Modifiers::none(),
         );
         cx.run_until_parked();
-        cx.simulate_event(gpui::ScrollWheelEvent {
+        cx.simulate_event(gpui::ScrollEvent {
+            source: gpui::ScrollSource::Pointer,
             position: point(px(20.0), px(20.0)),
             delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-30.0))),
             modifiers: Modifiers::none(),
@@ -9560,7 +9561,8 @@ mod tests {
         });
         let dispatched = recording_dispatcher();
         cx.simulate_mouse_move(point(px(10.0), px(10.0)), None, Modifiers::none());
-        cx.simulate_event(gpui::ScrollWheelEvent {
+        cx.simulate_event(gpui::ScrollEvent {
+            source: gpui::ScrollSource::Pointer,
             position: point(px(10.0), px(10.0)),
             delta: gpui::ScrollDelta::Pixels(point(px(0.0), px(-30.0))),
             modifiers: Modifiers::none(),
@@ -11228,7 +11230,8 @@ mod host_keymap_tests {
 
     fn resolves(chord: &str) -> bool {
         let keymap = Keymap::new(host_bindings());
-        let keystroke = Keystroke::parse(chord).expect("the chord parses");
+        let keystroke =
+            Keystroke::parse_with_os(chord, crate::keyboard::host_os()).expect("the chord parses");
         let (matched, _) = keymap.bindings_for_input(&[keystroke], &[]);
         !matched.is_empty()
     }

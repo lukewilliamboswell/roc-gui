@@ -602,13 +602,6 @@ struct Prepaint {
     selection: Option<PaintQuad>,
 }
 
-impl IntoElement for TextElement {
-    type Element = Self;
-    fn into_element(self) -> Self {
-        self
-    }
-}
-
 impl Element for TextElement {
     type RequestLayoutState = Rc<RefCell<Option<ShapedLine>>>;
     type PrepaintState = Prepaint;
