@@ -18,7 +18,7 @@
         "wgpu@30.0.0": "wgpu"
       }
     },
-    "git+https://github.com/lukewilliamboswell/zed.git?rev=057292e608c194f759797a5744cf0c9ceecdb676#057292e608c194f759797a5744cf0c9ceecdb676": {
+    "git+https://github.com/lukewilliamboswell/zed.git?rev=b8e96b83e4dbceb4771624e8351fd5eb7e0a590a#b8e96b83e4dbceb4771624e8351fd5eb7e0a590a": {
       "packages": {
         "bench_metrics@0.1.0": "crates/bench_metrics",
         "collections@0.1.0": "crates/collections",
