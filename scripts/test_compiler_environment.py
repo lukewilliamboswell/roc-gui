@@ -29,12 +29,12 @@ class CompilerInstallationTests(unittest.TestCase):
         (self.project / "Blueprint.roc").write_text('app [config] { pf: platform "https://example.org/blueprint.tar.zst" }\n')
         self.artifacts = self.directory / "store/v1/artifacts"
         self.compiler = (self.artifacts.parent / "trees/sha256" / ("a" * 64 + ".tar.gz")
-                         / "roc_nightly-linux_x86_64-2026-11-19-54c51c9/roc")
+                         / "roc_nightly-linux_x86_64-2026-11-20-3b29392/roc")
         self.compiler.parent.mkdir(parents=True)
         self.compiler.write_text("verified compiler fixture")
         self.path_file = self.directory / "github-path"
-        self.nightly = "nightly-2026-11-19-54c51c9"
-        name = "roc_nightly-linux_x86_64-2026-11-19-54c51c9.tar.gz"
+        self.nightly = "nightly-2026-11-20-3b29392"
+        name = "roc_nightly-linux_x86_64-2026-11-20-3b29392.tar.gz"
         self.release = {"tag_name": self.nightly, "immutable": True, "draft": False, "assets": [{
             "name": name, "size": 123, "digest": "sha256:" + "a" * 64,
             "browser_download_url": f"https://github.com/roc-lang/nightlies/releases/download/{self.nightly}/{name}",
@@ -97,7 +97,7 @@ class CompilerInstallationTests(unittest.TestCase):
             ("Windows", "X64", "x86_64-windows", "windows_x86_64", ".zip", "roc.exe"),
         ):
             with self.subTest(system=system):
-                top = f"roc_nightly-{archive_platform}-2026-11-19-54c51c9"
+                top = f"roc_nightly-{archive_platform}-2026-11-20-3b29392"
                 name = top + extension
                 release = {**self.release, "assets": [{**self.release["assets"][0], "name": name,
                     "browser_download_url": f"https://github.com/roc-lang/nightlies/releases/download/{self.nightly}/{name}"}]}

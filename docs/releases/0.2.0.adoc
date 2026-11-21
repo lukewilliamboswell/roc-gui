@@ -1,6 +1,6 @@
 = roc-gui 0.2.0
 
-This release updates GPUI and adopts the November 19 Roc nightly for the repository scripts. Update the platform URL and rebuild your application with the Roc compiler listed under Compilers. The Roc API is under active development. Do not use roc-gui in production.
+This release updates GPUI and adopts the November 20 Roc nightly for the repository scripts. Update the platform URL and rebuild your application with the Roc compiler listed under Compilers. The Roc API is under active development. Do not use roc-gui in production.
 
 == Use this release
 
