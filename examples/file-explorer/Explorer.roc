@@ -12,15 +12,15 @@ Explorer := [].{
 	init : Gui.Access -> State
 	init = |access| { access, back: [], dialog: Closed, forward: [], read: Unread, root: None, selection: NoneSelected, status: Ready, view: Empty }
 	render : State -> Gui.Elem(State)
-	render = render
+	render = render_impl
 
 	## The window's own ground and ink. The explorer mixes every surface it
 	## paints against these, so it declares them rather than borrowing whatever
 	## ground the host happens to use.
 	ground : Gui.Color
-	ground = ground
+	ground = ground_impl
 	ink : Gui.Color
-	ink = ink
+	ink = ink_impl
 }
 
 Folder : { directory : Gui.Files.Dir.Read, entries : List(Gui.Files.Entry), name : Str, trail : List(Str) }
@@ -49,7 +49,7 @@ State : { access : Gui.Access, back : List(Folder), dialog : Dialog, forward : L
 ## Graphite and amber. The ground is the darkest surface, the chrome sits one
 ## step above it, and a raised row one step above that. Amber is spent on
 ## exactly two things: the project grant, and the entry you have selected.
-ground = 0x14161a.Gui.Color
+ground_impl = 0x14161a.Gui.Color
 
 surface = 0x1c1f25.Gui.Color
 
@@ -57,7 +57,7 @@ raised = 0x252931.Gui.Color
 
 rule = 0x31363f.Gui.Color
 
-ink = 0xe6e8ec.Gui.Color
+ink_impl = 0xe6e8ec.Gui.Color
 
 muted = 0x959ba6.Gui.Color
 
@@ -320,7 +320,7 @@ entry_row = |folder, entry, selected| {
 		bg: row_bg,
 		hover_bg: raised,
 		active_bg: rule,
-		fg: if selected accent else ink,
+		fg: if selected accent else ink_impl,
 		radius: 5,
 		focus_color: accent,
 		text_overflow: Ellipsis,
@@ -373,7 +373,7 @@ toolbar_button = |caption, label, enabled, on_press| Gui.button({
 	bg: raised,
 	hover_bg: rule,
 	active_bg: surface,
-	fg: ink,
+	fg: ink_impl,
 	disabled_bg: surface,
 	disabled_fg: dim,
 	border_color: rule,
@@ -395,7 +395,7 @@ path_strip = |folder| {
 			$result = $result.append(styled_text("›", dim, 13))
 		}
 		if current_depth == last_index {
-			$result = $result.append(styled_text(segment, ink, 14))
+			$result = $result.append(styled_text(segment, ink_impl, 14))
 		} else {
 			$result = $result.append(styled_text(segment, muted, 14))
 		}
@@ -457,7 +457,7 @@ empty_state = |status| Gui.col(
 				Dismissed => "No project chosen"
 				_ => "Open a project to begin"
 			},
-			ink,
+			ink_impl,
 			17,
 		),
 
@@ -501,7 +501,7 @@ selection_panel = |state, entry| {
 			[
 				styled_text("Read ${value.bytes.to_str()} bytes", accent, 13),
 				Gui.row(
-					{ width: Fill, padding: 8, gap: 0, bg: ground, fg: muted, font_size: 13, font_face: Monospace, radius: 5, text_overflow: Ellipsis, overflow_x: Clip },
+					{ width: Fill, padding: 8, gap: 0, bg: ground_impl, fg: muted, font_size: 13, font_face: Monospace, radius: 5, text_overflow: Ellipsis, overflow_x: Clip },
 					[Gui.text(value.preview)],
 				),
 			]
@@ -514,7 +514,7 @@ selection_panel = |state, entry| {
 				{ width: Fill, gap: 8, align: Center },
 				[
 					kind_mark(entry.kind, entry.name),
-					styled_text("Selected: ${entry.name}", ink, 15),
+					styled_text("Selected: ${entry.name}", ink_impl, 15),
 				],
 			),
 			styled_text(size, muted, 13),
@@ -527,12 +527,12 @@ close_dialog = |name| Gui.dialog(
 		label: "Close directory confirmation",
 		on_dismiss: |current, _| Gui.Action.update({ ..current, dialog: Closed }),
 		bg: surface,
-		fg: ink,
+		fg: ink_impl,
 		border_color: rule,
 		gap: 12,
 	},
 	[
-		styled_text("Close ${name}?", ink, 17),
+		styled_text("Close ${name}?", ink_impl, 17),
 		styled_text("The directory grant and current view will be forgotten. Nothing on disk changes, and opening the project again asks for a fresh grant.", muted, 13),
 		Gui.row(
 			{ label: "Close directory actions", gap: 8, justify: End, width: Fill },
@@ -557,8 +557,8 @@ close_dialog = |name| Gui.dialog(
 	],
 )
 
-render : State -> Gui.Elem(State)
-render = |state| {
+render_impl : State -> Gui.Elem(State)
+render_impl = |state| {
 	is_busy = state.status == Busy
 
 	## The action that asks for authority is the only amber surface in the
@@ -577,7 +577,7 @@ render = |state| {
 		active_bg: accent_active,
 		fg: accent_ink,
 		radius: 7,
-		focus_color: ink,
+		focus_color: ink_impl,
 	})
 	heading = Gui.row(
 		{ label: "File explorer heading", width: Fill, gap: 16, align: Center, justify: Between },
@@ -585,7 +585,7 @@ render = |state| {
 			Gui.col(
 				{ gap: 3 },
 				[
-					styled_text("File Explorer", ink, 22),
+					styled_text("File Explorer", ink_impl, 22),
 					styled_text("One granted project folder, read only", muted, 13),
 				],
 			),

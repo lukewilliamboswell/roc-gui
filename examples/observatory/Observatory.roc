@@ -359,7 +359,7 @@ Observatory := [].{
 	## opens, each in a tab; on an open capture one dropped capture waits for
 	## the person to open it or compare it with the capture on screen.
 	dropped : State, Gui.Event.Drop -> Gui.Action(State)
-	dropped = dropped
+	dropped = dropped_impl
 
 	## Open the capture waiting after a drop, or compare it with the capture
 	## on screen, which becomes the baseline; or put it down.
@@ -387,7 +387,7 @@ Observatory := [].{
 
 	## Why a recent entry cannot be reopened, in words.
 	unavailable_reason : Gui.Files.Unavailable -> Str
-	unavailable_reason = unavailable_reason
+	unavailable_reason = unavailable_reason_impl
 
 	## Ask the root for something a boundary cannot do itself.
 	ask : State, Request -> Gui.Action(State)
@@ -411,7 +411,7 @@ Observatory := [].{
 	## The policy of a boundary directly under the root: perform the request,
 	## or accept the change as a root update.
 	fulfil : State -> Gui.Action(State)
-	fulfil = fulfil
+	fulfil = fulfil_impl
 
 	## Pressing a column's heading orders by it; pressing it again reverses.
 	resort : Sort, U64 -> Sort
@@ -431,32 +431,32 @@ Observatory := [].{
 	## `visible` needs read, if the rows it holds and the read in flight do not
 	## already cover it.
 	cycles_wanted : State, Gui.Event.VisibleRows -> [None, Some(U64)]
-	cycles_wanted = cycles_wanted
+	cycles_wanted = cycles_wanted_impl
 
 	steps_wanted : State, Gui.Event.VisibleRows -> [None, Some(U64)]
-	steps_wanted = |state, visible| wanted(state.steps.window, state.steps_reading, visible, run_step_count(state))
+	steps_wanted = |state, visible| wanted(state.steps.window, state.steps_reading, visible, run_step_count_impl(state))
 
 	## The cycles the list holds for the phase and filter on screen; any other
 	## phase's or filter's are not shown while this one's are read.
 	listed_cycles : State -> Window(Capture.Cycle)
-	listed_cycles = listed_cycles
+	listed_cycles = listed_cycles_impl
 
 	## The groups of the triggers table whose cycles the list shows.
 	listed_triggers : State, Capture.Opened -> List(Capture.Trigger)
-	listed_triggers = listed_triggers
+	listed_triggers = listed_triggers_impl
 
 	## How many cycles the phase and filter hold, from the triggers table,
 	## which counts every one of them.
 	cycle_total : State -> U64
-	cycle_total = cycle_total
+	cycle_total = cycle_total_impl
 
 	## How many steps the selected run holds.
 	run_step_count : State -> U64
-	run_step_count = run_step_count
+	run_step_count = run_step_count_impl
 
 	## The row at an index of a window, if the window holds it.
 	row_at : Window(a), U64 -> [None, Some(a)]
-	row_at = row_at
+	row_at = row_at_impl
 
 	close_inspector : State -> State
 	close_inspector = |state| { ..state, inspected: None }
@@ -464,22 +464,22 @@ Observatory := [].{
 	## The trigger and patch kind a filter holds to, whether or not it also
 	## holds to a duration bucket.
 	within : Filter -> Capture.Only
-	within = within
+	within = within_impl
 
 	choose : State -> Gui.Action(State)
-	choose = choose
+	choose = choose_impl
 
 	choose_file : State -> Gui.Action(State)
-	choose_file = choose_file
+	choose_file = choose_file_impl
 
 	## The kinds of file Observatory opens, offered by its chooser and
 	## accepted by its drop target.
 	capture_types : List(Gui.Files.FileType)
-	capture_types = capture_types
+	capture_types = capture_types_impl
 
 	## The triggers table's |Δ| column, its order while a baseline applies.
 	delta_column : U64
-	delta_column = delta_column
+	delta_column = delta_column_impl
 
 	## Add a capture of the folder to the scaling set, or take it out.
 	toggle_scaling : State, Str -> State
@@ -490,7 +490,7 @@ Observatory := [].{
 	views = [Overview, Interactions, Frames, Timeline, Spec, Memory, Health, Compare, Scaling]
 
 	view_name : View -> Str
-	view_name = view_name
+	view_name = view_name_impl
 
 	## Open the command palette with an empty query.
 	open_palette : State -> State
@@ -499,7 +499,7 @@ Observatory := [].{
 	## Whether the specification source on screen was found by hash for the
 	## open capture, so its lines carry the selected run's results.
 	annotated : State -> Bool
-	annotated = annotated
+	annotated = annotated_impl
 
 	## Whether Back or Forward has somewhere to go.
 	can_go_back : State -> Bool
@@ -514,11 +514,11 @@ Observatory := [].{
 
 	## The key of the tab on screen, if a capture is.
 	on_screen_tab : State -> [None, Some(U64)]
-	on_screen_tab = on_screen_tab
+	on_screen_tab = on_screen_tab_impl
 
 	## Whether a tab holds the baseline, which its title marks with ◆.
 	holds_baseline : State, Tab -> Bool
-	holds_baseline = holds_baseline
+	holds_baseline = holds_baseline_impl
 
 	## The view whose selection the inspector shows: the one it is pinned to,
 	## or the one on screen.
@@ -529,8 +529,8 @@ Observatory := [].{
 	}
 }
 
-on_screen_tab : State -> [None, Some(U64)]
-on_screen_tab = |state| match state.tabs.find_first(on_screen) {
+on_screen_tab_impl : State -> [None, Some(U64)]
+on_screen_tab_impl = |state| match state.tabs.find_first(on_screen) {
 	Ok(tab) => Some(tab.key)
 	Err(_) => None
 }
@@ -542,8 +542,8 @@ identity_of = |opened| {
 	if Str.is_empty(id) opened.name else id
 }
 
-holds_baseline : State, Tab -> Bool
-holds_baseline = |state, tab| match state.baseline {
+holds_baseline_impl : State, Tab -> Bool
+holds_baseline_impl = |state, tab| match state.baseline {
 	None => False
 	Some(baseline) => {
 		held = match tab.parked {
@@ -627,7 +627,7 @@ close_tab : State, U64 -> Gui.Action(State)
 close_tab = |state, key| {
 	index = state.tabs.find_first_index(|tab| tab.key == key) ?? 0
 	remaining = state.tabs.keep_if(|tab| tab.key != key)
-	if Some(key) != on_screen_tab(state) {
+	if Some(key) != on_screen_tab_impl(state) {
 		Gui.Action.update({ ..state, tabs: remaining })
 	} else {
 		closed = close_capture(state)
@@ -639,8 +639,8 @@ close_tab = |state, key| {
 	}
 }
 
-view_name : View -> Str
-view_name = |view| match view {
+view_name_impl : View -> Str
+view_name_impl = |view| match view {
 	Overview => "Overview"
 	Interactions => "Interactions"
 	Frames => "Frames"
@@ -718,7 +718,7 @@ restore = |state, place| {
 ## first row when none is inspected, if the list holds it.
 adjacent : State, I64 -> [None, Some({ row : U64, cycle : Capture.Cycle })]
 adjacent = |state, delta| {
-	window = listed_cycles(state)
+	window = listed_cycles_impl(state)
 	current = match state.inspected {
 		Some(inspected) => match window.rows.find_first_index(|cycle| cycle.id == inspected.cycle.id) {
 			Ok(index) => Some((window.offset + index).to_i64_wrap())
@@ -733,7 +733,7 @@ adjacent = |state, delta| {
 	if target < 0 {
 		None
 	} else {
-		match row_at(window, target.to_u64_wrap()) {
+		match row_at_impl(window, target.to_u64_wrap()) {
 			Some(cycle) => Some({ row: target.to_u64_wrap(), cycle })
 			None => None
 		}
@@ -796,8 +796,8 @@ empty_window = || { offset: 0, rows: [], read: 0 }
 no_clock : Clock
 no_clock = { of: 0, window: Timeline.empty, read: 0 }
 
-row_at : Window(a), U64 -> [None, Some(a)]
-row_at = |window, index| if index < window.offset {
+row_at_impl : Window(a), U64 -> [None, Some(a)]
+row_at_impl = |window, index| if index < window.offset {
 	None
 } else {
 	match window.rows.get(index - window.offset) {
@@ -831,27 +831,27 @@ wanted = |window, reading, visible, total| {
 	if (short_before or short_after or window.rows.is_empty()) and !in_flight and total > 0 Some(offset) else None
 }
 
-listed_cycles : State -> Window(Capture.Cycle)
-listed_cycles = |state| if holds_cycles(state) state.cycles.window else empty_window()
+listed_cycles_impl : State -> Window(Capture.Cycle)
+listed_cycles_impl = |state| if holds_cycles(state) state.cycles.window else empty_window()
 
 holds_cycles : State -> Bool
 holds_cycles = |state| state.cycles.phase == state.phase and state.cycles.filter == state.filter
 
-cycles_wanted : State, Gui.Event.VisibleRows -> [None, Some(U64)]
-cycles_wanted = |state, visible| wanted(listed_cycles(state), state.cycles_reading, visible, cycle_total(state))
+cycles_wanted_impl : State, Gui.Event.VisibleRows -> [None, Some(U64)]
+cycles_wanted_impl = |state, visible| wanted(listed_cycles_impl(state), state.cycles_reading, visible, cycle_total_impl(state))
 
-within : Filter -> Capture.Only
-within = |filter| match filter {
+within_impl : Filter -> Capture.Only
+within_impl = |filter| match filter {
 	All => All
 	Only(chosen) => Only(chosen)
 	InBucket(held) => held.within
 }
 
-listed_triggers : State, Capture.Opened -> List(Capture.Trigger)
-listed_triggers = |state, opened| opened.triggers.keep_if(
+listed_triggers_impl : State, Capture.Opened -> List(Capture.Trigger)
+listed_triggers_impl = |state, opened| opened.triggers.keep_if(
 	|found| found.phase == state.phase
 	and (
-		match within(state.filter) {
+		match within_impl(state.filter) {
 			All => True
 			Only(chosen) => found.trigger == chosen.trigger and found.patch_kind == chosen.patch_kind
 		}
@@ -859,17 +859,17 @@ listed_triggers = |state, opened| opened.triggers.keep_if(
 )
 
 ## A bucket's count is the distribution's, which counts every cycle in it.
-cycle_total : State -> U64
-cycle_total = |state| match state.filter {
+cycle_total_impl : State -> U64
+cycle_total_impl = |state| match state.filter {
 	InBucket(held) => held.count.to_u64_wrap()
 	_ => match state.capture {
 		None => 0
-		Some(opened) => listed_triggers(state, opened).fold(0.I64, |total, found| total + found.count).to_u64_wrap()
+		Some(opened) => listed_triggers_impl(state, opened).fold(0.I64, |total, found| total + found.count).to_u64_wrap()
 	}
 }
 
-run_step_count : State -> U64
-run_step_count = |state| match state.capture {
+run_step_count_impl : State -> U64
+run_step_count_impl = |state| match state.capture {
 	None => 0
 	Some(opened) => match opened.runs.find_first(|run| run.id == state.steps.run) {
 		Ok(run) => run.steps.to_u64_wrap()
@@ -877,8 +877,8 @@ run_step_count = |state| match state.capture {
 	}
 }
 
-fulfil : State -> Gui.Action(State)
-fulfil = |asked| {
+fulfil_impl : State -> Gui.Action(State)
+fulfil_impl = |asked| {
 	state = { ..asked, request: None }
 	match asked.request {
 		None => Gui.Action.update(state)
@@ -892,9 +892,9 @@ fulfil = |asked| {
 		Some(ShowStep(run_id, ordinal)) => {
 			row = ordinal.to_u64_wrap()
 			shown = { ..remember(state), view: Spec, step_focus: Some(ordinal) }
-			if annotated(state) annotate(shown, OneRun(run_id), Some(ordinal)) else read_steps(shown, run_id, page_start(row), Some(row))
+			if annotated_impl(state) annotate(shown, OneRun(run_id), Some(ordinal)) else read_steps(shown, run_id, page_start(row), Some(row))
 		}
-		Some(SelectRun(run_id)) => if annotated(state) annotate({ ..state, step_focus: None }, OneRun(run_id), None) else read_steps({ ..state, step_focus: None }, run_id, 0, None)
+		Some(SelectRun(run_id)) => if annotated_impl(state) annotate({ ..state, step_focus: None }, OneRun(run_id), None) else read_steps({ ..state, step_focus: None }, run_id, 0, None)
 		Some(Show(view)) => list_cycles({ ..state, view, step_focus: None, family_focus: None })
 		Some(ShowTimeline(start, span)) => read_clock(state, start, span)
 		## A cycle pressed elsewhere opens in Interactions, in its own phase.
@@ -907,7 +907,7 @@ fulfil = |asked| {
 			read_cycles({ ..state, filter: if state.filter == chosen All else chosen, cycle_scroll: None, bucket_hover: None }, 0)
 		}
 		Some(FilterBucket(bucket, count)) => {
-			scope = within(state.filter)
+			scope = within_impl(state.filter)
 			filter = match state.filter {
 				InBucket(held) if held.bucket == bucket => match scope {
 					All => All
@@ -924,7 +924,7 @@ fulfil = |asked| {
 		Some(JumpToCycle(row, align)) => {
 			serial = state.next_request
 			scrolled = { ..state, next_request: serial + 1, cycle_scroll: Some({ row, align, serial }) }
-			match cycles_wanted(scrolled, { start: row, end: row + 1 }) {
+			match cycles_wanted_impl(scrolled, { start: row, end: row + 1 }) {
 				Some(offset) => read_cycles(scrolled, offset)
 				None => Gui.Action.update(scrolled)
 			}
@@ -1100,8 +1100,8 @@ read_summaries = |state, watch, generation| match state.folder {
 	}
 }
 
-choose : State -> Gui.Action(State)
-choose = |state| {
+choose_impl : State -> Gui.Action(State)
+choose_impl = |state| {
 	id = state.next_request
 	access = state.access
 	Gui.Action.task({
@@ -1230,7 +1230,7 @@ folder_listed = |latest, result, id| match result {
 			"The host granted no folder to read. Start Observatory with --host-cap-dir <folder>, or choose one this process may read.",
 		),
 	})
-	ReopenFailed(refused) => Gui.Action.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason(refused.reason)) })
+	ReopenFailed(refused) => Gui.Action.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason_impl(refused.reason)) })
 }
 
 ## Reopen a remembered folder, after the host checks it is still the folder
@@ -1269,7 +1269,7 @@ reopen = |state, key| {
 		resolve: |latest, result| match latest.status {
 			Busy(active) if active == id => match result {
 				Opened(opened) => shown_files(latest, opened, id, Overview)
-				Unopened(refused) => Gui.Action.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason(refused.reason)) })
+				Unopened(refused) => Gui.Action.update({ ..latest, recent: refused.recent, status: failure("Could not reopen ${refused.name}", unavailable_reason_impl(refused.reason)) })
 			}
 			_ => Gui.Action.none()
 		},
@@ -1282,8 +1282,8 @@ recent_name = |state, key| match state.recent.find_first(|entry| entry.key == ke
 	Err(_) => "the remembered capture"
 }
 
-unavailable_reason : Gui.Files.Unavailable -> Str
-unavailable_reason = |reason| match reason {
+unavailable_reason_impl : Gui.Files.Unavailable -> Str
+unavailable_reason_impl = |reason| match reason {
 	AccessDenied => "Observatory may no longer read it."
 	Forgotten => "It is no longer remembered."
 	Missing => "Nothing is at its place any more."
@@ -1295,8 +1295,8 @@ unavailable_reason = |reason| match reason {
 
 ## Captures dropped on the window. Anything else dropped is named with why it
 ## was not opened.
-dropped : State, Gui.Event.Drop -> Gui.Action(State)
-dropped = |state, event| {
+dropped_impl : State, Gui.Event.Drop -> Gui.Action(State)
+dropped_impl = |state, event| {
 	note = refusal(event.refused)
 	match event.files {
 		[] => Gui.Action.update({ ..state, status: note })
@@ -1393,8 +1393,8 @@ shown_files = |latest, opened, id, view| {
 }
 
 ## The file chooser offers captures only, and the host refuses any other file.
-capture_types : List(Gui.Files.FileType)
-capture_types = [{ label: "roc-gui captures", extensions: ["rgstats"], mime_types: [] }]
+capture_types_impl : List(Gui.Files.FileType)
+capture_types_impl = [{ label: "roc-gui captures", extensions: ["rgstats"], mime_types: [] }]
 
 unreadable_remedy : Str
 unreadable_remedy = "Nothing from this file is shown. Observatory reads only schema 25 captures written by the roc-gui recorder."
@@ -1404,13 +1404,13 @@ idle = { generation: 0, progress: { cycles: 0, frames: 0, steps: 0, ended: 0, fi
 
 ## Open one capture the person chooses, without a folder. The folder grant, if
 ## any, is kept: a single file is a separate grant beside it.
-choose_file : State -> Gui.Action(State)
-choose_file = |state| {
+choose_file_impl : State -> Gui.Action(State)
+choose_file_impl = |state| {
 	id = state.next_request
 	access = state.access
 	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
-		run: || match access.pick_file!(capture_types) {
+		run: || match access.pick_file!(capture_types_impl) {
 			Ok(Chosen(selection)) => OpenedFile(open_selections!(access, [selection]))
 			Ok(Canceled) => FileCanceled
 			Err(PickFileErr(Unsupported)) => FileRefused("Only .rgstats files are captures.")
@@ -1646,19 +1646,19 @@ read_steps = |state, run_id, offset, focus| match state.capture {
 ## Comparison and scaling (US-29 to US-32)
 
 ## The triggers table's column for |Δ|, by which a compared table is ordered.
-delta_column : U64
-delta_column = 7
+delta_column_impl : U64
+delta_column_impl = 7
 
 ## The open capture becomes the baseline, and tables order by |Δ|.
 set_baseline : State -> State
 set_baseline = |state| match state.capture {
-	Some(opened) => { ..state, baseline: Some(opened), trigger_sort: { column: delta_column, descending: True } }
+	Some(opened) => { ..state, baseline: Some(opened), trigger_sort: { column: delta_column_impl, descending: True } }
 	None => state
 }
 
 clear_baseline : State -> State
 clear_baseline = |state| {
-	sort = if state.trigger_sort.column == delta_column { column: 4, descending: True } else state.trigger_sort
+	sort = if state.trigger_sort.column == delta_column_impl { column: 4, descending: True } else state.trigger_sort
 	{ ..state, baseline: None, trigger_sort: sort }
 }
 
@@ -1755,8 +1755,8 @@ read_strip = |state, start, span| match state.capture {
 
 ## Whether the source on screen was found by hash for the open capture, so
 ## results belong on its lines.
-annotated : State -> Bool
-annotated = |state| Some(state.spec_source.of) == opened_revision(state) and matched(state.spec_source.found)
+annotated_impl : State -> Bool
+annotated_impl = |state| Some(state.spec_source.of) == opened_revision(state) and matched(state.spec_source.found)
 
 matched : SpecSource.Found -> Bool
 matched = |found| match found {
@@ -2188,7 +2188,7 @@ reopen! = |source, place| {
 	opened = open_source!(source)?
 	database = opened.database
 	phase = if opened.triggers.any(|found| found.phase == place.phase) place.phase else default_phase(opened)
-	filter = match within(place.filter) {
+	filter = match within_impl(place.filter) {
 		Only(chosen) if opened.triggers.any(|found| found.phase == phase and found.trigger == chosen.trigger and found.patch_kind == chosen.patch_kind) => Only(chosen)
 		_ => All
 	}

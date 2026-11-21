@@ -36,23 +36,31 @@ def validate_normalization(receipt, target, original_host, host_bytes, outputs=N
 
     Every platform records what it did to the archive Cargo produced. Linux and
     macOS strip debug identity; Windows separates the host's own import members,
-    reindexes what remains, and derives the one import library its link needs.
+    reindexes and strips what remains, and derives the import library.
     """
     host_name = original_host["name"]
-    schema = 2 if target == "x64mingw" else 1
+    schema = receipt.get("schema_version")
     if target == "x64mingw":
+        if schema not in (2, 3):
+            raise ValueError("unsupported Windows normalization receipt")
         operation = "separate-coff-imports-v1"
         tools = {"zig", "windows_gnu_coff.py"}
         expected_steps = [
             {"tool": "windows_gnu_coff.py", "args": ["separate($INPUT, $OUTPUT, $INVENTORY, $ZIG)"]},
             {"tool": "zig", "args": ["ar", "s", "$OUTPUT"]},
         ]
+        if schema == 3:
+            operation = "separate-coff-imports-and-strip-debug-v1"
+            tools.add("strip")
+            expected_steps.append({"tool": "strip", "args": ["--strip-debug", host_name]})
     else:
+        if schema != 1:
+            raise ValueError("unsupported host normalization receipt")
         operation = "strip-debug-v1"
         tools = {"strip"}
         expected_args = ["-S", host_name] if target == "arm64mac" else ["--strip-debug", host_name]
         expected_steps = [{"tool": "strip", "args": expected_args}]
-    if (receipt.get("schema_version") != schema or receipt.get("target") != target
+    if (receipt.get("target") != target
             or set(receipt.get("archives", {})) != {host_name}
             or set(receipt.get("tools", {})) != tools):
         raise ValueError("normalization receipt has a different target or inventory")
@@ -69,6 +77,14 @@ def validate_normalization(receipt, target, original_host, host_bytes, outputs=N
         raise ValueError("normalization input differs from captured build receipt")
     derived = {}
     if target == "x64mingw":
+        if schema == 3:
+            separation = archive.get("separation") or {}
+            intermediate = separation.get("output") or {}
+            if (separation.get("operation") != "separate-coff-imports-v1"
+                    or separation.get("input") != archive["input"]
+                    or not re.fullmatch(r"[0-9a-f]{64}", intermediate.get("sha256", ""))
+                    or type(intermediate.get("size")) is not int or intermediate["size"] <= 0):
+                raise ValueError("normalization receipt has no separated archive identity")
         imports = receipt.get("imports") or {}
         if (imports.get("schema_version") != 1 or imports.get("operation") != "derive-windows-imports-v1"
                 or imports.get("host") != archive["input"] or not imports.get("imports")):

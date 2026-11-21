@@ -27,6 +27,49 @@ class HostReleasePolicyTests(unittest.TestCase):
     def test_windows_host_releases_its_derived_import_library_and_not_its_resource(self):
         self.assertEqual(HOST_FILES["x64mingw"], ("libhost.a", "windows-imports.lib"))
 
+    def test_windows_debug_strip_receipt_binds_raw_separated_and_final_archives(self):
+        def identity(data):
+            return {"sha256": host_notice_payload.digest(data), "size": len(data)}
+
+        raw = identity(b"cargo")
+        intermediate = identity(b"separated")
+        host = b"stripped"
+        imports = b"imports"
+        receipt = {
+            "schema_version": 3,
+            "target": "x64mingw",
+            "tools": {name: {"sha256": "a" * 64, "version": "test"}
+                      for name in ("zig", "windows_gnu_coff.py", "strip")},
+            "archives": {"libhost.a": {
+                "operation": "separate-coff-imports-and-strip-debug-v1",
+                "input": raw,
+                "output": identity(host),
+                "separation": {
+                    "operation": "separate-coff-imports-v1",
+                    "input": raw,
+                    "output": intermediate,
+                },
+                "steps": [
+                    {"tool": "windows_gnu_coff.py", "args": ["separate($INPUT, $OUTPUT, $INVENTORY, $ZIG)"]},
+                    {"tool": "zig", "args": ["ar", "s", "$OUTPUT"]},
+                    {"tool": "strip", "args": ["--strip-debug", "libhost.a"]},
+                ],
+            }},
+            "imports": {
+                "schema_version": 1,
+                "operation": "derive-windows-imports-v1",
+                "host": raw,
+                "output": identity(imports),
+                "imports": [["KERNEL32.dll", "ExitProcess", 0]],
+            },
+        }
+        original = dict(raw, name="libhost.a")
+        outputs = {"libhost.a": host, "windows-imports.lib": imports}
+        host_notice_payload.validate_normalization(receipt, "x64mingw", original, host, outputs)
+        receipt["archives"]["libhost.a"]["separation"]["input"] = intermediate
+        with self.assertRaisesRegex(ValueError, "no separated archive identity"):
+            host_notice_payload.validate_normalization(receipt, "x64mingw", original, host, outputs)
+
     def test_candidate_admission_requires_unified_link_inputs(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -20,7 +20,7 @@ import "icons/usb.svg" as usb_icon : List(U8)
 
 View := [].{
 	render : Configurator.State -> Gui.Elem(Configurator.State)
-	render = render
+	render = render_impl
 }
 
 devices_width = 340.U32
@@ -518,7 +518,7 @@ settings_panel = |state| Theme.panel(
 	},
 )
 
-render = |state| Gui.col(
+render_impl = |state| Gui.col(
 	{
 		label: "Device Configurator",
 		width: Fill,

@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
-	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.27.0/9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g.tar.zst",
-	roc: "nightly-2026-11-10-f7d1f19",
+	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.28.1/7brgwR8YUqfeGrkdfF1V4GPPN7DnP7ftqub9KcrTEZtr.tar.zst",
+	roc: "nightly-2026-11-20-3b29392",
 }
 
 import cli.Cmd
@@ -19,7 +19,7 @@ import cli.Stdout
 ## describes the host interface that nightly expects; CI regenerates the
 ## bindings the same way and requires the committed files to match.
 main! = |args| {
-	source = match args.map(|arg| OsStr.from_raw(arg).display()) {
+	source = match args.map(OsStr.display) {
 		[only] => only
 		_ => return fail!("usage: regenerate_glue.roc <roc source>")
 	}

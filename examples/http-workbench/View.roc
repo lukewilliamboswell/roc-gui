@@ -9,7 +9,7 @@ import "icons/shield-off.svg" as shield_off_icon : List(U8)
 
 View := [].{
 	render : Workbench.State -> Gui.Elem(Workbench.State)
-	render = render
+	render = render_impl
 }
 
 ## A run of quiet type: a label, a unit, a count. Never a thing a person edits.
@@ -281,8 +281,8 @@ header = |state| Gui.row(
 	],
 )
 
-render : Workbench.State -> Gui.Elem(Workbench.State)
-render = |state| Gui.col(
+render_impl : Workbench.State -> Gui.Elem(Workbench.State)
+render_impl = |state| Gui.col(
 	{
 		label: "HTTP workbench",
 		width: Fill,

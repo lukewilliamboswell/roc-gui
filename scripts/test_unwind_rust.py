@@ -22,9 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run(candidate, cache):
     recipe = json.loads((ROOT / "dependencies/unwind.json").read_text())
-    compiler_version = subprocess.check_output(["rustc", "+1.95.0", "--version"], text=True)
-    if not compiler_version.startswith("rustc 1.95.0 "):
-        raise ValueError("Rust panic probe requires Rust 1.95.0")
+    compiler_version = subprocess.check_output(["rustc", "+1.98.1", "--version"], text=True)
+    if not compiler_version.startswith("rustc 1.98.1 "):
+        raise ValueError("Rust panic probe requires Rust 1.98.1")
     toolchain = verified_toolchain(recipe["toolchain"], cache)
     with tempfile.TemporaryDirectory(prefix="roc-gui-unwind-rust-") as temporary:
         work = Path(temporary)
@@ -38,7 +38,7 @@ def run(candidate, cache):
         for name in ("ZIG_LIB_DIR", "ZIG_LIBC", "CPATH", "C_INCLUDE_PATH", "CPLUS_INCLUDE_PATH", "LIBRARY_PATH", "LD_LIBRARY_PATH", "LD_PRELOAD"):
             environment.pop(name, None)
         rust_archive = work / "rust-probe.a"
-        subprocess.run(["rustc", "+1.95.0", "--crate-type=staticlib", "--edition=2024",
+        subprocess.run(["rustc", "+1.98.1", "--crate-type=staticlib", "--edition=2024",
                         "-C", "panic=unwind", "-C", "opt-level=2",
                         str(ROOT / "test/dependencies/unwind.rs"), "-o", str(rust_archive)],
                        env=environment, check=True, timeout=180)

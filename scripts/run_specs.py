@@ -404,6 +404,7 @@ def run_case(
     detail: str = "summary",
     runner: str = "semantic",
     allow_missing_shots: bool = False,
+    window_step_timeout_ms: int | None = None,
 ) -> tuple[Case, str | None]:
     """Run one specification on the runner its steps require.
 
@@ -427,6 +428,8 @@ def run_case(
             f"--host-window-report={artifacts / 'report.json'}",
             f"--host-window-shot-dir={artifacts}",
         ]
+        if window_step_timeout_ms is not None:
+            command.append(f"--host-window-timeout-ms={window_step_timeout_ms}")
         if allow_missing_shots:
             command.append("--host-window-allow-missing-shots")
     else:
@@ -517,6 +520,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--jobs", type=int, default=1,
                         help="concurrent cases (default: 1; values above 1 make timing evidence partial)")
     parser.add_argument("--timeout", type=float, default=120.0)
+    parser.add_argument("--window-step-timeout-ms", type=int,
+                        metavar="1000..600000", help="override the host window step deadline")
     parser.add_argument("--detail", choices=("summary", "full"), default="summary",
                         help="omit setup cycles (summary) or record them too (full)")
     parser.add_argument("--fail-fast", action="store_true")
@@ -540,6 +545,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.jobs < 1 or args.timeout <= 0 or args.window_retries < 0:
         parser.error("jobs and timeout must be positive; window retries cannot be negative")
+    if args.window_step_timeout_ms is not None and not 1000 <= args.window_step_timeout_ms <= 600000:
+        parser.error("window step timeout must be between 1000 and 600000 milliseconds")
     if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
         parser.error("shard index must be within shard count")
     return args
@@ -616,6 +623,7 @@ def main() -> int:
                         args.detail,
                         runner="window",
                         allow_missing_shots=args.allow_missing_shots,
+                        window_step_timeout_ms=args.window_step_timeout_ms,
                     )
                     if result[1] is None:
                         break

@@ -52,8 +52,8 @@ Assets := [].{
 		## The resource-free store value, for pure tests. It lets an application
 		## that keeps a store in its state write that state down in an `expect`.
 		## Reads through it fail; it proves nothing about asset resolution.
-		stub : Store
-		stub = Store.(Resource.asset_store_stub)
+		test_stub : Store
+		test_stub = Store.(Resource.asset_store_stub)
 
 		## Read one asset's bytes, relative to the store's root. Call it from
 		## `Action.task`; it blocks on the disk.
@@ -156,7 +156,7 @@ Assets := [].{
 
 	## The resource-free store value, for pure tests. Reads through it fail.
 	stub : Store
-	stub = Store.stub
+	stub = Store.test_stub
 
 	## Open the store a config describes, checking its manifest if one was
 	## required. Call it from `Action.task`; it blocks on the disk.

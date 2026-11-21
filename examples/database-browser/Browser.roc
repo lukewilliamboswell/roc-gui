@@ -71,9 +71,9 @@ Browser := [].{
 		status: Ready,
 	}
 	choose : State -> Gui.Action(State)
-	choose = choose
+	choose = choose_impl
 	open_database : State, Gui.Files.Dir.Read, Str -> Gui.Action(State)
-	open_database = open_database
+	open_database = open_database_impl
 	run_query : State, Gui.Sqlite.Db, Str -> Gui.Action(State)
 	run_query = |state, database, sql| run_page(state, database, sql, 0)
 	## Fetch the page of the shown result that starts at `offset`.
@@ -115,7 +115,7 @@ still_held_or_declined = |grant| match grant {
 ## Choosing a folder is the browser's one consent flow, so its three unhappy
 ## endings stay apart: nothing chosen yet, a picker the person dismissed, and a
 ## host that refused to open one at all.
-choose = |state| {
+choose_impl = |state| {
 	id = state.next_request
 	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },
@@ -145,7 +145,7 @@ choose = |state| {
 	})
 }
 
-open_database = |state, directory, name| {
+open_database_impl = |state, directory, name| {
 	id = state.next_request
 	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, status: Busy(id) },

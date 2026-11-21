@@ -1690,6 +1690,23 @@
           ]
         },
         {
+          "name": "_CFDictionaryGetValue",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/corefoundation/cfdictionarygetvalue(_:_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/corefoundation/cfdictionarygetvalue(_:_:).json",
+              "external_id": "c:@F@CFDictionaryGetValue",
+              "title": "CFDictionaryGetValue(_:_:)",
+              "documented_modules": [
+                "Core Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.853992+00:00",
+              "response_sha256": "bc3e8c484fccad44d56ba9c506076a6430ef2ad24265008e725c278d5ec1528d"
+            }
+          ]
+        },
+        {
           "name": "_CFDictionaryGetValueIfPresent",
           "sources": [
             {
@@ -2479,6 +2496,23 @@
           ]
         },
         {
+          "name": "_CGColorSpaceCreateWithName",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coregraphics/cgcolorspace/init(name:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coregraphics/cgcolorspace/init(name:).json",
+              "external_id": "c:@F@CGColorSpaceCreateWithName",
+              "title": "init(name:)",
+              "documented_modules": [
+                "Core Graphics"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.854436+00:00",
+              "response_sha256": "17335ab1136a0dbfa6fd049510bc16c2eefbedd99c2d4f5016bcba9b0914865f"
+            }
+          ]
+        },
+        {
           "name": "_CGContextRelease",
           "sources": [
             {
@@ -2717,6 +2751,57 @@
           ]
         },
         {
+          "name": "_CGDisplayCopyDisplayMode",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coregraphics/cgdisplaycopydisplaymode(_:)",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coregraphics/cgdisplaycopydisplaymode(_:).json",
+              "external_id": "c:@F@CGDisplayCopyDisplayMode",
+              "title": "CGDisplayCopyDisplayMode(_:)",
+              "documented_modules": [
+                "Core Graphics"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.855529+00:00",
+              "response_sha256": "fedc4932d648a514e2c43fbcb88aef3c6926d3999a96963536192705819f1267"
+            }
+          ]
+        },
+        {
+          "name": "_CGDisplayModeGetRefreshRate",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coregraphics/cgdisplaymode/refreshrate",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coregraphics/cgdisplaymode/refreshrate.json",
+              "external_id": "c:@F@CGDisplayModeGetRefreshRate",
+              "title": "refreshRate",
+              "documented_modules": [
+                "Core Graphics"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.855198+00:00",
+              "response_sha256": "ef8b34107bd87a9f89a22e275efc60724c795d1fb68dd79eec32088b94c43d80"
+            }
+          ]
+        },
+        {
+          "name": "_CGDisplayModeRelease",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coregraphics/cgdisplaymoderelease",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coregraphics/cgdisplaymoderelease.json",
+              "external_id": "c:@F@CGDisplayModeRelease",
+              "title": "CGDisplayModeRelease",
+              "documented_modules": [
+                "Core Graphics"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.854922+00:00",
+              "response_sha256": "f1189c93ab6bec5410c23261123a6a4182427e22ed3b444cfc32b8e11849e982"
+            }
+          ]
+        },
+        {
           "name": "_CGFontCreateWithDataProvider",
           "sources": [
             {
@@ -2771,6 +2856,23 @@
               "identifier": "CGSSetWindowBackgroundBlurRadius",
               "source_license": "Apache-2.0",
               "response_sha256": "62a618a243fd137452f107330ea84d0032c5306fd57eeb51591fb47523fae351"
+            }
+          ]
+        },
+        {
+          "name": "_kCGColorSpaceDisplayP3",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/coregraphics/cgcolorspace/displayp3",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/coregraphics/cgcolorspace/displayp3.json",
+              "external_id": "c:@kCGColorSpaceDisplayP3",
+              "title": "displayP3",
+              "documented_modules": [
+                "Core Graphics"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.854690+00:00",
+              "response_sha256": "cac0e57ff3d88fb2566a5323b8f024caa9ebb27a1b941de794004aded33803ec"
             }
           ]
         }
@@ -4425,7 +4527,59 @@
         "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/OSX_Technology_Overview/SystemFrameworks/SystemFrameworks.html",
         "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html"
       ],
-      "symbols": [],
+      "symbols": [
+        {
+          "name": "_NSProcessInfoPowerStateDidChangeNotification",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/foundation/nsnotification/name-swift.struct/nsprocessinfopowerstatedidchange",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/foundation/nsnotification/name-swift.struct/nsprocessinfopowerstatedidchange.json",
+              "external_id": "c:@NSProcessInfoPowerStateDidChangeNotification",
+              "title": "NSProcessInfoPowerStateDidChange",
+              "documented_modules": [
+                "Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.855707+00:00",
+              "response_sha256": "161a3ee65b969321d5b4d0092506564161c9b6045b8597e81a1fad371ca634a3"
+            }
+          ]
+        },
+        {
+          "name": "_NSProcessInfoThermalStateDidChangeNotification",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/foundation/processinfo/thermalstatedidchangenotification",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/foundation/processinfo/thermalstatedidchangenotification.json",
+              "external_id": "c:@NSProcessInfoThermalStateDidChangeNotification",
+              "title": "thermalStateDidChangeNotification",
+              "documented_modules": [
+                "Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.855854+00:00",
+              "response_sha256": "9f79b352dd99316180c81b6ff0e5f1e4b893901ca58c316254ee86b78e455e57"
+            }
+          ]
+        },
+        {
+          "name": "_NSRunLoopCommonModes",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/foundation/runloop/mode/common",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/foundation/runloop/mode/common.json",
+              "external_id": "c:@NSRunLoopCommonModes",
+              "title": "common",
+              "documented_modules": [
+                "Foundation"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.856001+00:00",
+              "response_sha256": "4a405b4ba48e3abc1b53a14851fd6f38a9e4627d9d2c47eda50ba0533f1120bb"
+            }
+          ]
+        }
+      ],
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
     },
     {
@@ -5217,6 +5371,52 @@
         }
       ],
       "load_requirement": "Explicit platform framework load for GPUI, including Objective-C runtime lookup"
+    },
+    {
+      "name": "UniformTypeIdentifiers",
+      "path": "System/Library/Frameworks/UniformTypeIdentifiers.framework/UniformTypeIdentifiers.tbd",
+      "install_name": "/System/Library/Frameworks/UniformTypeIdentifiers.framework/UniformTypeIdentifiers",
+      "path_sources": [
+        "https://developer.apple.com/documentation/uniformtypeidentifiers",
+        "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPFrameworks/Concepts/FrameworkAnatomy.html"
+      ],
+      "symbols": [
+        {
+          "name": "_UTTypeData",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/uniformtypeidentifiers/uttypedata",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/uniformtypeidentifiers/uttypedata.json",
+              "external_id": "c:@UTTypeData",
+              "title": "UTTypeData",
+              "documented_modules": [
+                "Uniform Type Identifiers"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.856118+00:00",
+              "response_sha256": "2e3e448c24c0d6df050ac6c60b7087cc0f28d3731a3fc91c24297606393faf42"
+            }
+          ]
+        },
+        {
+          "name": "_UTTypeFolder",
+          "sources": [
+            {
+              "url": "https://developer.apple.com/documentation/uniformtypeidentifiers/uttypefolder",
+              "data_url": "https://developer.apple.com/tutorials/data/documentation/uniformtypeidentifiers/uttypefolder.json",
+              "external_id": "c:@UTTypeFolder",
+              "title": "UTTypeFolder",
+              "documented_modules": [
+                "Uniform Type Identifiers"
+              ],
+              "evidence_kind": "exact_C_identifier",
+              "retrieved_at": "2026-11-20T06:50:17.856241+00:00",
+              "response_sha256": "1c76fb298547a0152c0dce6caa6da8d44c3ee79d9e84c19aac5af43e01b50dd3"
+            }
+          ]
+        }
+      ],
+      "load_requirement": "Uniform type identifiers referenced by GPUI external drag handling"
     },
     {
       "name": "UserNotifications",
@@ -10605,6 +10805,42 @@
               "evidence_kind": "exact_C_identifier",
               "retrieved_at": "2026-09-09T10:06:57.329437+00:00",
               "response_sha256": "179425d6df06b9a25877602958b6108efe7c5b81fdd32be7d7c69c90091fe0cc"
+            }
+          ]
+        },
+        {
+          "name": "_objc_autorelease",
+          "sources": [
+            {
+              "url": "https://raw.githubusercontent.com/apple-oss-distributions/objc4/fb265098298302243cd7eeaa1f63f0ba7786dd9a/runtime/NSObject.mm#L2013",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_autorelease",
+              "source_license": "APSL-2.0",
+              "response_sha256": "0488b064f8d2465317a849fa997d2fa3ab8e67e870fcca5674aeffce6026e289"
+            }
+          ]
+        },
+        {
+          "name": "_objc_autoreleasePoolPop",
+          "sources": [
+            {
+              "url": "https://raw.githubusercontent.com/apple-oss-distributions/objc4/fb265098298302243cd7eeaa1f63f0ba7786dd9a/runtime/NSObject.mm#L2263",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_autoreleasePoolPop",
+              "source_license": "APSL-2.0",
+              "response_sha256": "0488b064f8d2465317a849fa997d2fa3ab8e67e870fcca5674aeffce6026e289"
+            }
+          ]
+        },
+        {
+          "name": "_objc_autoreleasePoolPush",
+          "sources": [
+            {
+              "url": "https://raw.githubusercontent.com/apple-oss-distributions/objc4/fb265098298302243cd7eeaa1f63f0ba7786dd9a/runtime/NSObject.mm#L2256",
+              "evidence_kind": "public_open_source_identifier",
+              "identifier": "objc_autoreleasePoolPush",
+              "source_license": "APSL-2.0",
+              "response_sha256": "0488b064f8d2465317a849fa997d2fa3ab8e67e870fcca5674aeffce6026e289"
             }
           ]
         },

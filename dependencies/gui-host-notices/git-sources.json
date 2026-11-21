@@ -1,12 +1,31 @@
 {
   "schema_version": 1,
   "sources": {
-    "git+https://github.com/lukewilliamboswell/zed.git?rev=252b436e332f68c9ac2d6c785dd075fd19b69785#252b436e332f68c9ac2d6c785dd075fd19b69785": {
+    "git+https://github.com/gfx-rs/wgpu?rev=cddb2f5d80dc0009b2ef6767635140cacf90a007#cddb2f5d80dc0009b2ef6767635140cacf90a007": {
       "packages": {
+        "naga-types@30.0.0": "naga-types",
+        "naga@30.0.0": "naga",
+        "wgpu-core-deps-apple@30.0.0": "wgpu-core/platform-deps/apple",
+        "wgpu-core-deps-emscripten@30.0.0": "wgpu-core/platform-deps/emscripten",
+        "wgpu-core-deps-linux-android-bsd@30.0.0": "wgpu-core/platform-deps/linux-android-bsd",
+        "wgpu-core-deps-wasm@30.0.0": "wgpu-core/platform-deps/wasm",
+        "wgpu-core-deps-windows@30.0.0": "wgpu-core/platform-deps/windows",
+        "wgpu-core@30.0.0": "wgpu-core",
+        "wgpu-hal@30.0.0": "wgpu-hal",
+        "wgpu-naga-bridge@30.0.0": "wgpu-naga-bridge",
+        "wgpu-sync@30.0.0": "wgpu-sync",
+        "wgpu-types@30.0.0": "wgpu-types",
+        "wgpu@30.0.0": "wgpu"
+      }
+    },
+    "git+https://github.com/lukewilliamboswell/zed.git?rev=30b03e3edf9d286727006239ec951cd2d5fa8341#30b03e3edf9d286727006239ec951cd2d5fa8341": {
+      "packages": {
+        "bench_metrics@0.1.0": "crates/bench_metrics",
         "collections@0.1.0": "crates/collections",
         "derive_refineable@0.1.0": "crates/refineable/derive_refineable",
         "gpui@0.2.2": "crates/gpui",
         "gpui_apple@0.1.0": "crates/gpui_apple",
+        "gpui_ios@0.1.0": "crates/gpui_ios",
         "gpui_linux@0.1.0": "crates/gpui_linux",
         "gpui_macos@0.1.0": "crates/gpui_macos",
         "gpui_macros@0.1.0": "crates/gpui_macros",
@@ -17,20 +36,11 @@
         "gpui_wgpu@0.1.0": "crates/gpui_wgpu",
         "gpui_windows@0.1.0": "crates/gpui_windows",
         "http_client@0.1.0": "crates/http_client",
-        "perf@0.1.0": "tooling/perf",
         "refineable@0.1.0": "crates/refineable",
         "scheduler@0.1.0": "crates/scheduler",
         "sum_tree@0.1.0": "crates/sum_tree",
-        "util_macros@0.1.0": "crates/util_macros",
-        "zlog@0.1.0": "crates/zlog",
         "ztracing@0.1.0": "crates/ztracing",
         "ztracing_macro@0.1.0": "crates/ztracing_macro"
-      }
-    },
-    "git+https://github.com/proptest-rs/proptest?rev=3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b#3dca198a8fef1b32e3a66f1e1897c955b4dc5b5b": {
-      "packages": {
-        "proptest-macro@0.5.0": "proptest-macro",
-        "proptest@1.10.0": "proptest"
       }
     },
     "git+https://github.com/zed-industries/font-kit?rev=94b0f28166665e8fd2f53ff6d268a14955c82269#94b0f28166665e8fd2f53ff6d268a14955c82269": {
@@ -38,14 +48,14 @@
         "zed-font-kit@0.14.1-zed": "."
       }
     },
-    "git+https://github.com/zed-industries/scap?rev=4afea48c3b002197176fb19cd0f9b180dd36eaac#4afea48c3b002197176fb19cd0f9b180dd36eaac": {
+    "git+https://github.com/zed-industries/oo7?rev=731c1215edb6905876c6137ab300428c7b8d7c13#731c1215edb6905876c6137ab300428c7b8d7c13": {
       "packages": {
-        "zed-scap@0.0.8-zed": "."
+        "oo7@0.6.0": "client"
       }
     },
-    "git+https://github.com/zed-industries/wasm_thread?rev=0cf96c7708dfb97ccf3da50347e25edcf75d6937#0cf96c7708dfb97ccf3da50347e25edcf75d6937": {
+    "git+https://github.com/zed-industries/scap?rev=b5c86ec58dd4b6b7732bf6ac8be03d6b1f190a82#b5c86ec58dd4b6b7732bf6ac8be03d6b1f190a82": {
       "packages": {
-        "wasm_thread@0.3.3": "."
+        "zed-scap@0.0.8-zed": "."
       }
     }
   }

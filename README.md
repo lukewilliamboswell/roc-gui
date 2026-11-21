@@ -1,5 +1,8 @@
 # roc-gui
 
+> [!IMPORTANT]
+> **Work in progress.** The GPUI build and packaging infrastructure is in place, and we’re actively developing the Roc API. Contributions and feedback are welcome. roc-gui is still an early-stage platform. Do not use it in production.
+
 Build native, state-driven GUI applications in [Roc](https://www.roc-lang.org),
 hosted by [GPUI](https://www.gpui.rs). 
 
@@ -8,8 +11,6 @@ Read the [manual](https://lukewilliamboswell.github.io/roc-gui/) to get started.
 - Cross-platform native UI (macOS, Linux Wayland, Windows)
 - Builtin behavioural and performance testing harness using a S-expression format
 - Builtin performance observatory streaming to a SQLite db 
-
-The platform is experimental; review the release notes before upgrading.
 
 | | | |
 |:---:|:---:|:---:|

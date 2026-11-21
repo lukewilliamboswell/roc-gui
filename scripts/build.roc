@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
-	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.27.0/9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g.tar.zst",
-	roc: "nightly-2026-11-10-f7d1f19",
+	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.28.1/7brgwR8YUqfeGrkdfF1V4GPPN7DnP7ftqub9KcrTEZtr.tar.zst",
+	roc: "nightly-2026-11-20-3b29392",
 }
 
 import cli.Cmd
@@ -12,7 +12,7 @@ import cli.System
 
 ## Build the native host and stage the admitted linker inputs.
 main! = |raw_args| {
-	args = raw_args.map(|arg| OsStr.from_raw(arg).display())
+	args = raw_args.map(OsStr.display)
 	target = match (System.target!().os(), System.target!().arch()) {
 		(Linux(_), X64) => "x64glibc"
 		(MacOS(_), Arm64) => "arm64mac"

@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
-	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.27.0/9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g.tar.zst",
-	roc: "nightly-2026-11-10-f7d1f19",
+	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.28.1/7brgwR8YUqfeGrkdfF1V4GPPN7DnP7ftqub9KcrTEZtr.tar.zst",
+	roc: "nightly-2026-11-20-3b29392",
 }
 
 import cli.Cmd
@@ -17,7 +17,7 @@ Manifest : { schema_version : U64, compiler : Str, bundle : { name : Str } }
 Description : { path : Str, runner : Str }
 
 main! = |raw_args| {
-	(version, manifest_path, output, describer) = match raw_args.map(|arg| OsStr.from_raw(arg).display()) {
+	(version, manifest_path, output, describer) = match raw_args.map(OsStr.display) {
 		[a, b, c, d] => (a, b, c, d)
 		_ => return fail!("usage: blueprint run release-suite -- VERSION MANIFEST OUTPUT DESCRIBER")
 	}

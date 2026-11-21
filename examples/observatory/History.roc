@@ -14,7 +14,7 @@ History := [].{
 
 	## How many places back remembers; the oldest are forgotten first.
 	depth : U64
-	depth = depth
+	depth = depth_impl
 
 	## Leave `current` for somewhere new.
 	push : Trail(place), place -> Trail(place)
@@ -35,11 +35,11 @@ History := [].{
 	}
 }
 
-depth : U64
-depth = 100
+depth_impl : U64
+depth_impl = 100
 
 keep_recent : List(place) -> List(place)
-keep_recent = |places| if places.len() > depth places.drop_first(places.len() - depth) else places
+keep_recent = |places| if places.len() > depth_impl places.drop_first(places.len() - depth_impl) else places
 
 expect {
 	visited = History.push(History.push(History.empty(), 1.I64), 2)

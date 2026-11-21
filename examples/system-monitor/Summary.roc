@@ -23,19 +23,19 @@ Summary := [].{
 
 	## The four readings, in the order they are read.
 	tiles : [None, Some(Gui.SystemMonitor.Snapshot)] -> List(Tile)
-	tiles = tiles
+	tiles = tiles_impl
 
 	## One line of the observation log: every channel of one sample, in fixed
 	## columns, each figure carrying the unit that tells it apart from its
 	## neighbour.
 	history_line : Gui.SystemMonitor.Snapshot -> Str
-	history_line = history_line
+	history_line = history_line_impl
 
 	## CPU load for the chart, in tenths of a percent, or nothing when the
 	## sample carried no CPU reading. A gap in the chart is the honest drawing of
 	## a gap in the data.
 	cpu_load : Gui.SystemMonitor.Snapshot -> [None, Some(U64)]
-	cpu_load = cpu_load
+	cpu_load = cpu_load_impl
 }
 
 ## A dash, never a zero. The one glyph in the application that means "no figure".
@@ -97,7 +97,7 @@ network_tile = |value| match value {
 	)
 }
 
-tiles = |latest| match latest {
+tiles_impl = |latest| match latest {
 	None => [pending("CPU"), pending("MEMORY"), pending("DISK I/O"), pending("NETWORK")]
 	Some(snapshot) => [
 		cpu_tile(snapshot.cpu),
@@ -107,7 +107,7 @@ tiles = |latest| match latest {
 	]
 }
 
-cpu_load = |snapshot| match snapshot.cpu {
+cpu_load_impl = |snapshot| match snapshot.cpu {
 	Unavailable(_) => None
 	Value(tenths) => Some(U16.to_u64(tenths))
 }
@@ -129,7 +129,7 @@ total_cell = |value, total| match value {
 
 ## The sequence is padded rather than left ragged, so the columns after it line
 ## up from the first sample to the hundredth.
-history_line = |snapshot| {
+history_line_impl = |snapshot| {
 	sequence = Format.pad_left(snapshot.sequence.to_str(), 4)
 	cpu = Format.pad_left(percent_cell(snapshot.cpu), 6)
 	memory = Format.pad_left(share_cell(snapshot.memory), 6)
@@ -152,4 +152,4 @@ expect disk_tile(Value({ read_bytes: 16384, written_bytes: 8192 })) == {
 	value: "24.0",
 }
 expect network_tile(Unavailable(Unsupported)).detail == "Network is not reported"
-expect tiles(None).map(|tile| tile.level) == [Pending, Pending, Pending, Pending]
+expect tiles_impl(None).map(|tile| tile.level) == [Pending, Pending, Pending, Pending]

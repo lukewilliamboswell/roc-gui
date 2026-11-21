@@ -23,11 +23,11 @@ Configurator := [].{
 	## The bounds the device accepts, which the window shows and the editor
 	## enforces before anything is sent.
 	sensitivity_floor : U16
-	sensitivity_floor = sensitivity_floor
+	sensitivity_floor = sensitivity_floor_impl
 	sensitivity_ceiling : U16
-	sensitivity_ceiling = sensitivity_ceiling
+	sensitivity_ceiling = sensitivity_ceiling_impl
 	sensitivity_step : U16
-	sensitivity_step = sensitivity_step
+	sensitivity_step = sensitivity_step_impl
 
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
@@ -35,25 +35,25 @@ Configurator := [].{
 	init = |access| { access, config: None, connected: None, devices: [], dirty: False, generation: 0, status: Ready }
 
 	discover : State -> Gui.Action(State)
-	discover = discover
+	discover = discover_impl
 
 	connect : State -> Gui.Action(State)
-	connect = connect
+	connect = connect_impl
 
 	## One transaction carrying the whole configuration, which the device must
 	## acknowledge before the application believes anything changed.
 	apply : State, Gui.Device.Connection, Protocol.Config -> Gui.Action(State)
-	apply = apply
+	apply = apply_impl
 
 	disconnect : State, Gui.Device.Connection -> Gui.Action(State)
-	disconnect = disconnect
+	disconnect = disconnect_impl
 
 	change_sensitivity : State, Bool -> State
-	change_sensitivity = change_sensitivity
+	change_sensitivity = change_sensitivity_impl
 	toggle_lighting : State, Bool -> State
-	toggle_lighting = toggle_lighting
+	toggle_lighting = toggle_lighting_impl
 	select_profile : State, U8 -> State
-	select_profile = select_profile
+	select_profile = select_profile_impl
 }
 
 Status : [
@@ -81,11 +81,11 @@ State : {
 	status : Status,
 }
 
-sensitivity_floor = 100.U16
+sensitivity_floor_impl = 100.U16
 
-sensitivity_ceiling = 3200.U16
+sensitivity_ceiling_impl = 3200.U16
 
-sensitivity_step = 100.U16
+sensitivity_step_impl = 100.U16
 
 message = |err| match err {
 	AcquireDeviceErr(AccessDenied) => "Device access denied"
@@ -103,7 +103,7 @@ refusal = |err| match err {
 	_ => Lost(message(err))
 }
 
-discover = |state| {
+discover_impl = |state| {
 	next = state.generation + 1
 	Gui.Action.task({
 		pending: { ..state, generation: next, devices: [], status: Discovering },
@@ -123,7 +123,7 @@ resolve_discovery = |latest, generation, result| if latest.generation != generat
 	Discovered(devices) => Gui.Action.update({ ..latest, devices, status: Discovered(List.len(devices)) })
 }
 
-connect = |state| {
+connect_impl = |state| {
 	next = state.generation + 1
 	Gui.Action.task({
 		pending: { ..state, generation: next, status: Connecting },
@@ -157,7 +157,7 @@ connect = |state| {
 ## A transaction that fails because the device went away leaves a handle that
 ## refers to nothing. Keeping it would offer Disconnect and Apply for hardware
 ## that is no longer there, so the connection is given up with the error.
-apply = |state, connection, config| Gui.Action.task({
+apply_impl = |state, connection, config| Gui.Action.task({
 	pending: { ..state, status: Applying },
 	run: || match connection.transact!(Protocol.apply_request(config)) {
 		Err(err) => ApplyFailed(err)
@@ -173,7 +173,7 @@ apply = |state, connection, config| Gui.Action.task({
 	},
 })
 
-disconnect = |state, connection| Gui.Action.task({
+disconnect_impl = |state, connection| Gui.Action.task({
 	pending: { ..state, status: Disconnecting },
 	run: || connection.close!(),
 	resolve: |latest, result| match result {
@@ -186,26 +186,26 @@ edited = |state, config| { ..state, config: Some(config), dirty: True, status: D
 
 ## The bounds are enforced here rather than at the transaction, so a person is
 ## never allowed to compose a request the device would refuse.
-change_sensitivity = |state, increase| match state.config {
+change_sensitivity_impl = |state, increase| match state.config {
 	None => state
 	Some(config) => {
 		next = if increase {
-			if config.sensitivity + sensitivity_step >= sensitivity_ceiling sensitivity_ceiling else config.sensitivity + sensitivity_step
-		} else if config.sensitivity <= sensitivity_floor + sensitivity_step {
-			sensitivity_floor
+			if config.sensitivity + sensitivity_step_impl >= sensitivity_ceiling_impl sensitivity_ceiling_impl else config.sensitivity + sensitivity_step_impl
+		} else if config.sensitivity <= sensitivity_floor_impl + sensitivity_step_impl {
+			sensitivity_floor_impl
 		} else {
-			config.sensitivity - sensitivity_step
+			config.sensitivity - sensitivity_step_impl
 		}
 		edited(state, { ..config, sensitivity: next })
 	}
 }
 
-toggle_lighting = |state, checked| match state.config {
+toggle_lighting_impl = |state, checked| match state.config {
 	None => state
 	Some(config) => edited(state, { ..config, lighting: checked })
 }
 
-select_profile = |state, profile| match state.config {
+select_profile_impl = |state, profile| match state.config {
 	None => state
 	Some(config) => edited(state, { ..config, profile })
 }

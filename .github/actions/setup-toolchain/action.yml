@@ -14,3 +14,11 @@ runs:
       with:
         version: 0.16.0
         use-cache: false
+    - name: Ensure Xcode can compile Metal shaders
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        if ! xcrun --sdk macosx metal --version; then
+          xcodebuild -downloadComponent MetalToolchain
+          xcrun --sdk macosx metal --version
+        fi
