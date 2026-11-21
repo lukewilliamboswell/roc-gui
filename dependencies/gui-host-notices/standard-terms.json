@@ -97,6 +97,9 @@
     "Apache-2.0 OR MIT": [
       "MIT"
     ],
+    "Apache-2.0 OR MIT OR Zlib": [
+      "MIT"
+    ],
     "Apache-2.0 WITH LLVM-exception": [
       "Apache-2.0",
       "LLVM-exception"
