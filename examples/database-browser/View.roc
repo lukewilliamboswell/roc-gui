@@ -10,7 +10,7 @@ import "icons/folder-x.svg" as folder_x_icon : List(U8)
 
 View := [].{
 	render : Browser.State -> Gui.Elem(Browser.State)
-	render = render
+	render = render_impl
 }
 
 meta = |caption| Gui.row(
@@ -438,8 +438,8 @@ header = |state| Gui.row(
 	],
 )
 
-render : Browser.State -> Gui.Elem(Browser.State)
-render = |state| Gui.col(
+render_impl : Browser.State -> Gui.Elem(Browser.State)
+render_impl = |state| Gui.col(
 	{
 		label: "Database browser",
 		width: Fill,

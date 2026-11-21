@@ -41,7 +41,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
         with:
           cache: 'true'
           cache-workload: check
@@ -64,7 +64,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
       - name: Download the nightly's source and verify its published digest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,7 +94,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
         with:
           install-nix: 'true'
           cache: 'true'
@@ -110,7 +110,8 @@ jobs:
           nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
       - run: blueprint run lint
       - run: blueprint run build
-      - run: python3 scripts/headless_wayland.py -- blueprint run test -- --only semantic --jobs 2 --timeout 300
+      # Run the staged host against the runner's native Mesa driver and loader.
+      - run: python3 scripts/headless_wayland.py -- python3 scripts/run_specs.py --skip-host-build --only semantic --jobs 2 --timeout 300
 
   # Each target's host is produced once; its tests wait only for that host.
   host-x64glibc:
@@ -229,18 +230,18 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
         with:
           cache: 'true'
           cache-workload: docs
       - id: renderer
-        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@f2c40def4ca269e4a29b4096edc86f600251aa5d
+        uses: lukewilliamboswell/roc-automation/actions/blueprint-tool@6c796f299012707d2e9bad23fd6449ed93f1f475
         with:
           task: docs-path
           label: roc-docs tools-0.10.1
       # This site tracks the branch and uses this run's compiler for the API.
       - name: Build HTML, PDF, Markdown and API documentation
-        uses: lukewilliamboswell/roc-automation/actions/build-docs@f2c40def4ca269e4a29b4096edc86f600251aa5d
+        uses: lukewilliamboswell/roc-automation/actions/build-docs@6c796f299012707d2e9bad23fd6449ed93f1f475
         with:
           renderer-binary: ${{ steps.renderer.outputs.binary }}
           pdf-filename: roc-gui.pdf
@@ -249,7 +250,7 @@ jobs:
           site-url: https://lukewilliamboswell.github.io/roc-gui/
       - name: Check public documentation links, source text and API integration
         run: python3 scripts/check_docs.py
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: documentation-site
           path: .docs-out/site
@@ -264,11 +265,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: documentation-site
           path: .docs-out/site
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: example-gallery
           path: .docs-out/site/gallery
@@ -282,7 +283,7 @@ jobs:
             device-configurator animation-studio redis-explorer; do
             test -s ".docs-out/site/gallery/$example.gif"
           done
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with: { path: .docs-out/site }
 
   deploy-docs:
@@ -298,7 +299,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   # The one required status check. Host candidates run only when a host
   # changed, so a skipped job passes; a failed or cancelled one does not.

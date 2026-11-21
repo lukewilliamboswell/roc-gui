@@ -1138,8 +1138,8 @@ Internal := [].{
 		_ => crash "container sent to leaf lowering"
 	}
 
-	revision : Index(BoundaryInfo(a)), U64 -> U64
-	revision = |boundaries, key| (Index.get(boundaries, key) ?? crash "missing route owner").revision
+	boundary_revision : Index(BoundaryInfo(a)), U64 -> U64
+	boundary_revision = |boundaries, key| (Index.get(boundaries, key) ?? crash "missing route owner").revision
 
 	record_route : BuildingOwners(a), U64, U64 -> BuildingOwners(a)
 	record_route = |boundaries, key, id| {
@@ -1300,6 +1300,7 @@ Internal := [].{
 
 	# Lower only values carried by Insert and Set. The resulting root already is
 	# the item's boundary root and is passed to the host transaction unchanged.
+	keyed_lower! : Elem(a), BoundaryInfo(a), a, Index(Route(a)), Index(BoundaryInfo(a)), ({ instance : U64, root : U64, routes : Index(Route(a)), boundaries : Index(BoundaryInfo(a)) } => Work) => Work
 	keyed_lower! = |elem, owner, state, routes, boundaries, done!| {
 		active = { key: owner.key, revision: owner.revision, path: owner.path, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_keys: [], keyed: None }
 		lower!(
@@ -1579,6 +1580,7 @@ Internal := [].{
 		)
 	}
 
+	finish_rebuild! : BoundaryInfo(a), BoundaryInfo(a), a, Building(a), (Lowered(a) -> Work) => Work
 	finish_rebuild! = |owner, cleared, state, lowered, done!| {
 		completed = Box.unbox(lowered.boundaries.active)
 		var $keyed_items = KeyedSeq.empty()
@@ -1842,7 +1844,7 @@ Internal := [].{
 							state,
 							|present| Work.next(
 								|| {
-									if present and route.revision == revision(boundaries, route.boundary) {
+									if present and route.revision == boundary_revision(boundaries, route.boundary) {
 										Host.work_start!(1)
 										action = (route.fire)(state, Host.input_value!())
 										Action.resolve_work!(
@@ -1925,7 +1927,7 @@ Internal := [].{
 						# at its first revision: it can never be sent again.
 						routes = match on_open {
 							None => lowered.routes
-							Some(handler) => Index.set(lowered.routes, open_route, { id: open_route, boundary: 0, revision: revision(lowered.boundaries, 0), fire: |current, _| handler(current) })
+							Some(handler) => Index.set(lowered.routes, open_route, { id: open_route, boundary: 0, revision: boundary_revision(lowered.boundaries, 0), fire: |current, _| handler(current) })
 						}
 						install!(initial, render, routes, lowered.boundaries)
 						Work.done

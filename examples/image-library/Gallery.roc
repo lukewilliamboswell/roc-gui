@@ -5,21 +5,21 @@ Gallery := [].{
 	Item : [Failed({ name : Str, reason : Str }), Ready(Asset)]
 	Scan : { items : List(Item) }
 	format_for : Str -> Try(Gui.ImageFormat, [Unsupported])
-	format_for = format_for
+	format_for = format_for_impl
 	scan! : Gui.Files.Dir.Read, List(Gui.Files.Entry) => Scan
-	scan! = scan!
+	scan! = scan_impl!
 	visible : List(Item), Str -> List(Item)
-	visible = |items, query| items.keep_if(|item| Str.is_empty(query) or Str.contains(name(item), query))
+	visible = |items, query| items.keep_if(|item| Str.is_empty(query) or Str.contains(name_impl(item), query))
 	name : Item -> Str
-	name = name
+	name = name_impl
 }
 
-name = |item| match item {
+name_impl = |item| match item {
 	Ready(asset) => asset.name
 	Failed(failure) => failure.name
 }
 
-format_for = |file_name| if file_name.ends_with(".png") {
+format_for_impl = |file_name| if file_name.ends_with(".png") {
 	Ok(Png)
 } else if file_name.ends_with(".jpg") or file_name.ends_with(".jpeg") {
 	Ok(Jpeg)
@@ -37,11 +37,11 @@ format_for = |file_name| if file_name.ends_with(".png") {
 	Err(Unsupported)
 }
 
-scan! = |directory, entries| {
+scan_impl! = |directory, entries| {
 	var $items = []
 	for entry in entries {
 		if entry.kind == File {
-			match format_for(entry.name) {
+			match format_for_impl(entry.name) {
 				Err(_) => {
 					$items = $items.append(Failed({ name: entry.name, reason: "Unsupported format" }))
 				}

@@ -73,14 +73,6 @@ fn elapsed_ns(start: Instant) -> u64 {
     start.elapsed().as_nanos().try_into().unwrap_or(u64::MAX)
 }
 
-impl IntoElement for FrameSpans {
-    type Element = Self;
-
-    fn into_element(self) -> Self::Element {
-        self
-    }
-}
-
 impl Element for FrameSpans {
     type RequestLayoutState = ();
     type PrepaintState = ();

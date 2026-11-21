@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
-	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.27.0/9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g.tar.zst",
-	roc: "nightly-2026-11-10-f7d1f19",
+	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.28.1/7brgwR8YUqfeGrkdfF1V4GPPN7DnP7ftqub9KcrTEZtr.tar.zst",
+	roc: "nightly-2026-11-20-3b29392",
 }
 
 import cli.Cmd
@@ -24,7 +24,7 @@ Native : { bundle : Fragment, sources : List({ filename : Str, components : List
 ## Prepare per-deliverable compositions. Shared Blueprint tooling generates and
 ## independently checks the standard documents against each final file's bytes.
 main! = |raw_args| {
-	(version, directory, hosts, cache, output) = match raw_args.map(|arg| OsStr.from_raw(arg).display()) {
+	(version, directory, hosts, cache, output) = match raw_args.map(OsStr.display) {
 		[a, b, c, d, e] => (a, b, c, d, e)
 		_ => return fail!("usage: blueprint run sbom-composition -- VERSION RELEASE HOSTS CACHE OUTPUT")
 	}

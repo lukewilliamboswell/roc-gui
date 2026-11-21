@@ -11,17 +11,17 @@ Terminal := [].{
 	init : Gui.Access -> State
 	init = |access| { access, command: "", generation: 0, lines: [], phase: Idle, query: "", status: "No session", tone: Rest }
 	start : State -> Gui.Action(State)
-	start = start
+	start = start_impl
 	cancel : State -> Gui.Action(State)
-	cancel = cancel
+	cancel = cancel_impl
 	set_command : State, Str -> State
 	set_command = |state, command| { ..state, command }
 	set_query : State, Str -> State
 	set_query = |state, query| { ..state, query }
 	submit : State, Str -> Gui.Action(State)
-	submit = submit
+	submit = submit_impl
 	render : State -> Gui.Elem(State)
-	render = render
+	render = render_impl
 }
 
 Phase : [Idle, Live({ pty : Gui.Process.Pty, reading : Bool }), Starting, Stopped]
@@ -34,9 +34,7 @@ Tone : [Rest, Attached, Refused]
 
 State : { access : Gui.Access, command : Str, generation : U64, lines : List(Str), phase : Phase, query : Str, status : Str, tone : Tone }
 
-set_command = |state, command| { ..state, command }
 
-set_query = |state, query| { ..state, query }
 
 err_message = |err| match err {
 	AcquireProcessErr(AccessDenied) => "Process access denied"
@@ -103,8 +101,8 @@ read_next = |state, pty, generation| Gui.Action.task({
 	},
 })
 
-start : State -> Gui.Action(State)
-start = |state| {
+start_impl : State -> Gui.Action(State)
+start_impl = |state| {
 	next_generation = state.generation + 1
 	Gui.Action.task({
 		pending: { ..state, generation: next_generation, lines: [], phase: Starting, status: "Starting session", tone: Attached },
@@ -126,8 +124,8 @@ start = |state| {
 	})
 }
 
-submit : State, Str -> Gui.Action(State)
-submit = |state, command| match state.phase {
+submit_impl : State, Str -> Gui.Action(State)
+submit_impl = |state, command| match state.phase {
 	Live(session) => Gui.Action.task({
 		pending: { ..state, command: "", status: "Sending command", tone: Attached },
 		run: || session.pty.write!("${command}\n".to_utf8()),
@@ -139,8 +137,8 @@ submit = |state, command| match state.phase {
 	_ => Gui.Action.update({ ..state, status: "Start a session first", tone: Refused })
 }
 
-cancel : State -> Gui.Action(State)
-cancel = |state| match state.phase {
+cancel_impl : State -> Gui.Action(State)
+cancel_impl = |state| match state.phase {
 	Live(session) => {
 		next_generation = state.generation + 1
 		Gui.Action.task({
@@ -256,8 +254,8 @@ empty_well = |state| {
 		}
 }
 
-render : State -> Gui.Elem(State)
-render = |state| {
+render_impl : State -> Gui.Elem(State)
+render_impl = |state| {
 	live = match state.phase {
 		Live(_) => True
 		_ => False
@@ -279,12 +277,12 @@ render = |state| {
 			Gui.row(
 				{ label: "Session controls", width: Fill, padding: Theme.inset, gap: Theme.inset, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 				[
-					key_cap("New terminal", "New terminal", !live, |current, _| start(current)),
-					key_cap("Stop", "Stop terminal", live, |current, _| cancel(current)),
+					key_cap("New terminal", "New terminal", !live, |current, _| start_impl(current)),
+					key_cap("Stop", "Stop terminal", live, |current, _| cancel_impl(current)),
 					Gui.row({ label: "Session status", padding: 4, gap: 0, grow: True, justify: End, fg: status_fg, font_size: Theme.meta }, [Gui.text(state.status)]),
 				],
 			),
-			field_row("Command bar", gutter_mark(prompt_icon, "Command prompt"), Gui.text_input({ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Gui.Action.update(set_command(current, event.value)), on_submit: |current, event| submit(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
+			field_row("Command bar", gutter_mark(prompt_icon, "Command prompt"), Gui.text_input({ label: "Terminal command", value: state.command, placeholder: "type a command, press enter", enabled: live, on_change: |current, event| Gui.Action.update(Terminal.set_command(current, event.value)), on_submit: |current, event| submit_impl(current, event.value), grow: True, width: Fill, height: Px(26), padding: Theme.inset, font_size: Theme.body, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius })),
 
 			## The command bar and the filter bar are not peers. One sends text to a
 			## child; the other only narrows what is already on screen. Making the
@@ -297,7 +295,7 @@ render = |state| {
 						{ label: "Filter bar", width: Fill, padding: Theme.inset, gap: Theme.inset, align: Center, bg: Theme.region, border_color: Theme.line, border_width: 0, border_bottom: Px(1) },
 						[
 							gutter_mark(search_icon, "Filter scrollback"),
-							Gui.text_input({ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Gui.Action.update(set_query(current, event.value)), on_submit: |current, _| Gui.Action.update(current), grow: True, width: Fill, height: Px(22), padding: 4, font_size: Theme.meta, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius }),
+							Gui.text_input({ label: "Search terminal", value: state.query, placeholder: "filter scrollback", on_change: |current, event| Gui.Action.update(Terminal.set_query(current, event.value)), on_submit: |current, _| Gui.Action.update(current), grow: True, width: Fill, height: Px(22), padding: 4, font_size: Theme.meta, bg: Theme.well, fg: Theme.text, border_color: Theme.edge, border_width: 1, radius: Theme.radius }),
 						],
 					),
 					if shown.len() == 0 {

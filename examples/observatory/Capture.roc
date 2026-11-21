@@ -81,6 +81,7 @@ WorkTotal : { metric : I64, total : I64, max : I64 }
 ## zero only because the frame itself was recorded.
 FrameDetail : {
 	id : I64,
+	clock : [None, Some({ start : I64, end : I64 })],
 	run_id : I64,
 	ordinal : I64,
 	layout : I64,
@@ -304,11 +305,11 @@ Capture := [].{
 	## A cycle's target from its two columns at `index`, as `decode_cycle`
 	## reads it.
 	target_at : List(Gui.Sqlite.Value), U64 -> Target
-	target_at = target_at
+	target_at = target_at_impl
 
 	## A cycle's target as every view names it.
 	target_caption : Cycle -> Str
-	target_caption = target_caption
+	target_caption = target_caption_impl
 
 	## The one schema this application reads.
 	supported_schema : Str
@@ -316,42 +317,42 @@ Capture := [].{
 
 	## Read enough of one file to list it: identity and a verdict.
 	summarize! : Gui.Files.Dir.Read, Str => Listing
-	summarize! = summarize!
+	summarize! = summarize_impl!
 
 	summarize_file! : Gui.Files.File.Read, Str => Listing
-	summarize_file! = summarize_file!
+	summarize_file! = summarize_file_impl!
 
 	## A capture listed by name before its summary is read.
 	unread : Str -> Listing
 	unread = |name| { name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: Unread }
 
 	listing_of : Opened -> Listing
-	listing_of = listing_of
+	listing_of = listing_of_impl
 
 	## Open one capture, refuse it unless it is schema 25, and read every table
 	## the views present.
 	open! : Gui.Files.Dir.Read, Str => Try(Opened, Str)
-	open! = open!
+	open! = open_impl!
 
 	## Open one chosen capture file, with the same refusal and reads as `open!`.
 	open_file! : Gui.Files.File.Read, Str => Try(Opened, Str)
-	open_file! = open_file!
+	open_file! = open_file_impl!
 
 	## How many rows one read of a long table returns: several screens of a
 	## list, so scrolling reads again only every few screens.
 	page_rows : U64
-	page_rows = page_rows
+	page_rows = page_rows_impl
 
 	## At most `page_rows` steps of one run, from the step whose ordinal is
 	## `from`. Ordinals number a run's steps from zero, so a step's ordinal is
 	## its row in the run's list.
 	run_steps! : Gui.Sqlite.Db, I64, U64 => Try(List(Step), Str)
-	run_steps! = run_steps!
+	run_steps! = run_steps_impl!
 
 	## At most `page_rows` cycles of one phase, slowest first, from the
 	## `offset`th: every trigger's, or one trigger and patch kind's.
 	cycles! : Gui.Sqlite.Db, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
-	cycles! = cycles!
+	cycles! = cycles_impl!
 
 	## The cycle of a run with an ordinal, whatever its phase, if there is one.
 	cycle_at! : Gui.Sqlite.Db, I64, I64 => Try([None, Some(Cycle)], Str)
@@ -365,11 +366,11 @@ Capture := [].{
 
 	## How many columns the frame strip and the list-pass chart draw.
 	columns : I64
-	columns = columns
+	columns = columns_impl
 
 	## The budgets a frame can be compared against, in hertz.
 	budget_rates : List(I64)
-	budget_rates = budget_rates
+	budget_rates = budget_rates_impl
 
 	## A frame budget in nanoseconds.
 	budget_ns : I64 -> I64
@@ -378,11 +379,11 @@ Capture := [].{
 	## The frame strip of `span` frames from row `start`; a `span` of zero is
 	## every frame from `start`.
 	strip! : Gui.Sqlite.Db, I64, I64 => Try(Strip, Str)
-	strip! = strip!
+	strip! = strip_impl!
 
 	## One frame's own work.
 	frame! : Gui.Sqlite.Db, Bar => Try(FrameDetail, Str)
-	frame! = frame!
+	frame! = frame_impl!
 
 	## The native node kinds, the keyed container, the popover, the split
 	## divider, and the drop target, by numeric kind.
@@ -392,30 +393,30 @@ Capture := [].{
 	## The nineteen GPUI frame-work metrics, by numeric metric, and the group
 	## each belongs to.
 	work_metrics : List({ name : Str, group : [Replayed, Fresh, Moved] })
-	work_metrics = work_metrics
+	work_metrics = work_metrics_impl
 
 	## The share of a frame's scene operations GPUI replayed from its cache
 	## rather than built fresh: `Some` percent, or `None` for a frame with no
 	## scene operation at all.
 	replay_share : List({ metric : I64, count : I64 }) -> [None, Some(I64)]
-	replay_share = replay_share
+	replay_share = replay_share_impl
 
 	## The duration range of an octave bucket, in nanoseconds: at least `low`
 	## and below `high`.
 	bucket_range : I64 -> { low : I64, high : I64 }
-	bucket_range = bucket_range
+	bucket_range = bucket_range_impl
 
 	## How many octave buckets there are.
 	bucket_count : I64
-	bucket_count = bucket_count
+	bucket_count = bucket_count_impl
 
 	## The bucket a duration falls in.
 	bucket_of : I64 -> I64
-	bucket_of = bucket_of
+	bucket_of = bucket_of_impl
 
 	## Read one cycle's spans, component work, graph work, and step.
 	inspect! : Gui.Sqlite.Db, Cycle => Try(Inspected, Str)
-	inspect! = inspect!
+	inspect! = inspect_impl!
 
 	## The five Roc work spans, in the order the callback decomposes into them.
 	span_kinds : List(Str)
@@ -436,14 +437,14 @@ Capture := [].{
 	## A component work count. Absent is zero only when the cycle's component
 	## work was recorded.
 	work_count : Inspected, I64 -> [None, Some(I64)]
-	work_count = work_count
+	work_count = work_count_impl
 
 	decompose : Inspected -> Decomposition
-	decompose = decompose
+	decompose = decompose_impl
 
 	## The rule on the Health sheet.
 	judge : Trust -> Verdict
-	judge = judge
+	judge = judge_impl
 
 	## The rule, in words, exactly as `judge` applies it.
 	rule : Str
@@ -451,15 +452,15 @@ Capture := [].{
 
 	## What a verdict that needs finalisation says while it is withheld.
 	unfinalised : Str
-	unfinalised = unfinalised
+	unfinalised = unfinalised_impl
 
 	## Whether the capture's recorder has finalised it.
 	finalised : Opened -> Bool
-	finalised = |opened| metadata(opened, "final_state") == "complete"
+	finalised = |opened| metadata_impl(opened, "final_state") == "complete"
 
 	## How far a capture has been written, read in one statement.
 	progress! : Gui.Sqlite.Db => Try(Progress, Str)
-	progress! = progress!
+	progress! = progress_impl!
 
 	## The identity of the capture a file holds, read through a connection of
 	## its own.
@@ -474,24 +475,24 @@ Capture := [].{
 
 	## Read every table the views present again, through a held connection.
 	read! : Gui.Sqlite.Db, Str => Try(Opened, Str)
-	read! = read!
+	read! = read_impl!
 
 	metadata : Opened, Str -> Str
-	metadata = metadata
+	metadata = metadata_impl
 
 	family : Opened, Str -> [Missing, Found(Family)]
-	family = family
+	family = family_impl
 
 	## A family whose values may be shown. Anything else renders `—`.
 	complete : Opened, Str -> Bool
-	complete = |opened, name| match family(opened, name) {
+	complete = |opened, name| match family_impl(opened, name) {
 		Found(found) => found.status == "complete"
 		Missing => False
 	}
 
 	## Why a family's values are absent, for the line beside a `—`.
 	absence : Opened, Str -> Str
-	absence = |opened, name| match family(opened, name) {
+	absence = |opened, name| match family_impl(opened, name) {
 		Found(found) => "${found.name} ${found.status}: ${found.reason}"
 		Missing => "${name} is not recorded in this capture"
 	}
@@ -518,11 +519,11 @@ Capture := [].{
 
 	## Refuse any capture whose schema is not the one this application reads.
 	schema_gate : Str -> Try({}, Str)
-	schema_gate = schema_gate
+	schema_gate = schema_gate_impl
 }
 
-work_count : Inspected, I64 -> [None, Some(I64)]
-work_count = |inspected, kind| if inspected.component_work_recorded {
+work_count_impl : Inspected, I64 -> [None, Some(I64)]
+work_count_impl = |inspected, kind| if inspected.component_work_recorded {
 	match inspected.work.find_first(|found| found.kind == kind) {
 		Ok(found) => Some(found.count)
 		Err(_) => Some(0)
@@ -534,8 +535,8 @@ work_count = |inspected, kind| if inspected.component_work_recorded {
 ## The parts balance when no remainder is negative, so that callback, validate,
 ## apply, and the unattributed rest sum exactly to the cycle, and the spans fit
 ## inside the callback.
-decompose : Inspected -> Decomposition
-decompose = |inspected| {
+decompose_impl : Inspected -> Decomposition
+decompose_impl = |inspected| {
 	cycle = inspected.cycle
 	spans_total = inspected.spans.fold(0, |total, found| total + found.duration)
 	callback_rest = cycle.callback - spans_total
@@ -569,16 +570,16 @@ sample_inspected = {
 	step_line: None,
 }
 
-expect decompose(sample_inspected) == { spans_total: 222282, callback_rest: 298846, apply_rest: Some(0), cycle_rest: 47197774, sum: 47776342, balanced: True }
-expect decompose({ ..sample_inspected, gpui_apply: None }).apply_rest == None
-expect decompose({ ..sample_inspected, spans: [{ kind: "routing", duration: 600000, alloc_calls: 0, allocated_bytes: 0, dealloc_calls: 0, realloc_calls: 0, reallocated_bytes: 0 }] }).balanced == False
-expect decompose({ ..sample_inspected, roc_work_valid: False, spans: [] }).balanced == True
-expect work_count(sample_inspected, 0) == Some(1)
-expect work_count(sample_inspected, 2) == Some(0)
-expect work_count({ ..sample_inspected, component_work_recorded: False }, 0) == None
+expect decompose_impl(sample_inspected) == { spans_total: 222282, callback_rest: 298846, apply_rest: Some(0), cycle_rest: 47197774, sum: 47776342, balanced: True }
+expect decompose_impl({ ..sample_inspected, gpui_apply: None }).apply_rest == None
+expect decompose_impl({ ..sample_inspected, spans: [{ kind: "routing", duration: 600000, alloc_calls: 0, allocated_bytes: 0, dealloc_calls: 0, realloc_calls: 0, reallocated_bytes: 0 }] }).balanced == False
+expect decompose_impl({ ..sample_inspected, roc_work_valid: False, spans: [] }).balanced == True
+expect work_count_impl(sample_inspected, 0) == Some(1)
+expect work_count_impl(sample_inspected, 2) == Some(0)
+expect work_count_impl({ ..sample_inspected, component_work_recorded: False }, 0) == None
 
-schema_gate : Str -> Try({}, Str)
-schema_gate = |version| if version == "25" {
+schema_gate_impl : Str -> Try({}, Str)
+schema_gate_impl = |version| if version == "25" {
 	Ok({})
 } else if Str.is_empty(version) {
 	Err("This file records no schema version; Observatory reads schema 25")
@@ -586,8 +587,8 @@ schema_gate = |version| if version == "25" {
 	Err("Schema ${version} is not supported; Observatory reads schema 25")
 }
 
-metadata : Opened, Str -> Str
-metadata = |opened, key| lookup(opened.metadata, key)
+metadata_impl : Opened, Str -> Str
+metadata_impl = |opened, key| lookup(opened.metadata, key)
 
 lookup : List(Entry), Str -> Str
 lookup = |entries, key| match entries.find_first(|entry| entry.key == key) {
@@ -595,17 +596,17 @@ lookup = |entries, key| match entries.find_first(|entry| entry.key == key) {
 	Err(_) => ""
 }
 
-family : Opened, Str -> [Missing, Found(Family)]
-family = |opened, name| match opened.families.find_first(|found| found.name == name) {
+family_impl : Opened, Str -> [Missing, Found(Family)]
+family_impl = |opened, name| match opened.families.find_first(|found| found.name == name) {
 	Ok(found) => Found(found)
 	Err(_) => Missing
 }
 
-unfinalised : Str
-unfinalised = "capture not yet finalised"
+unfinalised_impl : Str
+unfinalised_impl = "capture not yet finalised"
 
-judge : Trust -> Verdict
-judge = |trust| if trust.final_state != "complete" Withheld(unfinalised) else judge_finalised(trust)
+judge_impl : Trust -> Verdict
+judge_impl = |trust| if trust.final_state != "complete" Withheld(unfinalised_impl) else judge_finalised(trust)
 
 judge_finalised : Trust -> Verdict
 judge_finalised = |trust| {
@@ -632,12 +633,12 @@ judge_finalised = |trust| {
 	}
 }
 
-expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Complete
-expect judge({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Withheld("capture not yet finalised")
-expect judge({ final_state: "complete", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("unclean shutdown")
-expect judge({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "timing_environment", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Partial("partial families: timing_environment")
-expect schema_gate("4") == Err("Schema 4 is not supported; Observatory reads schema 25")
-expect schema_gate("24") == Err("Schema 24 is not supported; Observatory reads schema 25")
+expect judge_impl({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Complete
+expect judge_impl({ final_state: "recording", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Withheld("capture not yet finalised")
+expect judge_impl({ final_state: "complete", clean_shutdown: "0", gaps: 0, unfinalized: 0, partial: "", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Untrusted("unclean shutdown")
+expect judge_impl({ final_state: "complete", clean_shutdown: "1", gaps: 0, unfinalized: 0, partial: "timing_environment", health: Some({ writer_failed: 0, output_limited: 0, omitted: 0 }) }) == Partial("partial families: timing_environment")
+expect schema_gate_impl("4") == Err("Schema 4 is not supported; Observatory reads schema 25")
+expect schema_gate_impl("24") == Err("Schema 24 is not supported; Observatory reads schema 25")
 
 ## Cells. Every column read through these is declared by schema 25; a nullable
 ## column is read as an option so an absent value never becomes zero.
@@ -682,8 +683,8 @@ runs_sql = "SELECT r.id, r.phase, r.sample_index, r.outcome, coalesce(r.diagnost
 
 steps_sql = "SELECT run_id, ordinal, source_line, kind, role, status, duration_ns, expected_count, observed_count, coalesce(expected_patch_kind, ''), coalesce(observed_patch_kind, ''), coalesce(diagnostic, '') FROM steps WHERE run_id = ? AND ordinal >= ? ORDER BY ordinal"
 
-page_rows : U64
-page_rows = 200
+page_rows_impl : U64
+page_rows_impl = 200
 
 ## Warmup runs exist to be discarded, so every cycle statistic excludes them.
 ## Median by averaging the one or two middle ranks; interquartile range by
@@ -698,11 +699,11 @@ skips_sql = "SELECT c.measurement_phase, coalesce(sum(CASE w.kind WHEN 2 THEN w.
 
 frames_sql = "SELECT count(*), coalesce(sum(CASE WHEN layout_request_ns + prepaint_ns + paint_ns > 16666667 THEN 1 ELSE 0 END), 0) FROM gpui_frames"
 
-columns : I64
-columns = 240
+columns_impl : I64
+columns_impl = 240
 
-budget_rates : List(I64)
-budget_rates = [30, 60, 120]
+budget_rates_impl : List(I64)
+budget_rates_impl = [30, 60, 120]
 
 ## Over-budget counts for every selectable budget, in `budget_rates` order.
 budgets_sql = "SELECT coalesce(sum(CASE WHEN t > 1000000000 / 30 THEN 1 ELSE 0 END), 0), coalesce(sum(CASE WHEN t > 1000000000 / 60 THEN 1 ELSE 0 END), 0), coalesce(sum(CASE WHEN t > 1000000000 / 120 THEN 1 ELSE 0 END), 0) FROM (SELECT layout_request_ns + prepaint_ns + paint_ns AS t FROM gpui_frames)"
@@ -718,6 +719,8 @@ native_sql = "SELECT metric, kind, sum(count), max(count) FROM gpui_native_work 
 
 work_totals_sql = "SELECT metric, sum(count), max(count) FROM gpui_frame_work GROUP BY metric ORDER BY metric"
 
+frame_clock_sql = "SELECT start_ns, end_ns FROM gpui_frames WHERE id = ?"
+
 frame_native_sql = "SELECT metric, kind, count FROM gpui_native_work WHERE frame_id = ? ORDER BY metric, kind"
 
 frame_work_sql = "SELECT metric, count FROM gpui_frame_work WHERE frame_id = ? ORDER BY metric"
@@ -730,8 +733,8 @@ lists_sql = "WITH l AS (SELECT list_id, count(*) AS n, max(id) AS last, max(mate
 ## As the frame strip: each column keeps the pass that materialised the most.
 passes_sql = "WITH p AS (SELECT list_id, visible_items AS v, materialized_entities AS m, row_number() OVER (ORDER BY id) - 1 AS r, count(*) OVER () AS n FROM virtual_list_frames) SELECT r * 240 / n AS c, max(m), list_id, v FROM p GROUP BY c ORDER BY c"
 
-work_metrics : List({ name : Str, group : [Replayed, Fresh, Moved] })
-work_metrics = [
+work_metrics_impl : List({ name : Str, group : [Replayed, Fresh, Moved] })
+work_metrics_impl = [
 	{ name: "cached prepaint subtrees", group: Replayed },
 	{ name: "replayed hitboxes", group: Replayed },
 	{ name: "replayed dispatch nodes", group: Replayed },
@@ -759,21 +762,21 @@ frame_work_count = |work, metric| match work.find_first(|found| found.metric == 
 	Err(_) => 0
 }
 
-replay_share : List({ metric : I64, count : I64 }) -> [None, Some(I64)]
-replay_share = |work| {
+replay_share_impl : List({ metric : I64, count : I64 }) -> [None, Some(I64)]
+replay_share_impl = |work| {
 	replayed = frame_work_count(work, 6)
 	fresh = frame_work_count(work, 14)
 	if replayed + fresh == 0 None else Some(replayed * 100 / (replayed + fresh))
 }
 
-expect replay_share([{ metric: 6, count: 3 }, { metric: 14, count: 9 }]) == Some(25)
-expect replay_share([]) == None
+expect replay_share_impl([{ metric: 6, count: 3 }, { metric: 14, count: 9 }]) == Some(25)
+expect replay_share_impl([]) == None
 
 ## Octave buckets from one microsecond: bucket 0 is below 1 µs, bucket k holds
 ## durations of at least 2^(k-1) µs and below 2^k µs, and the last bucket holds
 ## every duration from 2^23 µs (about 8.4 s) up.
-bucket_count : I64
-bucket_count = 25
+bucket_count_impl : I64
+bucket_count_impl = 25
 
 bucket_edge : I64 -> I64
 bucket_edge = |k| {
@@ -786,28 +789,28 @@ bucket_edge = |k| {
 	$edge
 }
 
-bucket_range : I64 -> { low : I64, high : I64 }
-bucket_range = |bucket| {
+bucket_range_impl : I64 -> { low : I64, high : I64 }
+bucket_range_impl = |bucket| {
 	low = if bucket <= 0 0 else bucket_edge(bucket - 1)
-	high = if bucket >= bucket_count - 1 9223372036854775807 else bucket_edge(bucket)
+	high = if bucket >= bucket_count_impl - 1 9223372036854775807 else bucket_edge(bucket)
 	{ low, high }
 }
 
-bucket_of : I64 -> I64
-bucket_of = |duration| {
+bucket_of_impl : I64 -> I64
+bucket_of_impl = |duration| {
 	var $bucket = 0
-	while $bucket < bucket_count - 1 and duration >= bucket_edge($bucket) {
+	while $bucket < bucket_count_impl - 1 and duration >= bucket_edge($bucket) {
 		$bucket = $bucket + 1
 	}
 	$bucket
 }
 
-expect bucket_range(0) == { low: 0, high: 1000 }
-expect bucket_range(1) == { low: 1000, high: 2000 }
-expect bucket_of(999) == 0
-expect bucket_of(1000) == 1
-expect bucket_of(1999) == 1
-expect bucket_of(16666667) == 15
+expect bucket_range_impl(0) == { low: 0, high: 1000 }
+expect bucket_range_impl(1) == { low: 1000, high: 2000 }
+expect bucket_of_impl(999) == 0
+expect bucket_of_impl(1000) == 1
+expect bucket_of_impl(1999) == 1
+expect bucket_of_impl(16666667) == 15
 
 ## A cycle's bucket is the number of edges its duration reaches, exactly as
 ## `bucket_of` counts them.
@@ -815,7 +818,7 @@ bucket_expression : Str
 bucket_expression = {
 	var $terms = []
 	var $k = 0
-	while $k < bucket_count - 1 {
+	while $k < bucket_count_impl - 1 {
 		$terms = $terms.append("(duration_ns >= ${bucket_edge($k).to_str()})")
 		$k = $k + 1
 	}
@@ -858,17 +861,17 @@ bound_rows! = |database, sql, value| match database.query_with!(sql, [Integer(va
 	Err(error) => Err(Gui.Sqlite.detail(error))
 }
 
-cycles! : Gui.Sqlite.Db, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
-cycles! = |database, scope| {
+cycles_impl! : Gui.Sqlite.Db, { phase : Str, only : Scope, offset : U64 } => Try(List(Cycle), Str)
+cycles_impl! = |database, scope| {
 	offset = Integer(scope.offset.to_i64_wrap())
 	request = match scope.only {
-		All => { sql: cycles_sql, params: [String(scope.phase), offset], rows: page_rows }
-		Only(chosen) => { sql: trigger_cycles_sql, params: [String(scope.phase), String(chosen.trigger), String(chosen.patch_kind), offset], rows: page_rows }
+		All => { sql: cycles_sql, params: [String(scope.phase), offset], rows: page_rows_impl }
+		Only(chosen) => { sql: trigger_cycles_sql, params: [String(scope.phase), String(chosen.trigger), String(chosen.patch_kind), offset], rows: page_rows_impl }
 		InBucket(held) => {
-			range = bucket_range(held.bucket)
+			range = bucket_range_impl(held.bucket)
 			match held.within {
-				All => { sql: bucket_cycles_sql, params: [String(scope.phase), Integer(range.low), Integer(range.high), offset], rows: page_rows }
-				Only(chosen) => { sql: trigger_bucket_cycles_sql, params: [String(scope.phase), String(chosen.trigger), String(chosen.patch_kind), Integer(range.low), Integer(range.high), offset], rows: page_rows }
+				All => { sql: bucket_cycles_sql, params: [String(scope.phase), Integer(range.low), Integer(range.high), offset], rows: page_rows_impl }
+				Only(chosen) => { sql: trigger_bucket_cycles_sql, params: [String(scope.phase), String(chosen.trigger), String(chosen.patch_kind), Integer(range.low), Integer(range.high), offset], rows: page_rows_impl }
 			}
 		}
 	}
@@ -889,13 +892,13 @@ decode_cycle = |row| {
 	callback: int_at(row, 8),
 	validate: int_at(row, 9),
 	apply: int_at(row, 10),
-	target: target_at(row, 11),
+	target: target_at_impl(row, 11),
 }
 
 ## A cycle's target from its two nullable columns, which the schema requires
 ## to be present or absent together.
-target_at : List(Gui.Sqlite.Value), U64 -> Target
-target_at = |row, index| match (row.get(index), row.get(index + 1)) {
+target_at_impl : List(Gui.Sqlite.Value), U64 -> Target
+target_at_impl = |row, index| match (row.get(index), row.get(index + 1)) {
 	(Ok(String(kind)), Ok(String(identity))) => Some({ kind, identity })
 	_ => None
 }
@@ -903,15 +906,15 @@ target_at = |row, index| match (row.get(index), row.get(index + 1)) {
 ## How a list, the inspector, and the Timeline name a cycle's target.
 ## Initialization and task completions are caused by no element, so they have
 ## no target rather than an unrecorded one.
-target_caption : Cycle -> Str
-target_caption = |cycle| match cycle.target {
+target_caption_impl : Cycle -> Str
+target_caption_impl = |cycle| match cycle.target {
 	Some(found) => "${found.kind} ${found.identity}"
 	None => if cycle.trigger == "init" or cycle.trigger == "task" "no target" else "target not recorded"
 }
 
-expect target_caption({ ..sample_inspected.cycle, trigger: "click", target: Some({ kind: "button", identity: "00ff00ff00ff00ff" }) }) == "button 00ff00ff00ff00ff"
-expect target_caption({ ..sample_inspected.cycle, trigger: "click" }) == "target not recorded"
-expect target_caption(sample_inspected.cycle) == "no target"
+expect target_caption_impl({ ..sample_inspected.cycle, trigger: "click", target: Some({ kind: "button", identity: "00ff00ff00ff00ff" }) }) == "button 00ff00ff00ff00ff"
+expect target_caption_impl({ ..sample_inspected.cycle, trigger: "click" }) == "target not recorded"
+expect target_caption_impl(sample_inspected.cycle) == "no target"
 
 counters : List(Gui.Sqlite.Value), U64, List(Str) -> List(Counter)
 counters = |row, start, names| names.map_with_index(|name, index| { name, value: int_at(row, start + index) })
@@ -927,8 +930,8 @@ decode_span = |row| {
 	reallocated_bytes: int_at(row, 6),
 }
 
-inspect! : Gui.Sqlite.Db, Cycle => Try(Inspected, Str)
-inspect! = |database, cycle| {
+inspect_impl! : Gui.Sqlite.Db, Cycle => Try(Inspected, Str)
+inspect_impl! = |database, cycle| {
 	details = bound_rows!(database, detail_sql, cycle.id)?
 	spans = bound_rows!(database, spans_sql, cycle.id)?
 	work = bound_rows!(database, work_sql, cycle.id)?
@@ -1019,13 +1022,13 @@ read_trust! = |database, entries| {
 	}
 }
 
-summarize! : Gui.Files.Dir.Read, Str => Listing
-summarize! = |directory, name| listing!(Gui.Sqlite.open_read!(directory, name), name)
+summarize_impl! : Gui.Files.Dir.Read, Str => Listing
+summarize_impl! = |directory, name| listing!(Gui.Sqlite.open_read!(directory, name), name)
 
 ## Summarize one capture a single-file grant reaches, as a folder's captures
 ## are summarized.
-summarize_file! : Gui.Files.File.Read, Str => Listing
-summarize_file! = |file, name| listing!(Gui.Sqlite.open_file_read!(file), name)
+summarize_file_impl! : Gui.Files.File.Read, Str => Listing
+summarize_file_impl! = |file, name| listing!(Gui.Sqlite.open_file_read!(file), name)
 
 listing! : Try(Gui.Sqlite.Db, Gui.Sqlite.SqliteErr), Str => Listing
 listing! = |opened, name| {
@@ -1036,10 +1039,10 @@ listing! = |opened, name| {
 			Err(detail) => { ..blank, verdict: Unsupported("not a capture: ${detail}") }
 			Ok(entries) => {
 				listed = described(blank, entries)
-				match schema_gate(lookup(entries, "schema_version")) {
+				match schema_gate_impl(lookup(entries, "schema_version")) {
 					Err(reason) => { ..listed, verdict: Unsupported(reason) }
 					Ok({}) => match read_trust!(database, entries) {
-						Ok(trust) => { ..listed, verdict: judge(trust) }
+						Ok(trust) => { ..listed, verdict: judge_impl(trust) }
 						Err(detail) => { ..listed, verdict: Unsupported("unreadable health: ${detail}") }
 					}
 				}
@@ -1061,8 +1064,8 @@ described = |blank, entries| {
 }
 
 ## The listing of a capture already read, as summarizing its file would give.
-listing_of : Opened -> Listing
-listing_of = |opened| {
+listing_of_impl : Opened -> Listing
+listing_of_impl = |opened| {
 	blank = { name: opened.name, capture_id: "", application: "", spec: "", backend: "", scale: "", detail: "", verdict: opened.verdict }
 	described(blank, opened.metadata)
 }
@@ -1105,9 +1108,9 @@ read_runs! = |database| {
 	Ok(found.map(|row| { id: int_at(row, 0), phase: text_at(row, 1), sample: option_at(row, 2), outcome: text_at(row, 3), diagnostic: text_at(row, 4), steps: int_at(row, 5), failed: int_at(row, 6) }))
 }
 
-run_steps! : Gui.Sqlite.Db, I64, U64 => Try(List(Step), Str)
-run_steps! = |database, run_id, from| {
-	page = database.page!({ sql: steps_sql, params: [Integer(run_id), Integer(from.to_i64_wrap())], rows: page_rows }) ? |error| Gui.Sqlite.detail(error)
+run_steps_impl! : Gui.Sqlite.Db, I64, U64 => Try(List(Step), Str)
+run_steps_impl! = |database, run_id, from| {
+	page = database.page!({ sql: steps_sql, params: [Integer(run_id), Integer(from.to_i64_wrap())], rows: page_rows_impl }) ? |error| Gui.Sqlite.detail(error)
 	Ok(decode_steps(page.rows))
 }
 
@@ -1163,8 +1166,8 @@ read_budgets! = |database| {
 	found = rows!(database, budgets_sql)?
 	Ok(
 		match found.first() {
-			Ok(row) => budget_rates.map_with_index(|hz, index| { hz, over: int_at(row, index) })
-			Err(_) => budget_rates.map(|hz| { hz, over: 0 })
+			Ok(row) => budget_rates_impl.map_with_index(|hz, index| { hz, over: int_at(row, index) })
+			Err(_) => budget_rates_impl.map(|hz| { hz, over: 0 })
 		},
 	)
 }
@@ -1172,8 +1175,8 @@ read_budgets! = |database| {
 decode_bar : List(Gui.Sqlite.Value) -> Bar
 decode_bar = |row| { column: int_at(row, 0), frames: int_at(row, 1), id: int_at(row, 3), run_id: int_at(row, 4), ordinal: int_at(row, 5), layout: int_at(row, 6), prepaint: int_at(row, 7), paint: int_at(row, 8) }
 
-strip! : Gui.Sqlite.Db, I64, I64 => Try(Strip, Str)
-strip! = |database, start, span| {
+strip_impl! : Gui.Sqlite.Db, I64, I64 => Try(Strip, Str)
+strip_impl! = |database, start, span| {
 	counted = rows!(database, frame_count_sql)?
 	total = match counted.first() {
 		Ok(row) => int_at(row, 0)
@@ -1183,18 +1186,26 @@ strip! = |database, start, span| {
 	if shown <= 0 {
 		Ok({ start, span: 0, total, bars: [] })
 	} else {
-		result = database.query_with!(strip_sql, [Integer(start), Integer(shown), Integer(columns)]) ? |error| Gui.Sqlite.detail(error)
+		result = database.query_with!(strip_sql, [Integer(start), Integer(shown), Integer(columns_impl)]) ? |error| Gui.Sqlite.detail(error)
 		Ok({ start, span: shown, total, bars: result.rows.map(decode_bar) })
 	}
 }
 
-frame! : Gui.Sqlite.Db, Bar => Try(FrameDetail, Str)
-frame! = |database, bar| {
+frame_impl! : Gui.Sqlite.Db, Bar => Try(FrameDetail, Str)
+frame_impl! = |database, bar| {
+	clock = bound_rows!(database, frame_clock_sql, bar.id)?
 	native = bound_rows!(database, frame_native_sql, bar.id)?
 	work = bound_rows!(database, frame_work_sql, bar.id)?
 	causes = bound_rows!(database, frame_causes_sql, bar.id)?
 	Ok({
 		id: bar.id,
+		clock: match clock.first() {
+			Ok(row) => match (option_at(row, 0), option_at(row, 1)) {
+				(Some(start), Some(end)) => Some({ start, end })
+				_ => None
+			}
+			Err(_) => None
+		},
 		run_id: bar.run_id,
 		ordinal: bar.ordinal,
 		layout: bar.layout,
@@ -1236,22 +1247,22 @@ read_buckets! = |database| {
 	Ok(found.map(|row| { phase: text_at(row, 0), trigger: text_at(row, 1), patch_kind: text_at(row, 2), bucket: int_at(row, 3), count: int_at(row, 4) }))
 }
 
-open! : Gui.Files.Dir.Read, Str => Try(Opened, Str)
-open! = |directory, name| {
+open_impl! : Gui.Files.Dir.Read, Str => Try(Opened, Str)
+open_impl! = |directory, name| {
 	database = Gui.Sqlite.open_read!(directory, name) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
-	read!(database, name)
+	read_impl!(database, name)
 }
 
-open_file! : Gui.Files.File.Read, Str => Try(Opened, Str)
-open_file! = |file, name| {
+open_file_impl! : Gui.Files.File.Read, Str => Try(Opened, Str)
+open_file_impl! = |file, name| {
 	database = Gui.Sqlite.open_file_read!(file) ? |error| "Could not open ${name}: ${Gui.Sqlite.detail(error)}"
-	read!(database, name)
+	read_impl!(database, name)
 }
 
 progress_sql = "SELECT coalesce((SELECT max(id) FROM cycles), 0), coalesce((SELECT max(id) FROM gpui_frames), 0), coalesce((SELECT max(id) FROM steps), 0), (SELECT count(*) FROM runs WHERE ended_ns IS NOT NULL), coalesce((SELECT value FROM metadata WHERE key = 'final_state'), ''), coalesce((SELECT value FROM metadata WHERE key = 'capture_id'), '')"
 
-progress! : Gui.Sqlite.Db => Try(Progress, Str)
-progress! = |database| {
+progress_impl! : Gui.Sqlite.Db => Try(Progress, Str)
+progress_impl! = |database| {
 	found = rows!(database, progress_sql)?
 	match found.first() {
 		Ok(row) => Ok({ cycles: int_at(row, 0), frames: int_at(row, 1), steps: int_at(row, 2), ended: int_at(row, 3), final_state: text_at(row, 4), capture_id: text_at(row, 5) })
@@ -1259,10 +1270,10 @@ progress! = |database| {
 	}
 }
 
-read! : Gui.Sqlite.Db, Str => Try(Opened, Str)
-read! = |database, name| {
+read_impl! : Gui.Sqlite.Db, Str => Try(Opened, Str)
+read_impl! = |database, name| {
 	entries = read_metadata!(database) ? |detail| "${name} is not a capture: ${detail}"
-	schema_gate(lookup(entries, "schema_version"))?
+	schema_gate_impl(lookup(entries, "schema_version"))?
 	trust = read_trust!(database, entries)?
 	families = read_families!(database)?
 	gaps = read_gaps!(database)?
@@ -1273,7 +1284,7 @@ read! = |database, name| {
 	skips = read_skips!(database)?
 	frames = read_frames!(database)?
 	budgets = read_budgets!(database)?
-	strip = strip!(database, 0, 0)?
+	strip = strip_impl!(database, 0, 0)?
 	native = read_native!(database)?
 	work = read_work!(database)?
 	lists = read_lists!(database)?
@@ -1281,5 +1292,5 @@ read! = |database, name| {
 	buckets = read_buckets!(database)?
 	allocations = read_allocations!(database)?
 	resources = read_resources!(database)?
-	Ok({ revision: 0, name, database, metadata: entries, families, gaps, health, runs, triggers, medians, skips, frames, budgets, strip, native, work, lists, passes, buckets, allocations, resources, verdict: judge(trust) })
+	Ok({ revision: 0, name, database, metadata: entries, families, gaps, health, runs, triggers, medians, skips, frames, budgets, strip, native, work, lists, passes, buckets, allocations, resources, verdict: judge_impl(trust) })
 }

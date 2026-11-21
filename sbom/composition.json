@@ -10,7 +10,7 @@
       "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
     },
     {
-      "input": "build-source:roc-9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g",
+      "input": "build-source:roc-7brgwR8YUqfeGrkdfF1V4GPPN7DnP7ftqub9KcrTEZtr",
       "component": "",
       "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
     },
@@ -65,7 +65,7 @@
       "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
     },
     {
-      "input": "roc-package:9yjxqdGTP4xSpSEmDazwTmRsehfRZzA19pwEKkR6fj1g",
+      "input": "roc-package:7brgwR8YUqfeGrkdfF1V4GPPN7DnP7ftqub9KcrTEZtr",
       "component": "",
       "reason": "Build/test environment input; delivered native composition is inventoried separately from sealed host and linker-input evidence."
     },

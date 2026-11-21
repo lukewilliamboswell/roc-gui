@@ -24,7 +24,7 @@ TimelineView := [].{
 	same_view = |a, b| inputs(a) == inputs(b)
 
 	timeline : Observatory.State, Capture.Opened -> Elem
-	timeline = timeline
+	timeline = timeline_impl
 
 	## The pressed frame's detail, which the inspector shows beside the chart.
 	detail : Elem
@@ -36,7 +36,7 @@ TimelineView := [].{
 	## The cycles a frame's owner recorded it was the first to draw, each of
 	## which opens in the inspector, or why no cause is shown.
 	causes : Capture.Opened, Capture.FrameDetail -> List(Elem)
-	causes = causes
+	causes = causes_impl
 }
 
 frame_of : Observatory.State -> [None, Some(I64)]
@@ -253,12 +253,13 @@ chart = |state, opened| {
 	## window shows them.
 	selected = match state.frame {
 		Some(detail) => {
-			frame = window.frames.keep_if(|mark| mark.bar.id == detail.id).map(
-				|mark| {
-					place = extent(window, plot, mark.start, mark.end)
-					rule({ key: painted(6, 1), label: "Selected frame", x1: place.x, y1: lanes_top - 4, x2: place.x, y2: bottom, stroke: Theme.alarm_ink })
-				},
-			)
+			frame = match detail.clock {
+				Some(clock) if clock.end >= window.start and clock.start <= window.start + window.span => {
+					place = extent(window, plot, clock.start, clock.end)
+					[rule({ key: painted(6, 1), label: "Selected frame", x1: place.x, y1: lanes_top - 4, x2: place.x, y2: bottom, stroke: Theme.alarm_ink })]
+				}
+				_ => []
+			}
 			linked = window.cycles.keep_if(|mark| detail.causes.any(|cause| cause.id == mark.cycle.id)).map_with_index(
 				|mark, index| {
 					place = extent(window, plot, mark.start, mark.end)
@@ -361,8 +362,8 @@ chart = |state, opened| {
 linkage_line : Capture.Opened, Str -> Elem
 linkage_line = |opened, name| Widgets.labelled_note("Linkage ${name}", Capture.absence(opened, name), if Capture.complete(opened, name) Theme.dim else Theme.caution)
 
-causes : Capture.Opened, Capture.FrameDetail -> List(Elem)
-causes = |opened, detail| if !Capture.complete(opened, "frame_cycle_linkage") {
+causes_impl : Capture.Opened, Capture.FrameDetail -> List(Elem)
+causes_impl = |opened, detail| if !Capture.complete(opened, "frame_cycle_linkage") {
 	[Widgets.labelled_note("Frame cause", "cause not recorded: ${Capture.absence(opened, "frame_cycle_linkage")}", Theme.dim)]
 } else if detail.causes.is_empty() {
 	[Widgets.labelled_note("Frame cause", "cause not recorded: no recorded cycle's patch reached native views before this frame", Theme.dim)]
@@ -384,7 +385,7 @@ frame_panel = |state, opened| match state.frame {
 	None => [Widgets.note("Press a frame to see the cycles it was the first to draw.")]
 	Some(detail) => {
 		total = detail.layout + detail.prepaint + detail.paint
-		[Widgets.labelled_note("Timeline frame title", "FRAME r${detail.run_id.to_str()} #${detail.ordinal.to_str()} · host stages ${Format.ms(total)}", Theme.ink)].concat(causes(opened, detail))
+		[Widgets.labelled_note("Timeline frame title", "FRAME r${detail.run_id.to_str()} #${detail.ordinal.to_str()} · host stages ${Format.ms(total)}", Theme.ink)].concat(causes_impl(opened, detail))
 	}
 }
 
@@ -403,8 +404,8 @@ part = |name, same, draw| Gui.translate_with(
 	},
 )
 
-timeline : Observatory.State, Capture.Opened -> Elem
-timeline = |state, opened| {
+timeline_impl : Observatory.State, Capture.Opened -> Elem
+timeline_impl = |state, opened| {
 	window = state.clock.window
 	body = if state.clock.of != opened.revision {
 		[Widgets.note("Reading the timeline…")]

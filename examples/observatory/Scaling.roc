@@ -47,14 +47,14 @@ Scaling := [].{
 
 	## Open one capture of the folder and read its means and scale checks.
 	load! : Gui.Files.Dir.Read, Str => Try(Member, Str)
-	load! = load!
+	load! = load_impl!
 
 	## Every chosen capture, in the order chosen.
 	load_all! : Gui.Files.Dir.Read, List(Str) => Try(List(Member), Str)
 	load_all! = |directory, names| {
 		var $members = []
 		for name in names {
-			member = load!(directory, name)?
+			member = load_impl!(directory, name)?
 			$members = $members.append(member)
 		}
 		Ok($members)
@@ -64,14 +64,14 @@ Scaling := [].{
 	toggle = |set, name| if set.chosen.contains(name) { ..set, chosen: set.chosen.keep_if(|found| found != name) } else { ..set, chosen: set.chosen.append(name) }
 
 	scale : Member -> [None, Some(I64)]
-	scale = scale
+	scale = scale_impl
 
 	## The gate, in words, exactly as `gate` applies it.
 	rule : Str
 	rule = "A scaling set is two or more finalised captures of one application and executable, on one backend, profile, OS, architecture, CPU, and detail, each timed in isolation with one job, at distinct benchmark scales."
 
 	gate : List(Member) -> List(Gate)
-	gate = gate
+	gate = gate_impl
 
 	## The first failing gate key, which refuses the set.
 	refusal : List(Gate) -> [None, Some(Str)]
@@ -82,13 +82,13 @@ Scaling := [].{
 
 	## Members ordered by scale.
 	ordered : List(Member) -> List(Member)
-	ordered = ordered
+	ordered = ordered_impl
 
 	metrics : List(Metric)
 	metrics = [Callback, Validate, Graph, Allocated]
 
 	metric_name : Metric -> Str
-	metric_name = metric_name
+	metric_name = metric_name_impl
 
 	## The verdict rule, in words, exactly as `classify` applies it.
 	verdict_rule : Str
@@ -99,12 +99,12 @@ Scaling := [].{
 	noise_rule = "The A/A band of a trigger and metric is how far the A/A capture's mean lies from the set member of its scale, as a fraction of it. A step ratio r within that fraction of 1 is within noise."
 
 	classify : { num : I64, den : I64 }, { num : I64, den : I64 } -> Str
-	classify = classify
+	classify = classify_impl
 
 	## Every trigger present in all members, by metric. `noise` is the A/A
 	## capture, already accepted against the member of its scale.
 	rows : List(Member), [None, Some(Member)] -> List(Row)
-	rows = rows
+	rows = rows_impl
 
 	## One member's mean of a metric for a trigger, when its families are
 	## complete.
@@ -120,7 +120,7 @@ Scaling := [].{
 
 	## A ratio as `9.6×`.
 	ratio_text : { num : I64, den : I64 } -> Str
-	ratio_text = ratio_text
+	ratio_text = ratio_text_impl
 }
 
 ## Sample runs only, and measured cycles only: the benchmark's own work.
@@ -135,8 +135,8 @@ int_at = |row, index| match row.get(index) {
 	_ => 0
 }
 
-load! : Gui.Files.Dir.Read, Str => Try(Member, Str)
-load! = |directory, name| {
+load_impl! : Gui.Files.Dir.Read, Str => Try(Member, Str)
+load_impl! = |directory, name| {
 	opened = Capture.open!(directory, name)?
 	found = opened.database.query!(means_sql) ? |error| Gui.Sqlite.detail(error)
 	counted = opened.database.query!(checks_sql) ? |error| Gui.Sqlite.detail(error)
@@ -163,20 +163,20 @@ load! = |directory, name| {
 	Ok({ opened, means, checks })
 }
 
-scale : Member -> [None, Some(I64)]
-scale = |member| match I64.from_str(Capture.metadata(member.opened, "benchmark_scale")) {
+scale_impl : Member -> [None, Some(I64)]
+scale_impl = |member| match I64.from_str(Capture.metadata(member.opened, "benchmark_scale")) {
 	Ok(value) if value > 0 => Some(value)
 	_ => None
 }
 
 scale_or_zero : Member -> I64
-scale_or_zero = |member| match scale(member) {
+scale_or_zero = |member| match scale_impl(member) {
 	Some(value) => value
 	None => 0
 }
 
-ordered : List(Member) -> List(Member)
-ordered = |members| List.sort_with(
+ordered_impl : List(Member) -> List(Member)
+ordered_impl = |members| List.sort_with(
 	members,
 	|a, b| {
 		left = scale_or_zero(a)
@@ -206,8 +206,8 @@ each = |members, key, judge| {
 	$found
 }
 
-gate : List(Member) -> List(Gate)
-gate = |members| {
+gate_impl : List(Member) -> List(Gate)
+gate_impl = |members| {
 	value = |member, key| Capture.metadata(member.opened, key)
 	count = { key: "members", pass: members.len() >= 2, detail: if members.len() >= 2 "" else "a set needs two or more captures, not ${members.len().to_str()}" }
 	finalised = each(
@@ -231,11 +231,11 @@ gate = |members| {
 	}
 	isolated = each(members, "timing_quality", |member| if value(member, "timing_quality") == "isolated" Pass else Fail("is ${value(member, "timing_quality")}; a scaling set needs isolated timing"))
 	jobs = each(members, "job_count", |member| if value(member, "job_count") == "1" Pass else Fail("ran ${value(member, "job_count")} jobs; a scaling set needs 1"))
-	scales = members.map(scale)
+	scales = members.map(scale_impl)
 	distinct = each(
 		members,
 		"benchmark_scale",
-		|member| match scale(member) {
+		|member| match scale_impl(member) {
 			None => Fail("records no benchmark scale")
 			Some(own) => if scales.keep_if(|found| found == Some(own)).len() > 1 Fail("shares scale ${own.to_str()} with another capture") else Pass
 		},
@@ -243,8 +243,8 @@ gate = |members| {
 	[count, finalised].concat(shared).concat([isolated, jobs, distinct])
 }
 
-metric_name : Metric -> Str
-metric_name = |metric| match metric {
+metric_name_impl : Metric -> Str
+metric_name_impl = |metric| match metric {
 	Callback => "callback"
 	Validate => "validate"
 	Graph => "graph apply"
@@ -277,8 +277,8 @@ complete_for = |member, metric| families(metric).all(|name| Capture.complete(mem
 
 ## `r^5` against `s^4` and `s^6`, in thousandths and 128 bits, so the
 ## exponent bounds 0.8 and 1.2 need no logarithm.
-classify : { num : I64, den : I64 }, { num : I64, den : I64 } -> Str
-classify = |observed, scaled| {
+classify_impl : { num : I64, den : I64 }, { num : I64, den : I64 } -> Str
+classify_impl = |observed, scaled| {
 	milli = |fraction| {
 		raw = fraction.num.to_i128() * 1000 / fraction.den.to_i128()
 		if raw > 1000000 1000000 else if raw < 1 1 else raw
@@ -296,20 +296,20 @@ classify = |observed, scaled| {
 	}
 }
 
-expect classify({ num: 96, den: 10 }, { num: 10, den: 1 }) == "linear"
-expect classify({ num: 31, den: 1 }, { num: 10, den: 1 }) == "super-linear"
-expect classify({ num: 11, den: 10 }, { num: 10, den: 1 }) == "sub-linear"
-expect classify({ num: 100, den: 1 }, { num: 100, den: 1 }) == "linear"
+expect classify_impl({ num: 96, den: 10 }, { num: 10, den: 1 }) == "linear"
+expect classify_impl({ num: 31, den: 1 }, { num: 10, den: 1 }) == "super-linear"
+expect classify_impl({ num: 11, den: 10 }, { num: 10, den: 1 }) == "sub-linear"
+expect classify_impl({ num: 100, den: 1 }, { num: 100, den: 1 }) == "linear"
 
-ratio_text : { num : I64, den : I64 } -> Str
-ratio_text = |fraction| if fraction.den <= 0 {
+ratio_text_impl : { num : I64, den : I64 } -> Str
+ratio_text_impl = |fraction| if fraction.den <= 0 {
 	"—"
 } else {
 	tenths = fraction.num * 10 / fraction.den
 	"${(tenths / 10).to_str()}.${(tenths % 10).to_str()}×"
 }
 
-expect ratio_text({ num: 96, den: 10 }) == "9.6×"
+expect ratio_text_impl({ num: 96, den: 10 }) == "9.6×"
 
 ## How far `twin` lies from `base`, in thousandths of `base`.
 band : I64, I64 -> [None, Some(I64)]
@@ -330,8 +330,8 @@ row_for = |members, noise, trigger, metric| {
 	)
 	bound = match noise {
 		Some(twin) if complete_for(twin, metric) => {
-			twin_scale = scale(twin)
-			match (members.find_first(|member| scale(member) == twin_scale), mean_of(twin, trigger)) {
+			twin_scale = scale_impl(twin)
+			match (members.find_first(|member| scale_impl(member) == twin_scale), mean_of(twin, trigger)) {
 				(Ok(member), Some(twin_mean)) => match (mean_of(member, trigger), value_of(metric, twin_mean)) {
 					(Some(own), Some(twin_value)) => match value_of(metric, own) {
 						Some(own_value) => band(own_value, twin_value)
@@ -364,7 +364,7 @@ row_for = |members, noise, trigger, metric| {
 	)
 	verdict = match (values.first(), values.last()) {
 		(Ok(low), Ok(high)) => match (low.value, high.value) {
-			(Some(x), Some(y)) if complete and x > 0 and low.at > 0 and steps.all(|step| step.observed != None) => Some(classify({ num: y, den: x }, { num: high.at, den: low.at }))
+			(Some(x), Some(y)) if complete and x > 0 and low.at > 0 and steps.all(|step| step.observed != None) => Some(classify_impl({ num: y, den: x }, { num: high.at, den: low.at }))
 			_ => None
 		}
 		_ => None
@@ -380,9 +380,9 @@ row_for = |members, noise, trigger, metric| {
 	{ trigger, metric, steps, verdict, absence }
 }
 
-rows : List(Member), [None, Some(Member)] -> List(Row)
-rows = |members, noise| {
-	sorted = ordered(members)
+rows_impl : List(Member), [None, Some(Member)] -> List(Row)
+rows_impl = |members, noise| {
+	sorted = ordered_impl(members)
 	triggers = match sorted.first() {
 		Ok(first) => first.means.map(|mean| mean.trigger).keep_if(|trigger| sorted.all(|member| mean_of(member, trigger) != None))
 		Err(_) => []

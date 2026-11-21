@@ -19,7 +19,7 @@ Monitor := [].{
 	## log's bound are the same number, so the two views agree about how far back
 	## "the history" reaches.
 	capacity : U64
-	capacity = capacity
+	capacity = capacity_impl
 
 	## Authority arrives here and nowhere else, so it is held in state: the tasks
 	## that acquire run later and need it where they run.
@@ -29,17 +29,17 @@ Monitor := [].{
 	## Begin a session. Acquisition is the whole authority question: if the host
 	## refuses, nothing is opened and nothing is read.
 	start! : State => Gui.Action(State)
-	start! = start!
+	start! = start_impl!
 
 	## End a session, closing both resources it owns and retiring its generation.
 	pause! : State, Session => Gui.Action(State)
-	pause! = pause!
+	pause! = pause_impl!
 
 	Session : Session
 	RunState : RunState
 }
 
-capacity = 120.U64
+capacity_impl = 120.U64
 
 Session : { sampler : Gui.SystemMonitor.Sampler, timer : Gui.Timer.Handle }
 
@@ -95,14 +95,14 @@ wait_next = |state, session, generation| Gui.Action.task({
 			Paused => Gui.Action.update(latest)
 			Running(_) => {
 				next = latest.history.append(snapshot)
-				bounded = if next.len() > capacity next.drop_first(next.len() - capacity) else next
+				bounded = if next.len() > capacity_impl next.drop_first(next.len() - capacity_impl) else next
 				wait_next({ ..latest, history: bounded, latest: Some(snapshot) }, session, generation)
 			}
 		}
 	},
 })
 
-start! = |state| {
+start_impl! = |state| {
 	generation = state.generation + 1
 	match state.access.system_monitor!() {
 		Err(err) => Gui.Action.update({ ..state, status: acquire_status(err) })
@@ -116,7 +116,7 @@ start! = |state| {
 	}
 }
 
-pause! = |state, session| {
+pause_impl! = |state, session| {
 	_ = session.timer.cancel!()
 	_ = session.sampler.close!()
 	Gui.Action.update({ ..state, generation: state.generation + 1, run_state: Paused, status: Paused })

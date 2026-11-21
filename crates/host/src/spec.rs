@@ -2118,7 +2118,7 @@ fn parse_step(node: &SExpr) -> Result<Step, ParseError> {
         }
         "expect-component-work" if values.len() >= 3 && values.len() % 2 == 1 => {
             let mut expected = [None; crate::observatory::COMPONENT_WORK_NAMES.len()];
-            for pair in values[1..].chunks_exact(2) {
+            for pair in values[1..].as_chunks::<2>().0 {
                 let name = pair[0]
                     .atom()
                     .and_then(|name| name.strip_prefix(':'))
