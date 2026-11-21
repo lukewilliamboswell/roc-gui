@@ -110,7 +110,8 @@ jobs:
           nix eval --raw "path:$PWD/.blueprint#devShells.aarch64-darwin.default.drvPath" >/dev/null
       - run: blueprint run lint
       - run: blueprint run build
-      - run: python3 scripts/headless_wayland.py -- blueprint run test -- --only semantic --jobs 2 --timeout 300
+      # Run the staged host against the runner's native Mesa driver and loader.
+      - run: python3 scripts/headless_wayland.py -- python3 scripts/run_specs.py --skip-host-build --only semantic --jobs 2 --timeout 300
 
   # Each target's host is produced once; its tests wait only for that host.
   host-x64glibc:
