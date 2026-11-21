@@ -20,13 +20,13 @@ CompareView := [].{
 
 	## The comparison the open capture shows.
 	mode : Observatory.State -> Compare.Mode
-	mode = mode
+	mode = mode_impl
 
 	baseline_bar : Observatory.State -> Elem
-	baseline_bar = baseline_bar
+	baseline_bar = baseline_bar_impl
 
 	compare : Observatory.State -> Elem
-	compare = compare
+	compare = compare_impl
 
 	## The same comparison, and the same folder to choose an A/A capture from.
 	same_view : Observatory.State, Observatory.State -> Bool
@@ -34,7 +34,7 @@ CompareView := [].{
 
 	## The triggers table's extra headings and cells while a baseline applies.
 	trigger_heads : Observatory.State -> List(Elem)
-	trigger_heads = trigger_heads
+	trigger_heads = trigger_heads_impl
 
 	trigger_cells : Compare.Mode, Capture.Opened, Capture.Trigger -> List(Elem)
 	trigger_cells = |current, opened, trigger| delta_cells("${trigger.trigger} ${trigger.patch_kind}", Compare.trigger_delta(current, opened, trigger), Compare.signed_ms)
@@ -43,14 +43,14 @@ CompareView := [].{
 	## otherwise it falls back to the median, so no table claims an order by a
 	## column it does not show.
 	trigger_sort : Observatory.State -> Observatory.Sort
-	trigger_sort = |state| match mode(state) {
+	trigger_sort = |state| match mode_impl(state) {
 		On(_) => state.trigger_sort
 		_ => if state.trigger_sort.column == Observatory.delta_column { column: 4, descending: True } else state.trigger_sort
 	}
 
 	## A cycle against its trigger group's median in the baseline.
 	cycle_line : Compare.Mode, Capture.Opened, Capture.Cycle -> List(Elem)
-	cycle_line = cycle_line
+	cycle_line = cycle_line_impl
 
 	allocation_heads : Compare.Mode -> List(Elem)
 	allocation_heads = |current| match current {
@@ -90,17 +90,17 @@ noise_opened = |state| match state.noise {
 	None => None
 }
 
-mode : Observatory.State -> Compare.Mode
-mode = |state| Compare.mode(state.capture, state.baseline, noise_opened(state))
+mode_impl : Observatory.State -> Compare.Mode
+mode_impl = |state| Compare.mode(state.capture, state.baseline, noise_opened(state))
 
 ## The baseline bar (US-32)
 
-baseline_bar : Observatory.State -> Elem
-baseline_bar = |state| {
+baseline_bar_impl : Observatory.State -> Elem
+baseline_bar_impl = |state| {
 	set = Widgets.key({ caption: "Set as baseline", label: "Set as baseline", selected: False, on_press: |current, _| Observatory.ask(current, SetBaseline) })
 	clear = Widgets.key({ caption: "Clear", label: "Clear baseline", selected: False, on_press: |current, _| Observatory.ask(current, ClearBaseline) })
 	name = |opened| Gui.row({ padding: 0, gap: 0, fg: Theme.ink, font_size: Theme.body, font_face: Theme.face, max_width: Px(260), text_overflow: Ellipsis }, [Gui.text("◆ ${opened.name}")])
-	parts = match (state.baseline, mode(state)) {
+	parts = match (state.baseline, mode_impl(state)) {
 		(None, _) => [Widgets.meta("BASELINE"), Widgets.labelled_note("Baseline verdict", "none: deltas appear once a baseline is set", Theme.dim)]
 		(Some(base), Refused(refused)) => [
 			Widgets.meta("BASELINE"),
@@ -193,7 +193,7 @@ noise_row = |state, listing| {
 
 noise_section : Observatory.State -> List(Elem)
 noise_section = |state| {
-	status = match mode(state) {
+	status = match mode_impl(state) {
 		On(applied) => match (applied.noise, applied.noise_refused) {
 			(Some(twin), _) => Widgets.labelled_note("A/A verdict", "✓ ${twin.name} bounds every Δ: a Δ no larger than the A/A spread of the same value is within noise.", Theme.good)
 			(None, Some(reason)) => Widgets.labelled_note("A/A verdict", "✗ refused: ${reason}", Theme.alarm_ink)
@@ -224,8 +224,8 @@ noise_section = |state| {
 	[Widgets.heading("A/A NOISE"), Widgets.note(Compare.noise_rule), status].concat(chooser)
 }
 
-compare : Observatory.State -> Elem
-compare = |state| {
+compare_impl : Observatory.State -> Elem
+compare_impl = |state| {
 	body = match (state.baseline, state.capture) {
 		(Some(base), Some(opened)) => sheet(base, opened)
 		_ => [
@@ -238,8 +238,8 @@ compare = |state| {
 
 ## Δ cells
 
-trigger_heads : Observatory.State -> List(Elem)
-trigger_heads = |state| match mode(state) {
+trigger_heads_impl : Observatory.State -> List(Elem)
+trigger_heads_impl = |state| match mode_impl(state) {
 	On(_) => {
 		active = state.trigger_sort.column == Observatory.delta_column
 		arrow = if !active "" else if state.trigger_sort.descending " ▾" else " ▴"
@@ -289,8 +289,8 @@ delta_cells = |name, found, shape| match found {
 	}
 }
 
-cycle_line : Compare.Mode, Capture.Opened, Capture.Cycle -> List(Elem)
-cycle_line = |current, opened, cycle| match Compare.cycle_delta(current, opened, cycle) {
+cycle_line_impl : Compare.Mode, Capture.Opened, Capture.Cycle -> List(Elem)
+cycle_line_impl = |current, opened, cycle| match Compare.cycle_delta(current, opened, cycle) {
 	Hidden => []
 	Absent(reason) => [Widgets.labelled_note("Baseline delta", "vs baseline: — (${reason})", Theme.dim)]
 	Shown(delta) => {

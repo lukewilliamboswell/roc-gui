@@ -16,7 +16,7 @@ import "icons/triangle-alert.svg" as alert_icon : List(U8)
 
 View := [].{
 	render : Monitor.State -> Gui.Elem(Monitor.State)
-	render = render
+	render = render_impl
 }
 
 sidebar_width = 420.U32
@@ -481,7 +481,7 @@ process_panel = |state| Gui.panel(
 	},
 )
 
-render = |state| Gui.col(
+render_impl = |state| Gui.col(
 	{
 		label: "System monitor",
 		width: Fill,

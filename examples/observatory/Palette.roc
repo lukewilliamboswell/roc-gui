@@ -15,17 +15,17 @@ Palette := [].{
 	## scores keep the order the candidates were given in, and an empty query
 	## finds every candidate in that order.
 	rank : Str, List(Candidate(a)), U64 -> List(Candidate(a))
-	rank = rank
+	rank = rank_impl
 
 	## How well `query` matches `text`: `None` when its letters do not occur in
 	## order, otherwise a score that grows with runs and word starts.
 	score : Str, Str -> [None, Some(I64)]
-	score = score
+	score = score_impl
 
 	## A query naming a cycle or a step by number, such as `cycle 12` or
 	## `Step 3`.
 	numbered : Str -> [None, Cycle(I64), Step(I64)]
-	numbered = numbered
+	numbered = numbered_impl
 }
 
 ## ASCII upper case to lower case; every other byte is itself.
@@ -36,8 +36,8 @@ fold = |byte| if byte >= 65 and byte <= 90 byte + 32 else byte
 separates : U8 -> Bool
 separates = |byte| byte == 32 or byte == 45 or byte == 95 or byte == 46 or byte == 47 or byte == 58 or byte == 35
 
-score : Str, Str -> [None, Some(I64)]
-score = |query, text| {
+score_impl : Str, Str -> [None, Some(I64)]
+score_impl = |query, text| {
 	wanted = query.to_utf8().keep_if(|byte| byte != 32).map(fold)
 	haystack = text.to_utf8().map(fold)
 	var $total = 0.I64
@@ -60,12 +60,12 @@ score = |query, text| {
 	if $next == wanted.len() Some($total) else None
 }
 
-rank : Str, List(Candidate(a)), U64 -> List(Candidate(a))
-rank = |query, candidates, limit| {
+rank_impl : Str, List(Candidate(a)), U64 -> List(Candidate(a))
+rank_impl = |query, candidates, limit| {
 	var $found = []
 	var $index = 0.I64
 	for candidate in candidates {
-		match score(query, "${candidate.kind} ${candidate.title}") {
+		match score_impl(query, "${candidate.kind} ${candidate.title}") {
 			Some(points) => {
 				$found = $found.append({ points, index: $index, candidate })
 			}
@@ -103,8 +103,8 @@ number_after = |bytes, word| if bytes.starts_with(word) {
 	None
 }
 
-numbered : Str -> [None, Cycle(I64), Step(I64)]
-numbered = |query| {
+numbered_impl : Str -> [None, Cycle(I64), Step(I64)]
+numbered_impl = |query| {
 	bytes = query.trim().to_utf8().map(fold)
 	match number_after(bytes, "cycle".to_utf8()) {
 		Some(number) => Cycle(number)
@@ -115,26 +115,26 @@ numbered = |query| {
 	}
 }
 
-expect score("hov", "Trigger hover-enter") != None
-expect score("xyz", "Trigger hover-enter") == None
-expect score("HOV", "trigger hover-enter") == score("hov", "Trigger Hover-enter")
+expect score_impl("hov", "Trigger hover-enter") != None
+expect score_impl("xyz", "Trigger hover-enter") == None
+expect score_impl("HOV", "trigger hover-enter") == score_impl("hov", "Trigger Hover-enter")
 # A run at a word's start outranks the same letters scattered.
 expect {
 	points = |found| match found {
 		Some(value) => value
 		None => 0
 	}
-	points(score("int", "View Interactions")) > points(score("int", "Trigger input-text"))
+	points(score_impl("int", "View Interactions")) > points(score_impl("int", "Trigger input-text"))
 }
-expect numbered("cycle 12") == Cycle(12)
-expect numbered("  Step 3 ") == Step(3)
-expect numbered("cycle") == None
-expect numbered("cycles 4") == None
+expect numbered_impl("cycle 12") == Cycle(12)
+expect numbered_impl("  Step 3 ") == Step(3)
+expect numbered_impl("cycle") == None
+expect numbered_impl("cycles 4") == None
 expect {
 	candidates = [
 		{ kind: "Trigger", title: "input", detail: "", keys: "", act: 1.I64 },
 		{ kind: "View", title: "Interactions", detail: "", keys: "", act: 2 },
 		{ kind: "View", title: "Overview", detail: "", keys: "", act: 3 },
 	]
-	rank("int", candidates, 5).map(|found| found.act) == [2, 1] and rank("", candidates, 2).map(|found| found.act) == [1, 2]
+	rank_impl("int", candidates, 5).map(|found| found.act) == [2, 1] and rank_impl("", candidates, 2).map(|found| found.act) == [1, 2]
 }

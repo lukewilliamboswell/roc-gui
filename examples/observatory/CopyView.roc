@@ -58,7 +58,7 @@ CopyView := [].{
 
 	## A cycle's waterfall: every part, and the family each part comes from.
 	waterfall : Capture.Opened, Capture.Inspected, [Shown, Absent(Str)] -> Table
-	waterfall = waterfall
+	waterfall = waterfall_impl
 
 	## Allocations inside each span over each trigger's cycles.
 	allocations : Capture.Opened, List(Capture.TriggerAlloc) -> Table
@@ -107,8 +107,8 @@ evidence = |opened, name| match Capture.family(opened, name) {
 copy : Observatory.State, Str, Table -> Gui.Action(Observatory.State)
 copy = |current, name, table| Observatory.ask(current, Copy({ name, rows: table.rows.len(), markdown: Markdown.table(name, table.header, table.rows) }))
 
-waterfall : Capture.Opened, Capture.Inspected, [Shown, Absent(Str)] -> Table
-waterfall = |opened, inspected, spans| {
+waterfall_impl : Capture.Opened, Capture.Inspected, [Shown, Absent(Str)] -> Table
+waterfall_impl = |opened, inspected, spans| {
 	cycle = inspected.cycle
 	parts = Capture.decompose(inspected)
 	part : Str, Str, Str -> List(Str)

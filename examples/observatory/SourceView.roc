@@ -18,12 +18,12 @@ SourceView := [].{
 	## The source bar: the button granting a folder of sources, and what the
 	## folder holds for this capture.
 	bar : Observatory.State, Capture.Opened -> List(Elem)
-	bar = bar
+	bar = bar_impl
 
 	## The median key of the run selector, offered when the capture has
 	## samples and the source is annotated.
 	median_key : Observatory.State, Capture.Opened -> List(Elem)
-	median_key = median_key
+	median_key = median_key_impl
 
 	## Whether the run selector's key for a run is the one annotated.
 	shows_run : Observatory.State, I64 -> Bool
@@ -34,7 +34,7 @@ SourceView := [].{
 
 	## The annotated source.
 	annotated : Observatory.State, Capture.Opened -> Elem
-	annotated = annotated
+	annotated = annotated_impl
 
 	## The inspector of the chosen line's steps, which sits beside the source.
 	step_inspector : Observatory.State, Capture.Opened -> Elem
@@ -68,8 +68,8 @@ found_key = |found| match found {
 	Changed(held) => "changed ${held.folder}/${held.file}"
 }
 
-median_key : Observatory.State, Capture.Opened -> List(Elem)
-median_key = |state, opened| {
+median_key_impl : Observatory.State, Capture.Opened -> List(Elem)
+median_key_impl = |state, opened| {
 	annotation_mode = match state.spec_source.annotation {
 		Some(annotation) => Some(annotation.mode)
 		None => None
@@ -84,8 +84,8 @@ median_key = |state, opened| {
 open_key : Elem
 open_key = Widgets.key({ caption: "Open spec sources…", label: "Open spec sources", selected: False, on_press: |current, _| Observatory.ask(current, OpenSources) })
 
-bar : Observatory.State, Capture.Opened -> List(Elem)
-bar = |state, opened| {
+bar_impl : Observatory.State, Capture.Opened -> List(Elem)
+bar_impl = |state, opened| {
 	current = state.spec_source.of == opened.revision
 	status = |label, text, ink| Widgets.labelled_note(label, text, ink)
 	if Str.is_empty(Capture.metadata(opened, "spec_hash")) {
@@ -387,8 +387,8 @@ inspector = |state, opened, annotation| {
 	})
 }
 
-annotated : Observatory.State, Capture.Opened -> Elem
-annotated = |state, opened| match (state.spec_source.annotation, state.spec_source.found) {
+annotated_impl : Observatory.State, Capture.Opened -> Elem
+annotated_impl = |state, opened| match (state.spec_source.annotation, state.spec_source.found) {
 	(Some(annotation), Matched(held)) => {
 		lines = held.lines
 		render_row : U64 -> Elem

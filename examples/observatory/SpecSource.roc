@@ -97,7 +97,7 @@ SpecSource := [].{
 			Ok(mark) => Some(mark.ordinal)
 			Err(_) => None
 		}
-		{ mode, marks, rows: layout(lines, marks), boundary, read }
+		{ mode, marks, rows: layout_impl(lines, marks), boundary, read }
 	}
 
 	## The row a step's line is on, if the source has that line.
@@ -114,11 +114,11 @@ SpecSource := [].{
 
 	## Find the capture's specification in a granted folder of sources.
 	find! : Gui.Files.Dir.Read, Str, Capture.Opened => Try(Found, Str)
-	find! = find!
+	find! = find_impl!
 
 	## Read the steps, cycles, and assertions of the runs a mode shows.
 	annotate! : Gui.Sqlite.Db, Capture.Opened, Mode => Try(List(Mark), Str)
-	annotate! = annotate!
+	annotate! = annotate_impl!
 
 	## The sample runs of a capture, which the median is taken across.
 	samples : Capture.Opened -> List(Capture.Run)
@@ -127,23 +127,23 @@ SpecSource := [].{
 	## The rows of the annotated source: every line, and below a failing
 	## step's line its diagnostic and its assertion tables.
 	layout : List(Str), List(Mark) -> List(Row)
-	layout = layout
+	layout = layout_impl
 
 	## Why a step's cycle count is absent: its family is not complete, or its
 	## cycles ran before the benchmark's mark, which a summary capture does not
 	## record.
 	cycles_absence : Capture.Opened, [None, Some(I64)], Mark -> [Recorded, Absent(Str)]
-	cycles_absence = cycles_absence
+	cycles_absence = cycles_absence_impl
 
 	## One source line split into styled runs: comments, strings, keywords,
 	## the operator after an opening parenthesis, and parentheses.
 	tokens : Str -> List({ text : Str, class : [Plain, Paren, Head, Keyword, Literal, Comment] })
-	tokens = tokens
+	tokens = tokens_impl
 
 	## The median of a list of values: the middle one, or the mean of the two
 	## middle ones.
 	median : List(I64) -> [None, Some(I64)]
-	median = median
+	median = median_impl
 }
 
 ## Hashes are compared in the recorder's own spelling.
@@ -155,8 +155,8 @@ is_source = |entry| entry.kind == File and Str.ends_with(entry.name, ".scm")
 
 ## The file hashing to `spec_hash` is the specification that ran. Failing
 ## that, a file declaring the capture's test has changed since the capture.
-find! : Gui.Files.Dir.Read, Str, Capture.Opened => Try(Found, Str)
-find! = |directory, folder, opened| {
+find_impl! : Gui.Files.Dir.Read, Str, Capture.Opened => Try(Found, Str)
+find_impl! = |directory, folder, opened| {
 	hash = Capture.metadata(opened, "spec_hash")
 	name = Capture.metadata(opened, "spec_name")
 	if Str.is_empty(hash) or Str.is_empty(name) {
@@ -339,8 +339,8 @@ mark_of = |read, row| {
 	}
 }
 
-annotate! : Gui.Sqlite.Db, Capture.Opened, Mode => Try(List(Mark), Str)
-annotate! = |database, opened, mode| match mode {
+annotate_impl! : Gui.Sqlite.Db, Capture.Opened, Mode => Try(List(Mark), Str)
+annotate_impl! = |database, opened, mode| match mode {
 	OneRun(run_id) => match opened.runs.find_first(|run| run.id == run_id) {
 		Ok(run) => {
 			read = read_run!(database, run)?
@@ -379,7 +379,7 @@ median_mark = |reads, base| {
 	)
 		.join()
 	durations = samples.keep_if(|sample| sample.duration != None).map(|sample| or_else(sample.duration, 0))
-	duration = if durations.len() == samples.len() median(durations) else None
+	duration = if durations.len() == samples.len() median_impl(durations) else None
 	failed = each.keep_if(|mark| match mark {
 		Some(found) => found.status == "fail"
 		None => False
@@ -388,7 +388,7 @@ median_mark = |reads, base| {
 		Ok(Some(found)) => found
 		_ => base
 	}
-	{ ..shown, duration, cycles: or_else(median(samples.map(|sample| sample.cycles)), 0), samples }
+	{ ..shown, duration, cycles: or_else(median_impl(samples.map(|sample| sample.cycles)), 0), samples }
 }
 
 ## A run's steps are numbered from zero, so a step's ordinal is its row.
@@ -407,8 +407,8 @@ or_else = |value, fallback| match value {
 	None => fallback
 }
 
-median : List(I64) -> [None, Some(I64)]
-median = |values| {
+median_impl : List(I64) -> [None, Some(I64)]
+median_impl = |values| {
 	sorted = values.sort_with(|a, b| if a < b Before else if a > b After else Same)
 	count = sorted.len()
 	if count == 0 {
@@ -420,12 +420,12 @@ median = |values| {
 	}
 }
 
-expect median([5, 1, 3]) == Some(3)
-expect median([4, 1, 3, 2]) == Some(2)
-expect median([]) == None
+expect median_impl([5, 1, 3]) == Some(3)
+expect median_impl([4, 1, 3, 2]) == Some(2)
+expect median_impl([]) == None
 
-cycles_absence : Capture.Opened, [None, Some(I64)], Mark -> [Recorded, Absent(Str)]
-cycles_absence = |opened, boundary, mark| {
+cycles_absence_impl : Capture.Opened, [None, Some(I64)], Mark -> [Recorded, Absent(Str)]
+cycles_absence_impl = |opened, boundary, mark| {
 	before_mark = match boundary {
 		Some(ordinal) => mark.ordinal < ordinal
 		None => False
@@ -439,8 +439,8 @@ cycles_absence = |opened, boundary, mark| {
 	}
 }
 
-layout : List(Str), List(Mark) -> List(Row)
-layout = |lines, marks| {
+layout_impl : List(Str), List(Mark) -> List(Row)
+layout_impl = |lines, marks| {
 	# The steps of each line, gathered once rather than searched per line.
 	var $index = 0.U64
 	var $on_line = Dict.empty()
@@ -492,8 +492,8 @@ is_delimiter = |byte| byte == ' ' or byte == '\t' or byte == '(' or byte == ')' 
 is_digit : U8 -> Bool
 is_digit = |byte| byte >= '0' and byte <= '9'
 
-tokens : Str -> List({ text : Str, class : [Plain, Paren, Head, Keyword, Literal, Comment] })
-tokens = |line| {
+tokens_impl : Str -> List({ text : Str, class : [Plain, Paren, Head, Keyword, Literal, Comment] })
+tokens_impl = |line| {
 	bytes = line.to_utf8()
 	# Modes: 0 between tokens, 1 in a string, 2 after a string's backslash,
 	# 3 in a comment, 4 in an atom.
@@ -558,11 +558,11 @@ tokens = |line| {
 	$runs
 }
 
-expect tokens("") == []
+expect tokens_impl("") == []
 expect {
-	found = tokens("  (click (role button :name \"Open\")) ; go")
+	found = tokens_impl("  (click (role button :name \"Open\")) ; go")
 	found.map(|token| token.text) == ["  ", "(", "click", " ", "(", "role", " button ", ":name", " ", "\"Open\"", "))", " ", "; go"]
 	and found.map(|token| token.class) == [Plain, Paren, Head, Plain, Paren, Head, Plain, Keyword, Plain, Literal, Paren, Plain, Comment]
 }
-expect tokens("(benchmark :warmups 2)").map(|token| token.class) == [Paren, Head, Plain, Keyword, Plain, Literal, Paren]
-expect tokens("\"a \\\" b\" x").map(|token| token.text) == ["\"a \\\" b\"", " x"]
+expect tokens_impl("(benchmark :warmups 2)").map(|token| token.class) == [Paren, Head, Plain, Keyword, Plain, Literal, Paren]
+expect tokens_impl("\"a \\\" b\" x").map(|token| token.text) == ["\"a \\\" b\"", " x"]

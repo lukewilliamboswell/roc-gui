@@ -20,7 +20,7 @@ ScalingView := [].{
 	same_view = |a, b| inputs(a) == inputs(b) and a.chart_width == b.chart_width
 
 	scaling : Observatory.State -> Elem
-	scaling = scaling
+	scaling = scaling_impl
 }
 
 inputs : Observatory.State -> { folder : [None, Some(U64)], chosen : List(Str), read : U64, noise : [None, Some(U64)] }
@@ -488,8 +488,8 @@ result = |state| {
 	}
 }
 
-scaling : Observatory.State -> Elem
-scaling = |state| Gui.col(
+scaling_impl : Observatory.State -> Elem
+scaling_impl = |state| Gui.col(
 	{ label: "Scaling", width: Fill, padding: Theme.inset, gap: 6 },
 	[Widgets.heading("SCALING SET"), Widgets.note(Scaling.rule)]
 		.concat(chooser(state))

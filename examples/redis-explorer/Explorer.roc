@@ -46,13 +46,13 @@ Explorer := [].{
 	init : Gui.Access -> State
 	init = |access| { access, keys: [], link: Offline, next_request: 0, pattern: "profile:*", selection: None, trouble: None }
 	connect : State -> Gui.Action(State)
-	connect = connect
+	connect = connect_impl
 	disconnect : State, Gui.Tcp.TcpStream -> Gui.Action(State)
-	disconnect = disconnect
+	disconnect = disconnect_impl
 	scan : State, Gui.Tcp.TcpStream -> Gui.Action(State)
-	scan = scan
+	scan = scan_impl
 	inspect : State, Gui.Tcp.TcpStream, Key -> Gui.Action(State)
-	inspect = inspect
+	inspect = inspect_impl
 	set_pattern : State, Str -> State
 	set_pattern = |state, pattern| { ..state, pattern }
 }
@@ -72,7 +72,7 @@ still_current = |link, id| match link {
 	_ => False
 }
 
-connect = |state| {
+connect_impl = |state| {
 	id = state.next_request
 	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, link: Opening(id), trouble: None },
@@ -98,7 +98,7 @@ connect = |state| {
 
 ## Closing surrenders the stream in the pending state, before the task runs, so
 ## the explorer never holds a handle it has already asked the host to shut down.
-disconnect = |state, stream| {
+disconnect_impl = |state, stream| {
 	id = state.next_request
 	Gui.Action.task({
 		pending: { ..state, keys: [], next_request: id + 1, selection: None, link: Closing(id), trouble: None },
@@ -131,7 +131,7 @@ scan_pages! = |conn, cursor, pattern, remaining, found| {
 	}
 }
 
-scan = |state, stream| {
+scan_impl = |state, stream| {
 	id = state.next_request
 	pattern = state.pattern
 	Gui.Action.task({
@@ -184,7 +184,7 @@ inspect_value! = |conn, key, kind| match kind {
 	_ => Err(UnsupportedType)
 }
 
-inspect = |state, stream, key| {
+inspect_impl = |state, stream, key| {
 	id = state.next_request
 	Gui.Action.task({
 		pending: { ..state, next_request: id + 1, link: Busy({ stream, id, doing: "reading ${key.name}" }), trouble: None },

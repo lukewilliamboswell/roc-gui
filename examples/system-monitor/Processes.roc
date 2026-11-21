@@ -12,24 +12,24 @@ Processes := [].{
 	Sort : [ByCpu, ByMemory]
 
 	filter_sort : List(Gui.SystemMonitor.Process), Str, Sort -> List(Gui.SystemMonitor.Process)
-	filter_sort = filter_sort
+	filter_sort = filter_sort_impl
 
 	## The column heading, built from the same widths the rows are.
 	heading : Str
-	heading = heading
+	heading = heading_impl
 
 	## One row of the table.
 	row_text : Gui.SystemMonitor.Process -> Str
-	row_text = row_text
+	row_text = row_text_impl
 
 	## The process a selected pid now refers to, if it is still in the sample. A
 	## selection outliving the process it named is ordinary, and saying so is
 	## better than showing a number with nothing behind it.
 	find : List(Gui.SystemMonitor.Process), U64 -> [None, Some(Gui.SystemMonitor.Process)]
-	find = find
+	find = find_impl
 }
 
-heading = columns("PROCESS", "CPU", "MEMORY")
+heading_impl = columns("PROCESS", "CPU", "MEMORY")
 
 name_width = 22.U64
 
@@ -41,13 +41,13 @@ columns = |name, cpu, memory| "${Format.pad_right(name, name_width)} ${Format.pa
 
 ## Per-process CPU is normalised the same way the overall figure is, but is not
 ## bounded by one hundred percent: a process using four cores fully reports 400.
-row_text = |process| columns(
+row_text_impl = |process| columns(
 	Format.truncate(process.name, name_width),
 	"${Format.tenths(U16.to_u64(process.cpu_tenths))}%",
 	Format.byte_text(process.memory_bytes),
 )
 
-filter_sort = |processes, query, sort| {
+filter_sort_impl = |processes, query, sort| {
 	filtered = processes.keep_if(|process| Str.is_empty(query) or Str.contains(process.name, query))
 	List.sort_with(
 		filtered,
@@ -58,7 +58,7 @@ filter_sort = |processes, query, sort| {
 	)
 }
 
-find = |processes, pid| {
+find_impl = |processes, pid| {
 	var $found = None
 	for process in processes {
 		$found = if process.pid == pid Some(process) else $found
@@ -66,6 +66,6 @@ find = |processes, pid| {
 	$found
 }
 
-expect heading == "PROCESS                    CPU     MEMORY"
-expect row_text({ cpu_tenths: 427, memory_bytes: 8000000, name: "kernel_task", pid: 1 }) == "kernel_task              42.7%    7.6 MiB"
-expect Format.count_chars(row_text({ cpu_tenths: 9999, memory_bytes: 1099511627776, name: "a-very-long-process-name", pid: 2 })) == Format.count_chars(heading)
+expect heading_impl == "PROCESS                    CPU     MEMORY"
+expect row_text_impl({ cpu_tenths: 427, memory_bytes: 8000000, name: "kernel_task", pid: 1 }) == "kernel_task              42.7%    7.6 MiB"
+expect Format.count_chars(row_text_impl({ cpu_tenths: 9999, memory_bytes: 1099511627776, name: "a-very-long-process-name", pid: 2 })) == Format.count_chars(heading_impl)

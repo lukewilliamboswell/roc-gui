@@ -55,7 +55,7 @@ Timeline := [].{
 
 	## How many columns a lane is divided into.
 	columns : I64
-	columns = columns
+	columns = columns_impl
 
 	## The shortest span a window may be zoomed to.
 	shortest : I64
@@ -67,17 +67,17 @@ Timeline := [].{
 	## The marks of `span` nanoseconds from `start`; a `span` of zero or less is
 	## the whole capture.
 	read! : Gui.Sqlite.Db, I64, I64 => Try(Window, Str)
-	read! = read!
+	read! = read_impl!
 
 	## The window a wheel asks for: the vertical wheel halves or doubles the
 	## span around the instant under the pointer at `offset` of `width`
 	## pixels, and the horizontal wheel pans by an eighth.
 	zoomed : Window, I64, I64, I32, I32 -> [None, Some({ start : I64, span : I64 })]
-	zoomed = zoomed
+	zoomed = zoomed_impl
 }
 
-columns : I64
-columns = 360
+columns_impl : I64
+columns_impl = 360
 
 int_at : List(Gui.Sqlite.Value), U64 -> I64
 int_at = |row, index| match row.get(index) {
@@ -186,8 +186,8 @@ decode_pass = |row| {
 	},
 }
 
-read! : Gui.Sqlite.Db, I64, I64 => Try(Window, Str)
-read! = |database, start, span| {
+read_impl! : Gui.Sqlite.Db, I64, I64 => Try(Window, Str)
+read_impl! = |database, start, span| {
 	extent = query!(database, extent_sql, [])?
 	bounds = match extent.first() {
 		Ok(row) => match (option_at(row, 0), option_at(row, 1)) {
@@ -202,7 +202,7 @@ read! = |database, start, span| {
 			whole = if last - first < 1 1 else last - first
 			shown = if span <= 0 or span > whole whole else span
 			from = if span <= 0 or start < first first else if start + shown > first + whole first + whole - shown else start
-			window = [Integer(from), Integer(shown), Integer(columns)]
+			window = [Integer(from), Integer(shown), Integer(columns_impl)]
 			triggers = query!(database, triggers_sql, [])?
 			cycles = query!(database, cycles_sql, window)?
 			frames = query!(database, frames_sql, window)?
@@ -221,8 +221,8 @@ read! = |database, start, span| {
 	}
 }
 
-zoomed : Window, I64, I64, I32, I32 -> [None, Some({ start : I64, span : I64 })]
-zoomed = |window, offset, width, dx, dy| {
+zoomed_impl : Window, I64, I64, I32, I32 -> [None, Some({ start : I64, span : I64 })]
+zoomed_impl = |window, offset, width, dx, dy| {
 	whole = window.last - window.first
 	if whole <= 0 or width <= 0 or window.span <= 0 {
 		None
@@ -242,6 +242,6 @@ zoomed = |window, offset, width, dx, dy| {
 sample : Window
 sample = { ..Timeline.empty, first: 0, last: 1000000, start: 0, span: 1000000 }
 
-expect zoomed(sample, 360, 720, 0, -1) == Some({ start: 250000, span: 500000 })
-expect zoomed(sample, 0, 720, 0, 1) == None
-expect zoomed({ ..sample, span: 500000 }, 0, 720, 1, 0) == Some({ start: 62500, span: 500000 })
+expect zoomed_impl(sample, 360, 720, 0, -1) == Some({ start: 250000, span: 500000 })
+expect zoomed_impl(sample, 0, 720, 0, 1) == None
+expect zoomed_impl({ ..sample, span: 500000 }, 0, 720, 1, 0) == Some({ start: 62500, span: 500000 })

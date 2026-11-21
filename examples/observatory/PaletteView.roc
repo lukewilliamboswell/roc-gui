@@ -22,14 +22,14 @@ PaletteView := [].{
 	## query lists them: a numbered cycle or step first, then commands, views,
 	## captures, and triggers.
 	candidates : Observatory.State, Str -> List(Candidate)
-	candidates = candidates
+	candidates = candidates_impl
 
 	## The results a query shows, best first.
 	results : Observatory.State, Str -> List(Candidate)
-	results = |state, query| Palette.rank(query, candidates(state, query), limit)
+	results = |state, query| Palette.rank(query, candidates_impl(state, query), limit)
 
 	palette : Observatory.State -> Elem
-	palette = palette
+	palette = palette_impl
 
 	## The palette draws from the query and highlight, and from what the
 	## candidates are made of.
@@ -123,8 +123,8 @@ triggers = |state| match state.capture {
 	None => []
 }
 
-candidates : Observatory.State, Str -> List(Candidate)
-candidates = |state, query| numbered(state, query).concat(commands(state)).concat(views(state)).concat(captures(state)).concat(triggers(state))
+candidates_impl : Observatory.State, Str -> List(Candidate)
+candidates_impl = |state, query| numbered(state, query).concat(commands(state)).concat(views(state)).concat(captures(state)).concat(triggers(state))
 
 ## Close the palette and do what a result asks.
 choose : Observatory.State, Act -> Gui.Action(Observatory.State)
@@ -193,8 +193,8 @@ result_row = |found, lit| Gui.row(
 		.concat(if Str.is_empty(found.keys) [] else [Gui.row({ padding: 0, padding_right: Px(Theme.inset), gap: 0, fg: Theme.dim, font_size: Theme.meta, font_face: Theme.face }, [Gui.chord(found.keys)])]),
 )
 
-palette : Observatory.State -> Elem
-palette = |state| match state.palette {
+palette_impl : Observatory.State -> Elem
+palette_impl = |state| match state.palette {
 	Closed => Gui.row({ padding: 0, gap: 0, height: Px(0) }, [])
 	Open(open) => {
 		found = PaletteView.results(state, open.query)
