@@ -103,6 +103,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libfreetype6 libxkbcommon0 libxkbcommon-x11-0 libasound2t64 fontconfig sway grim libvulkan1 mesa-vulkan-drivers
+      - name: Cache the locked FreeType source with the official mirror fallback
+        run: |
+          recipe=dependencies/freetype.json
+          url=$(jq -er '.source.url' "$recipe")
+          digest=$(jq -er '.source.sha256 | select(test("^[a-f0-9]{64}$"))' "$recipe")
+          store="${XDG_CACHE_HOME:-$HOME/.cache}/blueprint/v1/artifacts/sha256"
+          if [ ! -f "$store/$digest" ]; then
+            mkdir -p "$store"
+            archive=$(mktemp "$store/.freetype.XXXXXX")
+            trap 'rm -f "$archive"' EXIT
+            curl -fsSL --max-time 15 -o "$archive" "$url" ||
+              curl -fsSL --max-time 60 -o "$archive" "${url/://download.savannah.gnu.org/://download-mirror.savannah.gnu.org}"
+            printf '%s  %s\n' "$digest" "$archive" | sha256sum -c -
+            mv "$archive" "$store/$digest"
+          fi
       # The macOS environment must evaluate; nothing is built for it here.
       - name: Evaluate the aarch64-darwin environment
         run: |

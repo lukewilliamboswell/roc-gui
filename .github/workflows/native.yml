@@ -173,6 +173,7 @@ jobs:
           --exclude "examples/observatory/specs/window-timeline.scm"
           --exclude "examples/clipboard-history/specs/window-*.scm"
           --exclude "examples/system-monitor/specs/window-plot-width.scm"
+          ${{ runner.os == 'macOS' && '--window-step-timeout-ms 90000' || '' }}
           --timeout 180 --window-retries=${{ runner.os == 'macOS' && 2 || 1 }}
           --skip-host-build --output="$RUNNER_TEMP/spec-evidence"
           ${{ inputs.missing_shots }}

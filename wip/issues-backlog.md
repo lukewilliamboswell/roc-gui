@@ -15,5 +15,10 @@
 - [ ] **Hosted macOS window driver occasionally stalls.** The same GPUI specs
   pass locally, but the macOS runner can hit the host watchdog at
   `driver-started`, including on successive launches. The macOS window job
-  allows two fresh retries and still requires a passing attempt. Find why the
-  driver stops progressing on hosted macOS and remove the extra retry.
+  allows two fresh retries and uses a 90-second step budget and 120-second
+  watchdog within its 180-second process deadline. Find why the driver stops
+  progressing on hosted macOS and restore the default deadlines and retries.
+- [ ] **FreeType distributor can time out on a cold CI cache.** The Blueprint
+  CI job tries the official mirror and verifies the locked source bytes before
+  placing them in the store. Move this fallback into the download recipe once
+  Blueprint supports alternate URLs for a pinned source.
