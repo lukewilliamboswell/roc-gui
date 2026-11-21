@@ -163,10 +163,10 @@ import Work
 gui_init! : () => {}
 gui_init! = || Program.start!(main)
 
-gui_dispatch! : Box((Session(state) => {})), U64 => {}
+gui_dispatch! : Box((Session(State) => {})), U64 => {}
 gui_dispatch! = |dispatch_box, event_id| Box.unbox(dispatch_box)(Session.event(event_id))
 
-gui_complete! : Box((Session(state) => {})), Box(Action.Completion(state)), U64 => {}
+gui_complete! : Box((Session(State) => {})), Box(Action.Completion(State)), U64 => {}
 gui_complete! = |dispatch_box, completion_box, owner| Box.unbox(dispatch_box)(Session.completion(owner, completion_box))
 
 gui_run_task! : Box((() => Work)) => {}
