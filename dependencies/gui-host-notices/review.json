@@ -1,17 +1,6 @@
 {
   "schema_version": 1,
   "packages": {
-    "block@0.1.6": {
-      "crate_sha256": "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a",
-      "source_revision": null,
-      "category": "metadata_only_in_reviewed_archive",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "24df2f33b48c9e756a4f864f882c1ab07a159b6c2b790f45af2e8162499b6719"
-        }
-      },
-      "upstream_files": []
-    },
     "block2@0.6.2": {
       "crate_sha256": "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5",
       "source_revision": "b4167b582b2f75f9a1be75495c41b765344fd03c",
@@ -93,56 +82,6 @@
         },
         "src/types.rs": {
           "sha256": "fedbb2227d11655d2399015b3132b523be5aff80efa1ee6928491afc3bbf5a8b"
-        }
-      },
-      "upstream_files": []
-    },
-    "hexf-parse@0.2.1": {
-      "crate_sha256": "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df",
-      "source_revision": "4225763d744183d720f575ae96d04161b4d08ea0",
-      "category": "metadata_only_in_reviewed_archive",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "dd7274968556f3f3309df5615d94437ec4e4823777cc440f91177b2170cbe2a7"
-        },
-        "Cargo.toml.orig": {
-          "sha256": "4a56dbdbc12054fd33b7a2634a45cbbe6fe12f5e6f4081002cbfa527f7220c70"
-        }
-      },
-      "upstream_files": []
-    },
-    "leak@0.1.2": {
-      "crate_sha256": "bd100e01f1154f2908dfa7d02219aeab25d0b9c7fa955164192e3245255a0c73",
-      "source_revision": null,
-      "category": "metadata_only_in_reviewed_archive",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "8800b6172da0ce015fdc69cbe3fdc48c22f4223babe254e207255c681c83e8dd"
-        }
-      },
-      "upstream_files": []
-    },
-    "leaky-cow@0.1.1": {
-      "crate_sha256": "40a8225d44241fd324a8af2806ba635fc7c8a7e9a7de4d5cf3ef54e71f5926fc",
-      "source_revision": null,
-      "category": "original_license_reference",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "cd5e595a4b4eede02b0c1b96bb86eb3860bf660fafd7ca6eb0f92b96d9e733f5"
-        },
-        "src/lib.rs": {
-          "sha256": "5c34776cad80147e94ce1c4af40135d645b478276abf16dc44265cd57da77ea0"
-        }
-      },
-      "upstream_files": []
-    },
-    "malloc_buf@0.0.6": {
-      "crate_sha256": "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb",
-      "source_revision": null,
-      "category": "metadata_only_in_reviewed_archive",
-      "source_files": {
-        "Cargo.toml": {
-          "sha256": "d87624d9d117489bd49dbaeb70077a0721e00ac2a76eb371faec818a92da5661"
         }
       },
       "upstream_files": []
