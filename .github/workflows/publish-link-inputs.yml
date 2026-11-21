@@ -31,7 +31,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Publish exact PR-produced bytes and adopt their lock
-        uses: lukewilliamboswell/roc-automation/actions/publish-build-inputs@f2c40def4ca269e4a29b4096edc86f600251aa5d
+        uses: lukewilliamboswell/roc-automation/actions/publish-build-inputs@6c796f299012707d2e9bad23fd6449ed93f1f475
         with:
           pull-request: ${{ inputs.pull-request }}
           producer-workflow: link-inputs.yml
