@@ -23,8 +23,8 @@ def check(candidate, require_native=False, zig='zig', evidence=None, roc='roc'):
     recipe = json.loads((ROOT / 'dependencies/windows-gnu-runtime.json').read_text())
     if subprocess.check_output([zig, 'version'], text=True).strip() != recipe['zig_version']:
         raise ValueError('unexpected Zig probe version')
-    if not subprocess.check_output(['rustc', '+1.95.0', '--version'], text=True).startswith('rustc 1.95.0 '):
-        raise ValueError('Rust probe requires version 1.95.0')
+    if not subprocess.check_output(['rustc', '+1.98.1', '--version'], text=True).startswith('rustc 1.98.1 '):
+        raise ValueError('Rust probe requires version 1.98.1')
     if recipe['probe_roc_version'].rsplit('-', 1)[-1] not in subprocess.check_output([roc, 'version'], text=True):
         raise ValueError('unexpected Roc probe compiler')
     with tempfile.TemporaryDirectory(prefix='roc-gui-windows-runtime-probe-') as temporary:
@@ -48,7 +48,7 @@ def check(candidate, require_native=False, zig='zig', evidence=None, roc='roc'):
         seed.write_text('int main() { try { throw 42; } catch (int n) { return n == 42 ? 0 : 1; } }\n')
         subprocess.run([*compiler, str(seed), '-lws2_32', '-luserenv', '-o', str(work / 'seed.exe')], env=environment, check=True, timeout=600)
         rust = work / 'rust-probe.lib'
-        subprocess.run(['rustc', '+1.95.0', '--target=x86_64-pc-windows-gnullvm', '--crate-type=staticlib',
+        subprocess.run(['rustc', '+1.98.1', '--target=x86_64-pc-windows-gnullvm', '--crate-type=staticlib',
                         '--edition=2024', '-C', 'panic=unwind', '-C', 'opt-level=2',
                         str(ROOT / 'test/dependencies/windows_gnu_runtime.rs'), '-o', str(rust)],
                        env=environment, check=True, timeout=180)
@@ -85,8 +85,8 @@ def check(candidate, require_native=False, zig='zig', evidence=None, roc='roc'):
             commands = [line.split() for line in linked.stderr.splitlines() if line.startswith('lld-link ')]
             if len(commands) != 1:
                 raise ValueError('expected one explicit final COFF linker invocation')
-            sysroot = Path(subprocess.check_output(['rustc', '+1.95.0', '--print', 'sysroot'], text=True).strip())
-            rust_host = subprocess.check_output(['rustc', '+1.95.0', '-vV'], text=True).split('host: ', 1)[1].splitlines()[0]
+            sysroot = Path(subprocess.check_output(['rustc', '+1.98.1', '--print', 'sysroot'], text=True).strip())
+            rust_host = subprocess.check_output(['rustc', '+1.98.1', '-vV'], text=True).split('host: ', 1)[1].splitlines()[0]
             linker = sysroot / 'lib/rustlib' / rust_host / 'bin' / ('rust-lld.exe' if os.name == 'nt' else 'rust-lld')
             arguments = [a for a in commands[0][1:] if not a.lower().startswith('-out:') and not a.lower().startswith('/out:')]
             mapping = work / (name + '.map')

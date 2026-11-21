@@ -110,15 +110,15 @@ def missing_prerequisites(which=shutil.which, exists=None, environ=None, output=
             if not exists(sdk / tool):
                 missing.append(f"{sdk / tool}: the Windows SDK {SDK} shader compiler pair")
     if which("rustup") is None:
-        missing.append("rustup on PATH: the build pins the 1.95.0 toolchain through it")
+        missing.append("rustup on PATH: the build pins the 1.98.1 toolchain through it")
     else:
         toolchains = output(["rustup", "toolchain", "list"])
-        if not any(line.startswith("1.95.0-x86_64-pc-windows-msvc") for line in toolchains.splitlines()):
-            missing.append("the 1.95.0-x86_64-pc-windows-msvc toolchain: `rustup toolchain install 1.95.0`")
+        if not any(line.startswith("1.98.1-x86_64-pc-windows-msvc") for line in toolchains.splitlines()):
+            missing.append("the 1.98.1-x86_64-pc-windows-msvc toolchain: `rustup toolchain install 1.98.1`")
         else:
-            targets = output(["rustup", "target", "list", "--installed", "--toolchain", "1.95.0"])
+            targets = output(["rustup", "target", "list", "--installed", "--toolchain", "1.98.1"])
             if TRIPLE not in targets.split():
-                missing.append(f"the {TRIPLE} target: `rustup target add --toolchain 1.95.0 {TRIPLE}`")
+                missing.append(f"the {TRIPLE} target: `rustup target add --toolchain 1.98.1 {TRIPLE}`")
     if which("gh") is None:
         missing.append("the GitHub CLI (`gh`), authenticated: the signed dependency releases "
                        "are downloaded through it")
@@ -221,7 +221,7 @@ def cargo_environment(tool_dir, zig, fxc, cargo_target):
     # beside this build keeps the build directory's own name in the archive
     # rather than whoever ran it.
     cache = Path(tool_dir).parent / "zig-cache"
-    env.update(RUSTUP_TOOLCHAIN="1.95.0", CARGO_TARGET_DIR=str(cargo_target),
+    env.update(RUSTUP_TOOLCHAIN="1.98.1", CARGO_TARGET_DIR=str(cargo_target),
                GPUI_FXC_PATH=str(fxc), ROC_GUI_WINDOWS_ZIG=str(zig),
                ZIG_LOCAL_CACHE_DIR=str(cache), ZIG_GLOBAL_CACHE_DIR=str(cache))
     for variable, mode in (("CC", "cc"), ("CXX", "c++"), ("AR", "ar")):
@@ -263,7 +263,7 @@ def execute(output, *, jobs=2, cargo_target=None, debug=False, extra_env=None):
     versions = {"rustc": subprocess.check_output(["rustc", "-vV"], env=env, text=True),
                 "cargo": subprocess.check_output(["cargo", "-V"], env=env, text=True),
                 "zig": "0.16.0"}
-    if "release: 1.95.0\n" not in versions["rustc"]:
+    if "release: 1.98.1\n" not in versions["rustc"]:
         raise ValueError("Rust toolchain version mismatch")
     # rustc reports the native libraries the static library leaves to the
     # final link; the Windows import library is derived from them.

@@ -258,10 +258,10 @@ def capture(root, target, output, jobs, environment, expected_fingerprint=None):
     if expected_fingerprint is not None and fingerprint != expected_fingerprint:
         raise ValueError("host source changed before Cargo build")
     # The Windows recipe pins the toolchain itself; ask it the same question.
-    probe = dict(environment, RUSTUP_TOOLCHAIN="1.95.0") if target == "x64mingw" else environment
+    probe = dict(environment, RUSTUP_TOOLCHAIN="1.98.1") if target == "x64mingw" else environment
     version = subprocess.check_output(["rustc", "--version", "--verbose"], env=probe, text=True)
-    if not version.startswith("rustc 1.95.0 ") or "host: " + compiler_host(target) not in version.splitlines():
-        raise ValueError("host notice evidence requires native Rust 1.95.0")
+    if not version.startswith("rustc 1.98.1 ") or "host: " + compiler_host(target) not in version.splitlines():
+        raise ValueError("host notice evidence requires native Rust 1.98.1")
     lock = (root / "Cargo.lock").read_bytes()
     output.parent.mkdir(parents=True, exist_ok=True)
     # Windows compiles C sources through Zig, which records their paths in the
