@@ -491,18 +491,31 @@ async fn await_painted(
     timeout: Duration,
     cx: &mut AsyncApp,
 ) -> Result<(), StepError> {
+    read_painted(window, timeout, cx, |_, _| Ok(())).await
+}
+
+/// Read the graph and rendered geometry in the same window update that
+/// admits their generation. A completion can land between window updates.
+async fn read_painted<T>(
+    window: WindowHandle<Runtime>,
+    timeout: Duration,
+    cx: &mut AsyncApp,
+    mut read: impl FnMut(&Runtime, &gpui::Window) -> Result<T, StepError>,
+) -> Result<T, StepError> {
     let started = std::time::Instant::now();
     loop {
-        let behind = window
-            .update(cx, |runtime, _, _| runtime.painted().err())
+        let result = window
+            .update(cx, |runtime, window, _| {
+                runtime.painted().map_err(stale)?;
+                read(runtime, window)
+            })
             .map_err(|_| StepError::WindowClosed)?;
-        let Some(behind) = behind else {
-            return Ok(());
-        };
-        if started.elapsed() >= timeout {
-            return Err(stale(behind));
+        match result {
+            Err(StepError::Stale { .. }) if started.elapsed() < timeout => {
+                next_frame(window, cx).await?;
+            }
+            result => return result,
         }
-        next_frame(window, cx).await?;
     }
 }
 
@@ -989,33 +1002,30 @@ async fn run_step(
             // The window's own pointer presses at one point of the element,
             // moves with the button held, and releases: GPUI hit-tests the
             // press and the production listeners follow the rest.
-            await_painted(window, options.timeout, cx).await?;
-            let viewport = viewport_rect(window, cx)?;
-            let origin = window
-                .update(cx, |runtime, _, _| {
-                    let id = resolve(runtime, locator)?;
-                    if runtime
-                        .graph
-                        .active_dialog()
-                        .is_some_and(|dialog| !runtime.graph.is_descendant_of(id, dialog))
-                    {
-                        return Err(StepError::BehindDialog(describe(locator)));
+            let origin = read_painted(window, options.timeout, cx, |runtime, window| {
+                let id = resolve(runtime, locator)?;
+                if runtime
+                    .graph
+                    .active_dialog()
+                    .is_some_and(|dialog| !runtime.graph.is_descendant_of(id, dialog))
+                {
+                    return Err(StepError::BehindDialog(describe(locator)));
+                }
+                match runtime.graph.node(id).map(|node| &node.kind) {
+                    Some(crate::bridge::NodeKind::Canvas { .. }) => runtime
+                        .canvas_surfaces
+                        .get(&id)
+                        .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
+                        .map(|surface| surface.origin)
+                        .ok_or_else(|| StepError::NotPainted(describe(locator))),
+                    Some(crate::bridge::NodeKind::Split { .. }) => {
+                        let bounds = visible_rect(runtime, locator, window_viewport(window))?;
+                        Ok(point(px(bounds.left), px(bounds.top)))
                     }
-                    match runtime.graph.node(id).map(|node| &node.kind) {
-                        Some(crate::bridge::NodeKind::Canvas { .. }) => runtime
-                            .canvas_surfaces
-                            .get(&id)
-                            .and_then(|slot| *slot.lock().expect("canvas bounds poisoned"))
-                            .map(|surface| surface.origin)
-                            .ok_or_else(|| StepError::NotPainted(describe(locator))),
-                        Some(crate::bridge::NodeKind::Split { .. }) => {
-                            let bounds = visible_rect(runtime, locator, viewport)?;
-                            Ok(point(px(bounds.left), px(bounds.top)))
-                        }
-                        _ => Err(StepError::NotDraggable(describe(locator))),
-                    }
-                })
-                .map_err(|_| StepError::WindowClosed)??;
+                    _ => Err(StepError::NotDraggable(describe(locator))),
+                }
+            })
+            .await?;
             let from = point(origin.x + px(*from_x as f32), origin.y + px(*from_y as f32));
             let to = point(origin.x + px(*to_x as f32), origin.y + px(*to_y as f32));
             let gesture = [
@@ -2218,17 +2228,19 @@ fn block_system_pointer(window: &gpui::Window) {
 #[cfg(not(windows))]
 fn block_system_pointer(_window: &gpui::Window) {}
 
+fn window_viewport(window: &gpui::Window) -> Rect {
+    let size = window.viewport_size();
+    Rect {
+        left: 0.0,
+        top: 0.0,
+        right: f32::from(size.width),
+        bottom: f32::from(size.height),
+    }
+}
+
 fn viewport_rect(window: WindowHandle<Runtime>, cx: &mut AsyncApp) -> Result<Rect, StepError> {
     window
-        .update(cx, |_, window, _| {
-            let size = window.viewport_size();
-            Rect {
-                left: 0.0,
-                top: 0.0,
-                right: f32::from(size.width),
-                bottom: f32::from(size.height),
-            }
-        })
+        .update(cx, |_, window, _| window_viewport(window))
         .map_err(|_| StepError::WindowClosed)
 }
 
