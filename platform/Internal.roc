@@ -1300,6 +1300,7 @@ Internal := [].{
 
 	# Lower only values carried by Insert and Set. The resulting root already is
 	# the item's boundary root and is passed to the host transaction unchanged.
+	keyed_lower! : Elem(a), BoundaryInfo(a), a, Index(Route(a)), Index(BoundaryInfo(a)), ({ instance : U64, root : U64, routes : Index(Route(a)), boundaries : Index(BoundaryInfo(a)) } => Work) => Work
 	keyed_lower! = |elem, owner, state, routes, boundaries, done!| {
 		active = { key: owner.key, revision: owner.revision, path: owner.path, route_ids: RouteIds.empty, children: [], keyed_container: 0, keyed_revision: 0, keyed_keys: [], keyed: None }
 		lower!(
@@ -1579,6 +1580,7 @@ Internal := [].{
 		)
 	}
 
+	finish_rebuild! : BoundaryInfo(a), BoundaryInfo(a), a, Building(a), (Lowered(a) -> Work) => Work
 	finish_rebuild! = |owner, cleared, state, lowered, done!| {
 		completed = Box.unbox(lowered.boundaries.active)
 		var $keyed_items = KeyedSeq.empty()
