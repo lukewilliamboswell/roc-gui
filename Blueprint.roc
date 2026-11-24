@@ -29,7 +29,7 @@ release_package = |system| File("https://github.com/lukewilliamboswell/roc-autom
 
 script_runtime : List(Config.EnvironmentSetting)
 script_runtime = [
-	Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-11-23-b5c77fc"))]),
+	Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-11-24-ff5e544"))]),
 	# Every bundle the scripts depend on, including dependencies of
 	# dependencies: `roc-stable deps scripts/check_all.roc` lists them.
 	RocPackages([
