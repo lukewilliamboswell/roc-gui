@@ -457,14 +457,21 @@ fn roc_host() -> &'static RocHost {
     unsafe { &*roc_host_ptr() }
 }
 
+/// # Safety
+/// The size and power-of-two alignment must form a valid allocation layout
+/// including the allocator's size header.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_alloc(length: usize, alignment: usize) -> NonNull<c_void> {
+pub unsafe extern "C" fn roc_alloc(length: usize, alignment: usize) -> NonNull<c_void> {
     observatory::note_roc_alloc(length);
-    DefaultAllocators::roc_alloc(roc_host_ptr(), length, alignment)
+    // SAFETY: The Roc caller supplies the layout, and the host context is initialized.
+    unsafe { DefaultAllocators::roc_alloc(roc_host_ptr(), length, alignment) }
 }
 
+/// # Safety
+/// The pointer must identify a live allocation from the Roc host allocator
+/// with the original alignment. The caller must stop using it after this call.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
+pub unsafe extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
     observatory::note_roc_dealloc();
     let mask = RESOURCE_ROUTING.mask();
     if mask != 0 {
@@ -512,7 +519,8 @@ pub extern "C" fn roc_dealloc(pointer: *mut c_void, alignment: usize) {
             watch::route_dealloc(pointer);
         }
     }
-    DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment);
+    // SAFETY: The caller guarantees a live Roc allocation with this alignment.
+    unsafe { DefaultAllocators::roc_dealloc(roc_host_ptr(), pointer, alignment) };
 }
 
 /// One bit per resource store, so an application that only ever used one
@@ -656,50 +664,71 @@ mod resource_allocation_tests {
     }
 }
 
+/// # Safety
+/// The pointer must identify a live Roc allocation with the original alignment,
+/// and the new size must form a valid layout including the allocator's size
+/// header. The caller must stop using the old pointer after this call.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_realloc(
+pub unsafe extern "C" fn roc_realloc(
     pointer: *mut c_void,
     new_length: usize,
     alignment: usize,
 ) -> NonNull<c_void> {
     observatory::note_roc_realloc(new_length);
-    DefaultAllocators::roc_realloc(roc_host_ptr(), pointer, new_length, alignment)
+    // SAFETY: The caller guarantees the allocation, alignment, and new layout.
+    unsafe { DefaultAllocators::roc_realloc(roc_host_ptr(), pointer, new_length, alignment) }
 }
 
+/// # Safety
+/// The pointer must be valid for a byte slice of length `len` containing UTF-8.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_dbg(bytes: *const u8, len: usize) {
-    DefaultHandlers::roc_dbg(roc_host_ptr(), bytes, len);
+pub unsafe extern "C" fn roc_dbg(bytes: *const u8, len: usize) {
+    // SAFETY: The Roc caller guarantees the message is a valid UTF-8 slice.
+    unsafe { DefaultHandlers::roc_dbg(roc_host_ptr(), bytes, len) };
 }
 
+/// # Safety
+/// The pointer must be valid for a byte slice of length `len` containing UTF-8.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_expect_failed(bytes: *const u8, len: usize) {
-    DefaultHandlers::roc_expect_failed(roc_host_ptr(), bytes, len);
+pub unsafe extern "C" fn roc_expect_failed(bytes: *const u8, len: usize) {
+    // SAFETY: The Roc caller guarantees the message is a valid UTF-8 slice.
+    unsafe { DefaultHandlers::roc_expect_failed(roc_host_ptr(), bytes, len) };
 }
 
+/// # Safety
+/// The pointer must be valid for a byte slice of length `len` containing UTF-8.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_crashed(bytes: *const u8, len: usize) {
-    DefaultHandlers::roc_crashed(roc_host_ptr(), bytes, len);
+pub unsafe extern "C" fn roc_crashed(bytes: *const u8, len: usize) {
+    // SAFETY: The Roc caller guarantees the message is a valid UTF-8 slice.
+    unsafe { DefaultHandlers::roc_crashed(roc_host_ptr(), bytes, len) };
 }
 
-extern "C" fn counted_roc_alloc(
+unsafe extern "C" fn counted_roc_alloc(
     _host: *mut RocHost,
     length: usize,
     alignment: usize,
 ) -> NonNull<c_void> {
-    roc_alloc(length, alignment)
+    // SAFETY: Roc passes the same arguments required by the direct allocator.
+    unsafe { roc_alloc(length, alignment) }
 }
 
-extern "C" fn counted_roc_dealloc(_host: *mut RocHost, pointer: *mut c_void, alignment: usize) {
-    roc_dealloc(pointer, alignment);
+unsafe extern "C" fn counted_roc_dealloc(
+    _host: *mut RocHost,
+    pointer: *mut c_void,
+    alignment: usize,
+) {
+    // SAFETY: Roc passes the same arguments required by the direct allocator.
+    unsafe { roc_dealloc(pointer, alignment) };
 }
 
-extern "C" fn counted_roc_realloc(
+unsafe extern "C" fn counted_roc_realloc(
     _host: *mut RocHost,
     pointer: *mut c_void,
     new_length: usize,
     alignment: usize,
 ) -> NonNull<c_void> {
-    roc_realloc(pointer, new_length, alignment)
+    // SAFETY: Roc passes the same arguments required by the direct allocator.
+    unsafe { roc_realloc(pointer, new_length, alignment) }
 }
 
 fn make_counted_roc_host(env: *mut c_void) -> RocHost {
