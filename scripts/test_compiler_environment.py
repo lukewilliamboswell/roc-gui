@@ -33,7 +33,7 @@ class CompilerInstallationTests(unittest.TestCase):
         self.compiler.parent.mkdir(parents=True)
         self.compiler.write_text("verified compiler fixture")
         self.path_file = self.directory / "github-path"
-        self.nightly = "nightly-2026-11-20-3b29392"
+        self.nightly = "nightly-2026-11-23-b5c77fc"
         name = "roc_nightly-linux_x86_64-2026-11-20-3b29392.tar.gz"
         self.release = {"tag_name": self.nightly, "immutable": True, "draft": False, "assets": [{
             "name": name, "size": 123, "digest": "sha256:" + "a" * 64,
