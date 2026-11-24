@@ -114,7 +114,7 @@ jobs:
             archive=$(mktemp "$store/.freetype.XXXXXX")
             trap 'rm -f "$archive"' EXIT
             curl -fsSL --max-time 15 -o "$archive" "$url" ||
-              curl -fsSL --max-time 60 -o "$archive" "${url/://download.savannah.gnu.org/://download-mirror.savannah.gnu.org}"
+              curl -fsSL --max-time 60 -o "$archive" "${url/https:\/\/download.savannah.gnu.org\//https:\/\/download-mirror.savannah.gnu.org\/}"
             printf '%s  %s\n' "$digest" "$archive" | sha256sum -c -
             mv "$archive" "$store/$digest"
           fi
