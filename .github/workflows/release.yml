@@ -222,7 +222,7 @@ jobs:
         if: runner.os != 'Windows'
         with:
           repository: lukewilliamboswell/roc-automation
-          ref: f2c40def4ca269e4a29b4096edc86f600251aa5d
+          ref: 2b0ffc9c556f465759ca81055bb819c7e15624eb
           path: .roc-automation
           persist-credentials: false
       - name: Verify transferred final artifact SBOM bindings
@@ -276,7 +276,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: lukewilliamboswell/roc-automation
-          ref: f2c40def4ca269e4a29b4096edc86f600251aa5d
+          ref: 2b0ffc9c556f465759ca81055bb819c7e15624eb
           path: .roc-automation
           persist-credentials: false
       - name: Verify transferred final artifact SBOM bindings
