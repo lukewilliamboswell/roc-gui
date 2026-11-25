@@ -1,7 +1,7 @@
 #!/usr/bin/env roc-stable
 app [main!] {
 	cli: platform "https://github.com/roc-lang/basic-cli/releases/download/0.28.1/7brgwR8YUqfeGrkdfF1V4GPPN7DnP7ftqub9KcrTEZtr.tar.zst",
-	roc: "nightly-2026-11-20-3b29392",
+	roc: "nightly-2026-11-25-d5a4f1e",
 }
 
 import cli.Cmd
@@ -64,15 +64,6 @@ main! = |args| {
 		}
 	}
 	Stdout.line!("PASS every script names ${tag}; ${applications.len().to_str()} applications name no compiler and use the working tree")?
-
-	# The bindings root stands in for platform/main.roc when generating glue, so
-	# the targets the compiler validates there must be the platform's own.
-	Stdout.line!("\n== Host bindings root")?
-	platform_targets = targets_of(read!("platform/main.roc")?)
-	if platform_targets == "" or targets_of(read!("platform/main-glue.roc")?) != platform_targets {
-		return fail!("platform/main-glue.roc: copy the targets section of platform/main.roc")
-	}
-	Stdout.line!("PASS platform/main-glue.roc declares the platform's targets")?
 
 	# The development shell and the linker-input producers build from one
 	# nixpkgs revision, held twice so that a Blueprint change never alters a
@@ -176,18 +167,6 @@ by_bytes = |a, b|
 		([], _) => Before
 		(_, []) => After
 		([x, .. as rest_a], [y, .. as rest_b]) => if (x < y) Before else if (x > y) After else by_bytes(rest_a, rest_b)
-	}
-
-# A platform header's targets section, as written.
-targets_of : Str -> Str
-targets_of = |source|
-	match Str.split_first(source, "\ttargets: {") {
-		Ok({ after, .. }) =>
-			match Str.split_first(after, "\n\t}") {
-				Ok({ before, .. }) => before
-				Err(_) => ""
-			}
-		Err(_) => ""
 	}
 
 read! : Str => Try(Str, _)

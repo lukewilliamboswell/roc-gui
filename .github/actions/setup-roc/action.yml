@@ -8,7 +8,7 @@ runs:
   using: composite
   steps:
     - id: blueprint
-      uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@f2c40def4ca269e4a29b4096edc86f600251aa5d
+      uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       with:
         cache: 'true'
         cache-workload: roc-${{ inputs.nightly-tag }}

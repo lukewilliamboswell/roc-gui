@@ -41,7 +41,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
         with:
           cache: 'true'
           cache-workload: check
@@ -64,7 +64,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       - name: Download the nightly's source and verify its published digest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,7 +94,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
         with:
           install-nix: 'true'
           cache: 'true'
@@ -114,7 +114,7 @@ jobs:
             archive=$(mktemp "$store/.freetype.XXXXXX")
             trap 'rm -f "$archive"' EXIT
             curl -fsSL --max-time 15 -o "$archive" "$url" ||
-              curl -fsSL --max-time 60 -o "$archive" "${url/://download.savannah.gnu.org/://download-mirror.savannah.gnu.org}"
+              curl -fsSL --max-time 60 -o "$archive" "${url/https:\/\/download.savannah.gnu.org\//https:\/\/download-mirror.savannah.gnu.org\/}"
             printf '%s  %s\n' "$digest" "$archive" | sha256sum -c -
             mv "$archive" "$store/$digest"
           fi
@@ -245,7 +245,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
         with:
           cache: 'true'
           cache-workload: docs

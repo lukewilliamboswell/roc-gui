@@ -263,8 +263,8 @@ source archive unpacked. CI regenerates the bindings from the resolved
 nightly's verified source archive and fails when they differ from the
 committed files.
 
-`platform/main-glue.roc` is an ABI-generation root. Applications build against
-`platform/main.roc`.
+The generator reads `platform/main.roc`, the same platform root applications
+build against.
 
 == Documentation
 

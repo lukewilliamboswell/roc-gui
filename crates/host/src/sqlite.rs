@@ -154,14 +154,14 @@ pub fn counters() -> ([u64; 2], usize) {
     (operations, connections)
 }
 
-fn error(code: u8, message: &'static str) -> HostGlueSqliteQueryErr {
-    HostGlueSqliteQueryErr {
+fn error(code: u8, message: &'static str) -> HostSqliteQueryErr {
+    HostSqliteQueryErr {
         code,
         message: RocStr::from_str(message, roc_host()),
     }
 }
-fn open_error(code: u8, message: &'static str) -> HostGlueSqliteOpenReadErr {
-    HostGlueSqliteOpenReadErr {
+fn open_error(code: u8, message: &'static str) -> HostSqliteOpenReadErr {
+    HostSqliteOpenReadErr {
         code,
         message: RocStr::from_str(message, roc_host()),
     }
@@ -538,10 +538,7 @@ fn run_statement(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_sqlite_open_read(
-    cap: *mut u64,
-    name: RocStr,
-) -> HostGlueSqliteOpenReadResult {
+pub extern "C" fn roc_sqlite_open_read(cap: *mut u64, name: RocStr) -> HostSqliteOpenReadResult {
     OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let owned_name = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
@@ -553,17 +550,17 @@ pub extern "C" fn roc_sqlite_open_read(
             open_in_place(&dir, &owned_name).map(|connection| capability(connection, parent))
         });
     match result {
-        Ok(handle) => HostGlueSqliteOpenReadResult {
-            payload: HostGlueSqliteOpenReadResultPayload {
+        Ok(handle) => HostSqliteOpenReadResult {
+            payload: HostSqliteOpenReadResultPayload {
                 ok: ManuallyDrop::new(handle),
             },
-            tag: HostGlueSqliteOpenReadResultTag::Ok,
+            tag: HostSqliteOpenReadResultTag::Ok,
         },
-        Err((code, message)) => HostGlueSqliteOpenReadResult {
-            payload: HostGlueSqliteOpenReadResultPayload {
+        Err((code, message)) => HostSqliteOpenReadResult {
+            payload: HostSqliteOpenReadResultPayload {
                 err: ManuallyDrop::new(open_error(code, message)),
             },
-            tag: HostGlueSqliteOpenReadResultTag::Err,
+            tag: HostSqliteOpenReadResultTag::Err,
         },
     }
 }
@@ -572,7 +569,7 @@ pub extern "C" fn roc_sqlite_open_read(
 /// grant, so withdrawing the file withdraws the connection, exactly as a
 /// connection opened from a folder follows that folder.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_sqlite_open_file_read(cap: *mut u64) -> HostGlueSqliteOpenFileReadResult {
+pub extern "C" fn roc_sqlite_open_file_read(cap: *mut u64) -> HostSqliteOpenFileReadResult {
     OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let opened = crate::document::lookup_accepted(cap);
     unsafe { decref_box(cap as RocBox, roc_host()) };
@@ -584,17 +581,17 @@ pub extern "C" fn roc_sqlite_open_file_read(cap: *mut u64) -> HostGlueSqliteOpen
         }
     };
     match result {
-        Ok(handle) => HostGlueSqliteOpenFileReadResult {
-            payload: HostGlueSqliteOpenFileReadResultPayload {
+        Ok(handle) => HostSqliteOpenFileReadResult {
+            payload: HostSqliteOpenFileReadResultPayload {
                 ok: ManuallyDrop::new(handle),
             },
-            tag: HostGlueSqliteOpenFileReadResultTag::Ok,
+            tag: HostSqliteOpenFileReadResultTag::Ok,
         },
-        Err((code, message)) => HostGlueSqliteOpenFileReadResult {
-            payload: HostGlueSqliteOpenFileReadResultPayload {
+        Err((code, message)) => HostSqliteOpenFileReadResult {
+            payload: HostSqliteOpenFileReadResultPayload {
                 err: ManuallyDrop::new(open_error(code, message)),
             },
-            tag: HostGlueSqliteOpenFileReadResultTag::Err,
+            tag: HostSqliteOpenFileReadResultTag::Err,
         },
     }
 }
@@ -603,7 +600,7 @@ pub extern "C" fn roc_sqlite_open_file_read(cap: *mut u64) -> HostGlueSqliteOpen
 /// to its file and its write-ahead log. The watch is derived from the
 /// connection, and so from the grant the connection was opened through.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_sqlite_watch(cap: *mut u64) -> HostGlueSqliteWatchResult {
+pub extern "C" fn roc_sqlite_watch(cap: *mut u64) -> HostSqliteWatchResult {
     let id = unsafe { cap.as_ref().copied() };
     unsafe { decref_box(cap as RocBox, roc_host()) };
     let result = (|| -> Result<*mut u64, Failure> {
@@ -652,25 +649,25 @@ pub extern "C" fn roc_sqlite_watch(cap: *mut u64) -> HostGlueSqliteWatchResult {
         })
     })();
     match result {
-        Ok(handle) => HostGlueSqliteWatchResult {
-            payload: HostGlueSqliteWatchResultPayload {
+        Ok(handle) => HostSqliteWatchResult {
+            payload: HostSqliteWatchResultPayload {
                 ok: ManuallyDrop::new(handle),
             },
-            tag: HostGlueSqliteWatchResultTag::Ok,
+            tag: HostSqliteWatchResultTag::Ok,
         },
-        Err((code, message)) => HostGlueSqliteWatchResult {
-            payload: HostGlueSqliteWatchResultPayload {
-                err: ManuallyDrop::new(HostGlueSqliteWatchErr {
+        Err((code, message)) => HostSqliteWatchResult {
+            payload: HostSqliteWatchResultPayload {
+                err: ManuallyDrop::new(HostSqliteWatchErr {
                     code,
                     message: RocStr::from_str(message, roc_host()),
                 }),
             },
-            tag: HostGlueSqliteWatchResultTag::Err,
+            tag: HostSqliteWatchResultTag::Err,
         },
     }
 }
 
-fn param(raw: &HostGlueSqliteQueryArg1Params) -> Result<Value, Failure> {
+fn param(raw: &HostSqliteQueryArg1Params) -> Result<Value, Failure> {
     match raw.kind {
         0 => Ok(Value::Null),
         1 => Ok(Value::Integer(raw.integer)),
@@ -681,8 +678,8 @@ fn param(raw: &HostGlueSqliteQueryArg1Params) -> Result<Value, Failure> {
     }
 }
 
-fn cell(value: &Value) -> HostGlueSqliteQueryOkRows {
-    let mut result = HostGlueSqliteQueryOkRows {
+fn cell(value: &Value) -> HostSqliteQueryOkRows {
+    let mut result = HostSqliteQueryOkRows {
         integer: 0,
         real: 0.0,
         bytes: RocListWith::empty(),
@@ -714,8 +711,8 @@ fn cell(value: &Value) -> HostGlueSqliteQueryOkRows {
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_sqlite_query(
     cap: *mut u64,
-    request: HostGlueSqliteQueryArg1,
-) -> HostGlueSqliteQueryResult {
+    request: HostSqliteQueryArg1,
+) -> HostSqliteQueryResult {
     OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let sql = request.sql.as_str().to_owned();
     let page_rows = request.page_rows;
@@ -784,7 +781,7 @@ pub extern "C" fn roc_sqlite_query(
                 .iter()
                 .map(|name| RocStr::from_str(name, roc_host()))
                 .collect();
-            let rows: Vec<RocList<HostGlueSqliteQueryOkRows>> = page
+            let rows: Vec<RocList<HostSqliteQueryOkRows>> = page
                 .rows
                 .iter()
                 .map(|row| {
@@ -792,22 +789,22 @@ pub extern "C" fn roc_sqlite_query(
                     unsafe { RocList::from_slice(&values, roc_host()) }
                 })
                 .collect();
-            HostGlueSqliteQueryResult {
-                payload: HostGlueSqliteQueryResultPayload {
-                    ok: ManuallyDrop::new(HostGlueSqliteQueryOk {
+            HostSqliteQueryResult {
+                payload: HostSqliteQueryResultPayload {
+                    ok: ManuallyDrop::new(HostSqliteQueryOk {
                         columns: unsafe { RocList::from_slice(&columns, roc_host()) },
                         rows: unsafe { RocList::from_slice(&rows, roc_host()) },
                         more: page.more,
                     }),
                 },
-                tag: HostGlueSqliteQueryResultTag::Ok,
+                tag: HostSqliteQueryResultTag::Ok,
             }
         }
-        Err((code, message)) => HostGlueSqliteQueryResult {
-            payload: HostGlueSqliteQueryResultPayload {
+        Err((code, message)) => HostSqliteQueryResult {
+            payload: HostSqliteQueryResultPayload {
                 err: ManuallyDrop::new(error(code, message)),
             },
-            tag: HostGlueSqliteQueryResultTag::Err,
+            tag: HostSqliteQueryResultTag::Err,
         },
     }
 }

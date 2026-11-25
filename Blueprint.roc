@@ -11,7 +11,7 @@
 # `roc-stable` is the nightly named below; it runs the scripts under scripts/.
 # Bare `roc` is the latest nightly, which the machine provides: the platform,
 # its applications and its benchmarks name no compiler.
-app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.13.0/DBtzmMfrSgt6nCGVAcZYCVPxWbhpqw3MXpm6sdQzMn4v.tar.zst" }
+app [config] { pf: platform "https://github.com/lukewilliamboswell/roc-blueprint/releases/download/0.15.0-rc.1/FwWWY6PczB7QsUoWKgaLTuBGGajLjfA4MhaLD36sJxrN.tar.zst" }
 
 import pf.Recipes
 import pf.Config
@@ -29,7 +29,7 @@ release_package = |system| File("https://github.com/lukewilliamboswell/roc-autom
 
 script_runtime : List(Config.EnvironmentSetting)
 script_runtime = [
-	Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-11-20-3b29392"))]),
+	Programs([Fetch("roc-stable", Recipes.roc_nightly("nightly-2026-11-25-d5a4f1e"))]),
 	# Every bundle the scripts depend on, including dependencies of
 	# dependencies: `roc-stable deps scripts/check_all.roc` lists them.
 	RocPackages([

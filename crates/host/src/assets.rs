@@ -394,31 +394,31 @@ fn open_store(root: Root, expected: Option<Expectation>) -> Result<*mut u64, Fai
     allocate(directory)
 }
 
-fn open_result(result: Result<*mut u64, Failure>) -> HostGlueAssetsOpenResult {
+fn open_result(result: Result<*mut u64, Failure>) -> HostAssetsOpenResult {
     match result {
         Ok(handle) => {
             record(OPENS, 1);
-            HostGlueAssetsOpenResult {
-                payload: HostGlueAssetsOpenResultPayload {
+            HostAssetsOpenResult {
+                payload: HostAssetsOpenResultPayload {
                     ok: ManuallyDrop::new(handle),
                 },
-                tag: HostGlueAssetsOpenResultTag::Ok,
+                tag: HostAssetsOpenResultTag::Ok,
             }
         }
         Err(failure) => {
             record(OPEN_REFUSALS, 1);
-            HostGlueAssetsOpenResult {
-                payload: HostGlueAssetsOpenResultPayload {
+            HostAssetsOpenResult {
+                payload: HostAssetsOpenResultPayload {
                     err: ManuallyDrop::new(failure as u8),
                 },
-                tag: HostGlueAssetsOpenResultTag::Err,
+                tag: HostAssetsOpenResultTag::Err,
             }
         }
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_assets_open(args: HostGlueAssetsOpenArgs) -> HostGlueAssetsOpenResult {
+pub extern "C" fn roc_assets_open(args: HostAssetsOpenArgs) -> HostAssetsOpenResult {
     let root = match args.root_kind {
         0 => Some(Root::BesideExecutable(args.root.as_str().to_owned())),
         1 => Some(Root::WorkingDirectory(args.root.as_str().to_owned())),
@@ -459,7 +459,7 @@ fn read_bytes(handle: *mut u64, path: &str) -> Result<Vec<u8>, Failure> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_assets_read(handle: *mut u64, path: RocStr) -> HostGlueAssetsReadResult {
+pub extern "C" fn roc_assets_read(handle: *mut u64, path: RocStr) -> HostAssetsReadResult {
     let owned = path.as_str().to_owned();
     unsafe { path.decref(roc_host()) };
     let result = read_bytes(handle, &owned);
@@ -468,22 +468,22 @@ pub extern "C" fn roc_assets_read(handle: *mut u64, path: RocStr) -> HostGlueAss
         Ok(bytes) => {
             record(READS, 1);
             record(BYTES_READ, bytes.len() as u64);
-            HostGlueAssetsReadResult {
-                payload: HostGlueAssetsReadResultPayload {
+            HostAssetsReadResult {
+                payload: HostAssetsReadResultPayload {
                     ok: ManuallyDrop::new(unsafe {
                         RocListWith::<u8, false>::from_slice(&bytes, roc_host())
                     }),
                 },
-                tag: HostGlueAssetsReadResultTag::Ok,
+                tag: HostAssetsReadResultTag::Ok,
             }
         }
         Err(failure) => {
             record(READ_REFUSALS, 1);
-            HostGlueAssetsReadResult {
-                payload: HostGlueAssetsReadResultPayload {
+            HostAssetsReadResult {
+                payload: HostAssetsReadResultPayload {
                     err: ManuallyDrop::new(failure as u8),
                 },
-                tag: HostGlueAssetsReadResultTag::Err,
+                tag: HostAssetsReadResultTag::Err,
             }
         }
     }

@@ -223,17 +223,17 @@ fn grant_id(handle: *mut u64) -> Option<u64> {
     unsafe { handle.as_ref().copied() }
 }
 
-fn acquire_err(reason: Reason) -> HostGlueDeviceAcquireResult {
-    HostGlueDeviceAcquireResult {
-        payload: HostGlueDeviceAcquireResultPayload {
+fn acquire_err(reason: Reason) -> HostDeviceAcquireResult {
+    HostDeviceAcquireResult {
+        payload: HostDeviceAcquireResultPayload {
             err: ManuallyDrop::new(error(ErrorTag::AcquireDeviceErr, reason)),
         },
-        tag: HostGlueDeviceAcquireResultTag::Err,
+        tag: HostDeviceAcquireResultTag::Err,
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_device_acquire() -> HostGlueDeviceAcquireResult {
+pub extern "C" fn roc_device_acquire() -> HostDeviceAcquireResult {
     let mut guard = store().lock().expect("device store poisoned");
     let Some(configured) = guard.configured else {
         return acquire_err(Reason::AccessDenied);
@@ -255,11 +255,11 @@ pub extern "C" fn roc_device_acquire() -> HostGlueDeviceAcquireResult {
         GRANT_ORIGIN,
         Lifetime::Session,
     );
-    HostGlueDeviceAcquireResult {
-        payload: HostGlueDeviceAcquireResultPayload {
+    HostDeviceAcquireResult {
+        payload: HostDeviceAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
         },
-        tag: HostGlueDeviceAcquireResultTag::Ok,
+        tag: HostDeviceAcquireResultTag::Ok,
     }
 }
 
@@ -298,17 +298,17 @@ fn info(config: GrantedDevice) -> Result<Vec<(String, String, u16, u16)>, Reason
     }
 }
 
-fn discover_err(reason: Reason) -> HostGlueDeviceDiscoverResult {
-    HostGlueDeviceDiscoverResult {
-        payload: HostGlueDeviceDiscoverResultPayload {
+fn discover_err(reason: Reason) -> HostDeviceDiscoverResult {
+    HostDeviceDiscoverResult {
+        payload: HostDeviceDiscoverResultPayload {
             err: ManuallyDrop::new(error(ErrorTag::DiscoverDeviceErr, reason)),
         },
-        tag: HostGlueDeviceDiscoverResultTag::Err,
+        tag: HostDeviceDiscoverResultTag::Err,
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_device_discover(handle: *mut u64) -> HostGlueDeviceDiscoverResult {
+pub extern "C" fn roc_device_discover(handle: *mut u64) -> HostDeviceDiscoverResult {
     let configured = grant(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let Some(configured) = configured else {
@@ -329,27 +329,27 @@ pub extern "C" fn roc_device_discover(handle: *mut u64) -> HostGlueDeviceDiscove
                 )
                 .collect::<Vec<_>>();
             DISCOVERED.fetch_add(values.len() as u64, std::sync::atomic::Ordering::Relaxed);
-            HostGlueDeviceDiscoverResult {
-                payload: HostGlueDeviceDiscoverResultPayload {
+            HostDeviceDiscoverResult {
+                payload: HostDeviceDiscoverResultPayload {
                     ok: ManuallyDrop::new(unsafe { RocList::from_slice(&values, roc_host()) }),
                 },
-                tag: HostGlueDeviceDiscoverResultTag::Ok,
+                tag: HostDeviceDiscoverResultTag::Ok,
             }
         }
     }
 }
 
-fn connect_err(reason: Reason) -> HostGlueDeviceConnectResult {
-    HostGlueDeviceConnectResult {
-        payload: HostGlueDeviceConnectResultPayload {
+fn connect_err(reason: Reason) -> HostDeviceConnectResult {
+    HostDeviceConnectResult {
+        payload: HostDeviceConnectResultPayload {
             err: ManuallyDrop::new(error(ErrorTag::ConnectDeviceErr, reason)),
         },
-        tag: HostGlueDeviceConnectResultTag::Err,
+        tag: HostDeviceConnectResultTag::Err,
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostGlueDeviceConnectResult {
+pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostDeviceConnectResult {
     let opened = accepted(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let (configured, parent) = match opened {
@@ -402,11 +402,11 @@ pub extern "C" fn roc_device_connect(handle: *mut u64) -> HostGlueDeviceConnectR
     // opened it. `grant` accepted the parent just above, so it is live here.
     grant::record_descendant(grant::Kind::Device, id, CONNECTION_RIGHTS, parent);
     CONNECTED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    HostGlueDeviceConnectResult {
-        payload: HostGlueDeviceConnectResultPayload {
+    HostDeviceConnectResult {
+        payload: HostDeviceConnectResultPayload {
             ok: ManuallyDrop::new(cap),
         },
-        tag: HostGlueDeviceConnectResultTag::Ok,
+        tag: HostDeviceConnectResultTag::Ok,
     }
 }
 
@@ -446,12 +446,12 @@ fn virtual_exchange(state: &mut VirtualState, request: &[u8]) -> Result<Vec<u8>,
     Ok(response)
 }
 
-fn transact_err(reason: Reason) -> HostGlueDeviceTransactResult {
-    HostGlueDeviceTransactResult {
-        payload: HostGlueDeviceTransactResultPayload {
+fn transact_err(reason: Reason) -> HostDeviceTransactResult {
+    HostDeviceTransactResult {
+        payload: HostDeviceTransactResultPayload {
             err: ManuallyDrop::new(error(ErrorTag::TransactDeviceErr, reason)),
         },
-        tag: HostGlueDeviceTransactResultTag::Err,
+        tag: HostDeviceTransactResultTag::Err,
     }
 }
 
@@ -459,7 +459,7 @@ fn transact_err(reason: Reason) -> HostGlueDeviceTransactResult {
 pub extern "C" fn roc_device_transact(
     handle: *mut u64,
     request: RocListWith<u8, false>,
-) -> HostGlueDeviceTransactResult {
+) -> HostDeviceTransactResult {
     let bytes = request.as_slice().to_vec();
     unsafe { request.decref(roc_host()) };
     let connected = connection(handle);
@@ -506,29 +506,29 @@ pub extern "C" fn roc_device_transact(
         Err(reason) => transact_err(reason),
         Ok(response) => {
             TRANSACTIONS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            HostGlueDeviceTransactResult {
-                payload: HostGlueDeviceTransactResultPayload {
+            HostDeviceTransactResult {
+                payload: HostDeviceTransactResultPayload {
                     ok: ManuallyDrop::new(unsafe {
                         RocListWith::<u8, false>::from_slice(&response, roc_host())
                     }),
                 },
-                tag: HostGlueDeviceTransactResultTag::Ok,
+                tag: HostDeviceTransactResultTag::Ok,
             }
         }
     }
 }
 
-fn close_err(reason: Reason) -> HostGlueDeviceCloseResult {
-    HostGlueDeviceCloseResult {
-        payload: HostGlueDeviceCloseResultPayload {
+fn close_err(reason: Reason) -> HostDeviceCloseResult {
+    HostDeviceCloseResult {
+        payload: HostDeviceCloseResultPayload {
             err: ManuallyDrop::new(error(ErrorTag::CloseDeviceErr, reason)),
         },
-        tag: HostGlueDeviceCloseResultTag::Err,
+        tag: HostDeviceCloseResultTag::Err,
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_device_close(handle: *mut u64) -> HostGlueDeviceCloseResult {
+pub extern "C" fn roc_device_close(handle: *mut u64) -> HostDeviceCloseResult {
     let connected = connection(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let connected = match connected {
@@ -543,9 +543,9 @@ pub extern "C" fn roc_device_close(handle: *mut u64) -> HostGlueDeviceCloseResul
         *closed = true;
         CLOSED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
-    HostGlueDeviceCloseResult {
-        payload: HostGlueDeviceCloseResultPayload { ok: [] },
-        tag: HostGlueDeviceCloseResultTag::Ok,
+    HostDeviceCloseResult {
+        payload: HostDeviceCloseResultPayload { ok: [] },
+        tag: HostDeviceCloseResultTag::Ok,
     }
 }
 

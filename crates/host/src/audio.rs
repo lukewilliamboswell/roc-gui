@@ -112,8 +112,8 @@ pub fn configure(grant: Grant) {
     }
 }
 
-fn error(code: u8, message: &'static str) -> HostGlueAudioAcquireErr {
-    HostGlueAudioAcquireErr {
+fn error(code: u8, message: &'static str) -> HostAudioAcquireErr {
+    HostAudioAcquireErr {
         code,
         message: RocStr::from_str(message, roc_host()),
     }
@@ -184,16 +184,16 @@ fn null_output() -> Output {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_audio_acquire() -> HostGlueAudioAcquireResult {
+pub extern "C" fn roc_audio_acquire() -> HostAudioAcquireResult {
     OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let mut guard = store().lock().unwrap();
     let output = match guard.grant {
         Grant::Denied => {
-            return HostGlueAudioAcquireResult {
-                payload: HostGlueAudioAcquireResultPayload {
+            return HostAudioAcquireResult {
+                payload: HostAudioAcquireResultPayload {
                     err: ManuallyDrop::new(error(0, "audio output was not granted")),
                 },
-                tag: HostGlueAudioAcquireResultTag::Err,
+                tag: HostAudioAcquireResultTag::Err,
             };
         }
         Grant::Null => null_output(),
@@ -206,11 +206,11 @@ pub extern "C" fn roc_audio_acquire() -> HostGlueAudioAcquireResult {
                 }
             }
             Err(_) => {
-                return HostGlueAudioAcquireResult {
-                    payload: HostGlueAudioAcquireResultPayload {
+                return HostAudioAcquireResult {
+                    payload: HostAudioAcquireResultPayload {
                         err: ManuallyDrop::new(error(6, "default audio output is unavailable")),
                     },
-                    tag: HostGlueAudioAcquireResultTag::Err,
+                    tag: HostAudioAcquireResultTag::Err,
                 };
             }
         },
@@ -226,11 +226,11 @@ pub extern "C" fn roc_audio_acquire() -> HostGlueAudioAcquireResult {
         Lifetime::Session,
     );
     let handle = allocate(&mut guard, id, false);
-    HostGlueAudioAcquireResult {
-        payload: HostGlueAudioAcquireResultPayload {
+    HostAudioAcquireResult {
+        payload: HostAudioAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
         },
-        tag: HostGlueAudioAcquireResultTag::Ok,
+        tag: HostAudioAcquireResultTag::Ok,
     }
 }
 
@@ -239,7 +239,7 @@ pub extern "C" fn roc_audio_load(
     output_handle: *mut u64,
     dir_handle: *mut u64,
     name: RocStr,
-) -> HostGlueAudioLoadResult {
+) -> HostAudioLoadResult {
     OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let filename = name.as_str().to_owned();
     unsafe { name.decref(roc_host()) };
@@ -251,11 +251,11 @@ pub extern "C" fn roc_audio_load(
     unsafe {
         decref_box(output_handle as RocBox, roc_host());
     }
-    let fail = |code, message| HostGlueAudioLoadResult {
-        payload: HostGlueAudioLoadResultPayload {
+    let fail = |code, message| HostAudioLoadResult {
+        payload: HostAudioLoadResultPayload {
             err: ManuallyDrop::new(error(code, message)),
         },
-        tag: HostGlueAudioLoadResultTag::Err,
+        tag: HostAudioLoadResultTag::Err,
     };
     let bytes = match bytes {
         Ok(bytes) => bytes,
@@ -312,21 +312,21 @@ pub extern "C" fn roc_audio_load(
     // opened the device.
     grant::record_descendant(grant::Kind::Audio, track_id, TRACK_RIGHTS, parent);
     let track = allocate(&mut guard, track_id, true);
-    HostGlueAudioLoadResult {
-        payload: HostGlueAudioLoadResultPayload {
-            ok: ManuallyDrop::new(HostGlueAudioLoadOk {
+    HostAudioLoadResult {
+        payload: HostAudioLoadResultPayload {
+            ok: ManuallyDrop::new(HostAudioLoadOk {
                 duration_ms: duration.as_millis() as u64,
                 track,
             }),
         },
-        tag: HostGlueAudioLoadResultTag::Ok,
+        tag: HostAudioLoadResultTag::Ok,
     }
 }
 
 fn with_track(
     handle: *mut u64,
     f: impl FnOnce(&mut Track) -> Result<(), (u8, &'static str)>,
-) -> HostGlueAudioPlayResult {
+) -> HostAudioPlayResult {
     let track_id = id(handle);
     unsafe {
         decref_box(handle as RocBox, roc_host());
@@ -345,21 +345,21 @@ fn with_track(
             .and_then(f),
     };
     match result {
-        Ok(()) => HostGlueAudioPlayResult {
-            payload: HostGlueAudioPlayResultPayload { ok: [] },
-            tag: HostGlueAudioPlayResultTag::Ok,
+        Ok(()) => HostAudioPlayResult {
+            payload: HostAudioPlayResultPayload { ok: [] },
+            tag: HostAudioPlayResultTag::Ok,
         },
-        Err((code, message)) => HostGlueAudioPlayResult {
-            payload: HostGlueAudioPlayResultPayload {
+        Err((code, message)) => HostAudioPlayResult {
+            payload: HostAudioPlayResultPayload {
                 err: ManuallyDrop::new(error(code, message)),
             },
-            tag: HostGlueAudioPlayResultTag::Err,
+            tag: HostAudioPlayResultTag::Err,
         },
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_audio_play(handle: *mut u64) -> HostGlueAudioPlayResult {
+pub extern "C" fn roc_audio_play(handle: *mut u64) -> HostAudioPlayResult {
     OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         if track.stopped {
@@ -370,7 +370,7 @@ pub extern "C" fn roc_audio_play(handle: *mut u64) -> HostGlueAudioPlayResult {
     })
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_audio_pause(handle: *mut u64) -> HostGlueAudioPauseResult {
+pub extern "C" fn roc_audio_pause(handle: *mut u64) -> HostAudioPauseResult {
     OPERATIONS[3].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         if track.stopped {
@@ -381,7 +381,7 @@ pub extern "C" fn roc_audio_pause(handle: *mut u64) -> HostGlueAudioPauseResult 
     })
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_audio_seek(handle: *mut u64, position_ms: u64) -> HostGlueAudioSeekResult {
+pub extern "C" fn roc_audio_seek(handle: *mut u64, position_ms: u64) -> HostAudioSeekResult {
     OPERATIONS[4].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         if track.stopped {
@@ -396,7 +396,7 @@ pub extern "C" fn roc_audio_seek(handle: *mut u64, position_ms: u64) -> HostGlue
     })
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_audio_stop(handle: *mut u64) -> HostGlueAudioStopResult {
+pub extern "C" fn roc_audio_stop(handle: *mut u64) -> HostAudioStopResult {
     OPERATIONS[6].fetch_add(1, Ordering::Relaxed);
     with_track(handle, |track| {
         track.player.stop();
@@ -406,7 +406,7 @@ pub extern "C" fn roc_audio_stop(handle: *mut u64) -> HostGlueAudioStopResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostGlueAudioStatusResult {
+pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostAudioStatusResult {
     OPERATIONS[5].fetch_add(1, Ordering::Relaxed);
     let track_id = id(handle);
     unsafe {
@@ -421,11 +421,11 @@ pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostGlueAudioStatusResul
         .and(track_id)
         .and_then(|value| guard.tracks.get(&value))
     else {
-        return HostGlueAudioStatusResult {
-            payload: HostGlueAudioStatusResultPayload {
+        return HostAudioStatusResult {
+            payload: HostAudioStatusResultPayload {
                 err: ManuallyDrop::new(error(1, "invalid audio track capability")),
             },
-            tag: HostGlueAudioStatusResultTag::Err,
+            tag: HostAudioStatusResultTag::Err,
         };
     };
     let state = if track.stopped || track.player.empty() {
@@ -435,14 +435,14 @@ pub extern "C" fn roc_audio_status(handle: *mut u64) -> HostGlueAudioStatusResul
     } else {
         1
     };
-    HostGlueAudioStatusResult {
-        payload: HostGlueAudioStatusResultPayload {
-            ok: ManuallyDrop::new(HostGlueAudioStatusOk {
+    HostAudioStatusResult {
+        payload: HostAudioStatusResultPayload {
+            ok: ManuallyDrop::new(HostAudioStatusOk {
                 duration_ms: track.duration.as_millis() as u64,
                 position_ms: track.player.get_pos().as_millis() as u64,
                 state,
             }),
         },
-        tag: HostGlueAudioStatusResultTag::Ok,
+        tag: HostAudioStatusResultTag::Ok,
     }
 }

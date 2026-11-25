@@ -47,7 +47,7 @@ jobs:
         with:
           extra-conf: |
             sandbox = true
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       - name: Produce, compare and admit every Linux component
         run: blueprint run link-inputs -- linux "$RUNNER_TEMP/candidate" "$RUNNER_TEMP/rebuild"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -75,7 +75,7 @@ jobs:
         with:
           name: link-input-components-linux
           path: ${{ runner.temp }}/candidate
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       - name: Build the production host against the candidate ALSA interface
         run: blueprint run build -- --skip-inputs --candidate-inputs "$RUNNER_TEMP/candidate"
       - name: Install native desktop runtime for portability validation
@@ -97,13 +97,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       - name: Generate and compare the reviewed interfaces
         run: blueprint run link-inputs -- macos "$RUNNER_TEMP/candidate" "$RUNNER_TEMP/rebuild"
       - uses: ./.github/actions/setup-toolchain
         with:
           nightly-tag: ${{ needs.resolve.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
         with:
           install-nix: 'true'
       - name: Final-link and run the production platform
@@ -138,7 +138,7 @@ jobs:
         with:
           version: 0.16.0
           use-cache: false
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       # The runtime probe is part of its recipe and has its own compiler.
       - id: probe
         shell: bash
@@ -180,7 +180,7 @@ jobs:
         with:
           extra-conf: |
             sandbox = true
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       - name: Produce and compare Windows cross inputs
         run: >-
           blueprint run link-inputs -- windows-cross
@@ -216,7 +216,7 @@ jobs:
           pattern: link-input-components-*
           merge-multiple: true
           path: ${{ runner.temp }}/components
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@2b0ffc9c556f465759ca81055bb819c7e15624eb
       - name: Compose the independently releasable set
         run: python3 scripts/prepare_link_input_release.py --components "$RUNNER_TEMP/components" --resource "$RUNNER_TEMP/components/roc-gui.res" --output "$RUNNER_TEMP/release"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
