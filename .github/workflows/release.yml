@@ -58,7 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: echo "tag=$(gh api repos/roc-lang/nightlies/releases/latest --jq .tag_name)" >> "$GITHUB_OUTPUT"
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
       - id: version
         env:
           EVENT: ${{ github.event_name }}
@@ -82,7 +82,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
         with:
           cache: 'true'
           cache-workload: check
@@ -148,7 +148,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: gui-host-*
@@ -213,7 +213,7 @@ jobs:
       - uses: ./.github/actions/setup-roc
         with:
           nightly-tag: ${{ needs.validate.outputs.nightly-tag }}
-      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/setup-blueprint@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: release-candidate
@@ -289,7 +289,7 @@ jobs:
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
         with:
           subject-path: ${{ needs.build.outputs.assets }}
-      - uses: lukewilliamboswell/roc-automation/actions/publish-release@6c796f299012707d2e9bad23fd6449ed93f1f475
+      - uses: lukewilliamboswell/roc-automation/actions/publish-release@acc5efdcd929b38e665cd3ae6e694d1c4887f9c7
         with:
           version: ${{ needs.validate.outputs.version }}
           prerelease: ${{ needs.validate.outputs.prerelease }}
