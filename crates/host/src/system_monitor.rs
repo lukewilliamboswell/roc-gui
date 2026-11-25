@@ -159,16 +159,16 @@ fn refusal(refusal: grant::Refusal) -> u8 {
     }
 }
 
-fn acquire_err(code: u8) -> HostGlueSystemAcquireResult {
-    HostGlueSystemAcquireResult {
-        payload: HostGlueSystemAcquireResultPayload {
+fn acquire_err(code: u8) -> HostSystemAcquireResult {
+    HostSystemAcquireResult {
+        payload: HostSystemAcquireResultPayload {
             err: ManuallyDrop::new(code),
         },
-        tag: HostGlueSystemAcquireResultTag::Err,
+        tag: HostSystemAcquireResultTag::Err,
     }
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_system_acquire() -> HostGlueSystemAcquireResult {
+pub extern "C" fn roc_system_acquire() -> HostSystemAcquireResult {
     if active_count() >= MAX_ACTIVE {
         return acquire_err(5);
     }
@@ -190,11 +190,11 @@ pub extern "C" fn roc_system_acquire() -> HostGlueSystemAcquireResult {
         })),
     };
     ACQUIRED.fetch_add(1, Ordering::Relaxed);
-    HostGlueSystemAcquireResult {
-        payload: HostGlueSystemAcquireResultPayload {
+    HostSystemAcquireResult {
+        payload: HostSystemAcquireResultPayload {
             ok: ManuallyDrop::new(capability(source)),
         },
-        tag: HostGlueSystemAcquireResultTag::Ok,
+        tag: HostSystemAcquireResultTag::Ok,
     }
 }
 
@@ -319,16 +319,16 @@ fn bounded_process_count(count: usize) -> usize {
     count.min(MAX_PROCESSES)
 }
 
-fn sample_err(code: u8) -> HostGlueSystemSampleResult {
-    HostGlueSystemSampleResult {
-        payload: HostGlueSystemSampleResultPayload {
+fn sample_err(code: u8) -> HostSystemSampleResult {
+    HostSystemSampleResult {
+        payload: HostSystemSampleResultPayload {
             err: ManuallyDrop::new(code),
         },
-        tag: HostGlueSystemSampleResultTag::Err,
+        tag: HostSystemSampleResultTag::Err,
     }
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_system_sample(handle: *mut u64) -> HostGlueSystemSampleResult {
+pub extern "C" fn roc_system_sample(handle: *mut u64) -> HostSystemSampleResult {
     let sampler = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let sampler = match sampler {
@@ -357,24 +357,24 @@ pub extern "C" fn roc_system_sample(handle: *mut u64) -> HostGlueSystemSampleRes
     };
     *sampling = false;
     SAMPLED.fetch_add(1, Ordering::Relaxed);
-    HostGlueSystemSampleResult {
-        payload: HostGlueSystemSampleResultPayload {
+    HostSystemSampleResult {
+        payload: HostSystemSampleResultPayload {
             ok: ManuallyDrop::new(value),
         },
-        tag: HostGlueSystemSampleResultTag::Ok,
+        tag: HostSystemSampleResultTag::Ok,
     }
 }
 
-fn unit_err(code: u8) -> HostGlueSystemCloseResult {
-    HostGlueSystemCloseResult {
-        payload: HostGlueSystemCloseResultPayload {
+fn unit_err(code: u8) -> HostSystemCloseResult {
+    HostSystemCloseResult {
+        payload: HostSystemCloseResultPayload {
             err: ManuallyDrop::new(code),
         },
-        tag: HostGlueSystemCloseResultTag::Err,
+        tag: HostSystemCloseResultTag::Err,
     }
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_system_close(handle: *mut u64) -> HostGlueSystemCloseResult {
+pub extern "C" fn roc_system_close(handle: *mut u64) -> HostSystemCloseResult {
     let sampler = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let sampler = match sampler {
@@ -389,9 +389,9 @@ pub extern "C" fn roc_system_close(handle: *mut u64) -> HostGlueSystemCloseResul
         *closed = true;
         CLOSED.fetch_add(1, Ordering::Relaxed);
     }
-    HostGlueSystemCloseResult {
-        payload: HostGlueSystemCloseResultPayload { ok: [] },
-        tag: HostGlueSystemCloseResultTag::Ok,
+    HostSystemCloseResult {
+        payload: HostSystemCloseResultPayload { ok: [] },
+        tag: HostSystemCloseResultTag::Ok,
     }
 }
 

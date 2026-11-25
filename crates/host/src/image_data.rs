@@ -26,13 +26,13 @@ pub fn counters() -> [u64; 4] {
     ]
 }
 
-fn fail(code: u8) -> HostGlueImageInspectResult {
+fn fail(code: u8) -> HostImageInspectResult {
     FAILURES.fetch_add(1, Ordering::Relaxed);
-    HostGlueImageInspectResult {
-        payload: HostGlueImageInspectResultPayload {
+    HostImageInspectResult {
+        payload: HostImageInspectResultPayload {
             err: ManuallyDrop::new(code),
         },
-        tag: HostGlueImageInspectResultTag::Err,
+        tag: HostImageInspectResultTag::Err,
     }
 }
 
@@ -78,17 +78,17 @@ fn dimensions(bytes: &[u8], format: u8) -> Result<(u32, u32), u8> {
 pub extern "C" fn roc_image_inspect(
     bytes: RocListWith<u8, false>,
     format: u8,
-) -> HostGlueImageInspectResult {
+) -> HostImageInspectResult {
     let owned = bytes.as_slice().to_vec();
     unsafe { bytes.decref(roc_host()) };
     INSPECTED.fetch_add(1, Ordering::Relaxed);
     match dimensions(&owned, format) {
         Err(code) => fail(code),
-        Ok((width, height)) => HostGlueImageInspectResult {
-            payload: HostGlueImageInspectResultPayload {
+        Ok((width, height)) => HostImageInspectResult {
+            payload: HostImageInspectResultPayload {
                 ok: ManuallyDrop::new(AnonStructB3b29ac2cb34a461 { height, width }),
             },
-            tag: HostGlueImageInspectResultTag::Ok,
+            tag: HostImageInspectResultTag::Ok,
         },
     }
 }

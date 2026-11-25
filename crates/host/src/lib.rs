@@ -47,20 +47,19 @@ use bridge::{
 };
 use gpui::{div, prelude::*, px, rgb, size, *};
 use roc_platform_abi::{
-    DefaultAllocators, DefaultHandlers, HostGlueCanvasEventRetRecord, HostGlueComponentResolve,
-    HostGlueHttpAcquireResult, HostGlueHttpSendArgs, HostGlueHttpSendResult,
-    HostGlueKeyedEditBeginArgs, HostGlueKeyedInsertBeforeArgs, HostGlueKeyedMoveBeforeArgs,
-    HostGlueKeyedSeedArgs, HostGlueKeyedSetArgs, HostGlueNodeActionButton,
-    HostGlueNodeActionButtonArgs, HostGlueNodeCanvasArgs, HostGlueNodeCheckboxArgs,
-    HostGlueNodeChordArgs, HostGlueNodeColumnArgs, HostGlueNodeDialogArgs,
-    HostGlueNodeDropTargetArgs, HostGlueNodeImageArgs, HostGlueNodePanelArgs, HostGlueNodePopover,
-    HostGlueNodePopoverArgs, HostGlueNodeRowArgs, HostGlueNodeScrollArgs, HostGlueNodeSplit,
-    HostGlueNodeSplitArgs, HostGlueNodeStyledTextArgs, HostGlueNodeTextInputArgs,
-    HostGlueNodeTextInputRetRecord, HostGlueNodeTextareaArgs, HostGlueNodeVirtualListArgs,
-    HostGlueResizeEventRetRecord, HostGlueShortcutEvent, HostGlueVirtualRowsEventRetRecord,
-    HostGlueVirtualWindowArgs, HostGlueVirtualWindowRetRecord, MountOrNoChangeOrReplace,
-    RocErasedCallable, RocHost, RocList, RocListWith, RocStr, decref_erased_callable,
-    incref_erased_callable, make_roc_host, roc_gui_dispatch, roc_gui_init,
+    DefaultAllocators, DefaultHandlers, HostCanvasEventRetRecord, HostComponentResolve,
+    HostHttpAcquireResult, HostHttpSendArgs, HostHttpSendResult, HostKeyedEditBeginArgs,
+    HostKeyedInsertBeforeArgs, HostKeyedMoveBeforeArgs, HostKeyedSeedArgs, HostKeyedSetArgs,
+    HostNodeActionButton, HostNodeActionButtonArgs, HostNodeCanvasArgs, HostNodeCheckboxArgs,
+    HostNodeChordArgs, HostNodeColumnArgs, HostNodeDialogArgs, HostNodeDropTargetArgs,
+    HostNodeImageArgs, HostNodePanelArgs, HostNodePopover, HostNodePopoverArgs, HostNodeRowArgs,
+    HostNodeScrollArgs, HostNodeSplit, HostNodeSplitArgs, HostNodeStyledTextArgs,
+    HostNodeTextInputArgs, HostNodeTextInputRetRecord, HostNodeTextareaArgs,
+    HostNodeVirtualListArgs, HostResizeEventRetRecord, HostShortcutEvent,
+    HostVirtualRowsEventRetRecord, HostVirtualWindowArgs, HostVirtualWindowRetRecord,
+    MountOrNoChangeOrReplace, RocErasedCallable, RocHost, RocList, RocListWith, RocStr,
+    decref_erased_callable, incref_erased_callable, make_roc_host, roc_gui_complete,
+    roc_gui_dispatch, roc_gui_init, roc_gui_run_task,
 };
 use std::{
     cell::RefCell,
@@ -107,11 +106,6 @@ fn host_bindings() -> Vec<KeyBinding> {
             None,
         ),
     ]
-}
-
-unsafe extern "C" {
-    fn roc_gui_complete(dispatcher: RocErasedCallable, completion: RocErasedCallable, owner: u64);
-    fn roc_gui_run_task(task: RocErasedCallable);
 }
 
 #[derive(Debug)]
@@ -803,7 +797,7 @@ pub extern "C" fn roc_gui_scope_exit() {
 pub extern "C" fn roc_gui_component_resolve(
     key_kind: u8,
     key_digest: RocList<u8>,
-) -> HostGlueComponentResolve {
+) -> HostComponentResolve {
     let resolved = BRIDGE.with(|bridge| {
         bridge
             .borrow_mut()
@@ -814,7 +808,7 @@ pub extern "C" fn roc_gui_component_resolve(
     unsafe { key_digest.decref(roc_host()) };
     let (instance, root) =
         resolved.unwrap_or_else(|message| panic!("invalid component reconciliation: {message}"));
-    HostGlueComponentResolve { instance, root }
+    HostComponentResolve { instance, root }
 }
 
 #[unsafe(no_mangle)]
@@ -837,7 +831,7 @@ pub extern "C" fn roc_gui_node_text(value: RocStr) -> u64 {
 
 /// Stage one text node that carries its own type rather than inheriting it.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> u64 {
+pub extern "C" fn roc_gui_node_styled_text(args: HostNodeStyledTextArgs) -> u64 {
     let value = args.value.as_str().to_owned();
     let runs = args
         .runs
@@ -873,7 +867,7 @@ pub extern "C" fn roc_gui_node_styled_text(args: HostGlueNodeStyledTextArgs) -> 
 
 /// Stage a key chord as text in this platform's spelling.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_chord(args: HostGlueNodeChordArgs) -> u64 {
+pub extern "C" fn roc_gui_node_chord(args: HostNodeChordArgs) -> u64 {
     let written = args.keys.as_str().to_owned();
     unsafe { args.decref(roc_host()) };
     let (canonical, shown) = keyboard::displayed_chord(&written)
@@ -944,7 +938,7 @@ fn take_key(bytes: RocListWith<u8, false>, optional: bool) -> Option<[u8; 32]> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_keyed_edit_begin(args: HostGlueKeyedEditBeginArgs) {
+pub extern "C" fn roc_gui_keyed_edit_begin(args: HostKeyedEditBeginArgs) {
     BRIDGE.with(|bridge| {
         bridge
             .borrow_mut()
@@ -954,7 +948,7 @@ pub extern "C" fn roc_gui_keyed_edit_begin(args: HostGlueKeyedEditBeginArgs) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_keyed_seed(args: HostGlueKeyedSeedArgs) {
+pub extern "C" fn roc_gui_keyed_seed(args: HostKeyedSeedArgs) {
     let keys = args
         .keys
         .as_slice()
@@ -975,7 +969,7 @@ pub extern "C" fn roc_gui_keyed_seed(args: HostGlueKeyedSeedArgs) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_keyed_insert_before(args: HostGlueKeyedInsertBeforeArgs) {
+pub extern "C" fn roc_gui_keyed_insert_before(args: HostKeyedInsertBeforeArgs) {
     let key = take_key(args.key, false).expect("required keyed child key");
     let before = take_key(args.before, true);
     BRIDGE.with(|bridge| {
@@ -998,7 +992,7 @@ pub extern "C" fn roc_gui_keyed_remove(key: RocListWith<u8, false>) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_keyed_move_before(args: HostGlueKeyedMoveBeforeArgs) {
+pub extern "C" fn roc_gui_keyed_move_before(args: HostKeyedMoveBeforeArgs) {
     let key = take_key(args.key, false).expect("required keyed child key");
     let before = take_key(args.before, true);
     BRIDGE.with(|bridge| {
@@ -1010,7 +1004,7 @@ pub extern "C" fn roc_gui_keyed_move_before(args: HostGlueKeyedMoveBeforeArgs) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_keyed_set(args: HostGlueKeyedSetArgs) {
+pub extern "C" fn roc_gui_keyed_set(args: HostKeyedSetArgs) {
     let key = take_key(args.key, false).expect("required keyed child key");
     BRIDGE.with(|bridge| {
         bridge
@@ -1092,7 +1086,7 @@ macro_rules! decode_layout_style {
 
 /// Stage one styled, semantically named row.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_row(args: HostGlueNodeRowArgs) -> u64 {
+pub extern "C" fn roc_gui_node_row(args: HostNodeRowArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
     let style = decode_layout_style!(args);
@@ -1104,7 +1098,7 @@ pub extern "C" fn roc_gui_node_row(args: HostGlueNodeRowArgs) -> u64 {
 
 /// Stage one styled, semantically named column.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
+pub extern "C" fn roc_gui_node_column(args: HostNodeColumnArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
     let style = decode_layout_style!(args);
@@ -1116,7 +1110,7 @@ pub extern "C" fn roc_gui_node_column(args: HostGlueNodeColumnArgs) -> u64 {
 
 /// Stage one modal dialog and its ordinary child subtree.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
+pub extern "C" fn roc_gui_node_dialog(args: HostNodeDialogArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
     let style = decode_layout_style!(args);
@@ -1128,7 +1122,7 @@ pub extern "C" fn roc_gui_node_dialog(args: HostGlueNodeDialogArgs) -> u64 {
 
 /// Stage one popover: its anchor, then the surface's content.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_popover(args: HostGlueNodePopoverArgs) -> HostGlueNodePopover {
+pub extern "C" fn roc_gui_node_popover(args: HostNodePopoverArgs) -> HostNodePopover {
     let label = args.label.as_str().to_owned();
     let shortcuts = args
         .shortcuts
@@ -1175,7 +1169,7 @@ pub extern "C" fn roc_gui_node_popover(args: HostGlueNodePopoverArgs) -> HostGlu
         },
         finish_children(args.builder),
     );
-    HostGlueNodePopover {
+    HostNodePopover {
         shortcut: if answers {
             id | bridge::SHORTCUT_EVENT_BIT
         } else {
@@ -1197,7 +1191,7 @@ pub extern "C" fn roc_gui_node_popover(args: HostGlueNodePopoverArgs) -> HostGlu
 
 /// Stage one styled, semantically labelled panel.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_panel(args: HostGlueNodePanelArgs) -> u64 {
+pub extern "C" fn roc_gui_node_panel(args: HostNodePanelArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
     let style = decode_layout_style!(args);
@@ -1209,7 +1203,7 @@ pub extern "C" fn roc_gui_node_panel(args: HostGlueNodePanelArgs) -> u64 {
 
 /// Stage one named vertical scroll region whose child was already built.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_scroll(args: HostGlueNodeScrollArgs) -> u64 {
+pub extern "C" fn roc_gui_node_scroll(args: HostNodeScrollArgs) -> u64 {
     let owned_name = args.name.as_str().to_owned();
     unsafe { args.name.decref(roc_host()) };
     let axis = match args.axis {
@@ -1236,7 +1230,7 @@ pub extern "C" fn roc_gui_node_virtual_item(key: u64, content: u64) -> u64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -> u64 {
+pub extern "C" fn roc_gui_node_virtual_list(args: HostNodeVirtualListArgs) -> u64 {
     let name = args.name.as_str().to_owned();
     unsafe { args.name.decref(roc_host()) };
     // Instance zero is the application root, which is never a list's own
@@ -1263,8 +1257,8 @@ pub extern "C" fn roc_gui_node_virtual_list(args: HostGlueNodeVirtualListArgs) -
 /// request first. The host owns the viewport, so the host decides.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_virtual_window(
-    args: HostGlueVirtualWindowArgs,
-) -> HostGlueVirtualWindowRetRecord {
+    args: HostVirtualWindowArgs,
+) -> HostVirtualWindowRetRecord {
     assert!(
         (1..=16_384).contains(&args.row_height),
         "virtual row height must be between 1 and 16384"
@@ -1278,7 +1272,7 @@ pub extern "C" fn roc_gui_virtual_window(
         estimate,
         (args.scroll_row, args.scroll_align, args.scroll_serial),
     );
-    HostGlueVirtualWindowRetRecord {
+    HostVirtualWindowRetRecord {
         first: window.start,
         end: window.end,
     }
@@ -1286,9 +1280,9 @@ pub extern "C" fn roc_gui_virtual_window(
 
 /// Consume the viewport payload installed for a provided list's dispatch.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_virtual_rows_event() -> HostGlueVirtualRowsEventRetRecord {
+pub extern "C" fn roc_gui_virtual_rows_event() -> HostVirtualRowsEventRetRecord {
     let event = rows::event();
-    HostGlueVirtualRowsEventRetRecord {
+    HostVirtualRowsEventRetRecord {
         refresh: event.refresh,
         report: event.report,
         start: event.start,
@@ -1299,8 +1293,8 @@ pub extern "C" fn roc_gui_virtual_rows_event() -> HostGlueVirtualRowsEventRetRec
 /// Stage one styled action button.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_action_button(
-    args: HostGlueNodeActionButtonArgs,
-) -> HostGlueNodeActionButton {
+    args: HostNodeActionButtonArgs,
+) -> HostNodeActionButton {
     let caption = args.caption.as_str().to_owned();
     let label = args.label.as_str().to_owned();
     unsafe {
@@ -1324,7 +1318,7 @@ pub extern "C" fn roc_gui_node_action_button(
         },
         vec![],
     );
-    HostGlueNodeActionButton {
+    HostNodeActionButton {
         id,
         hover_enter: if args.hover_enter {
             id | bridge::HOVER_ENTER_EVENT_BIT
@@ -1419,7 +1413,7 @@ fn paint(value: Paint) -> gpui::Rgba {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_checkbox(args: HostGlueNodeCheckboxArgs) -> u64 {
+pub extern "C" fn roc_gui_node_checkbox(args: HostNodeCheckboxArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     unsafe { args.label.decref(roc_host()) };
     stage_node(
@@ -1441,7 +1435,7 @@ pub extern "C" fn roc_gui_node_checkbox(args: HostGlueNodeCheckboxArgs) -> u64 {
 
 /// Stage one controlled multiline text editor.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_textarea(args: HostGlueNodeTextareaArgs) -> u64 {
+pub extern "C" fn roc_gui_node_textarea(args: HostNodeTextareaArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     let value = args.value.as_str().to_owned();
     let placeholder = args.placeholder.as_str().to_owned();
@@ -1461,7 +1455,7 @@ pub extern "C" fn roc_gui_node_textarea(args: HostGlueNodeTextareaArgs) -> u64 {
 
 /// Stage encoded image bytes; no path or URI is resolved by this node.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
+pub extern "C" fn roc_gui_node_image(args: HostNodeImageArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     let bytes = args.bytes.as_slice().to_vec();
     image_data::note_staged(bytes.len());
@@ -1499,7 +1493,7 @@ pub extern "C" fn roc_gui_node_image(args: HostGlueNodeImageArgs) -> u64 {
 
 /// Stage one retained vector canvas and its keyed hit-testable primitives.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
+pub extern "C" fn roc_gui_node_canvas(args: HostNodeCanvasArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     assert!(!label.is_empty(), "canvas label must not be empty");
     let primitives = args
@@ -1578,11 +1572,11 @@ pub extern "C" fn roc_gui_node_canvas(args: HostGlueNodeCanvasArgs) -> u64 {
 /// Consume the shortcut installed for a key dispatch: which of the region's
 /// shortcuts matched, and the chord in canonical spelling.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_shortcut_event() -> HostGlueShortcutEvent {
+pub extern "C" fn roc_gui_shortcut_event() -> HostShortcutEvent {
     let (index, keys) = SHORTCUT_EVENT
         .with(|slot| slot.borrow_mut().take())
         .expect("a shortcut route ran without a matched shortcut");
-    HostGlueShortcutEvent {
+    HostShortcutEvent {
         index,
         keys: RocStr::from_str(&keys, roc_host()),
     }
@@ -1590,7 +1584,7 @@ pub extern "C" fn roc_gui_shortcut_event() -> HostGlueShortcutEvent {
 
 /// Consume the direct-manipulation payload installed for a canvas dispatch.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
+pub extern "C" fn roc_gui_canvas_event() -> HostCanvasEventRetRecord {
     let event = CANVAS_EVENT
         .with(|slot| slot.borrow_mut().take())
         .unwrap_or(CanvasEventPayload {
@@ -1601,7 +1595,7 @@ pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
             dy: 0,
             target: 0,
         });
-    HostGlueCanvasEventRetRecord {
+    HostCanvasEventRetRecord {
         phase: event.phase,
         x: event.x,
         y: event.y,
@@ -1615,7 +1609,7 @@ pub extern "C" fn roc_gui_canvas_event() -> HostGlueCanvasEventRetRecord {
 /// them. The divider's size requests use the split's own id as their route and
 /// its keys the region route every shortcut uses.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_split(args: HostGlueNodeSplitArgs) -> HostGlueNodeSplit {
+pub extern "C" fn roc_gui_node_split(args: HostNodeSplitArgs) -> HostNodeSplit {
     let label = args.label.as_str().to_owned();
     let shortcuts = args
         .keys
@@ -1665,7 +1659,7 @@ pub extern "C" fn roc_gui_node_split(args: HostGlueNodeSplitArgs) -> HostGlueNod
         },
         finish_children(args.builder),
     );
-    HostGlueNodeSplit {
+    HostNodeSplit {
         id,
         shortcut: if answers {
             id | bridge::SHORTCUT_EVENT_BIT
@@ -1677,11 +1671,11 @@ pub extern "C" fn roc_gui_node_split(args: HostGlueNodeSplitArgs) -> HostGlueNod
 
 /// Consume the size installed for a divider's dispatch.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_resize_event() -> HostGlueResizeEventRetRecord {
+pub extern "C" fn roc_gui_resize_event() -> HostResizeEventRetRecord {
     let event = RESIZE_EVENT
         .with(|slot| slot.borrow_mut().take())
         .expect("a divider route ran without a requested size");
-    HostGlueResizeEventRetRecord {
+    HostResizeEventRetRecord {
         size: event.size,
         collapsed: event.collapsed,
     }
@@ -1691,7 +1685,7 @@ pub extern "C" fn roc_gui_resize_event() -> HostGlueResizeEventRetRecord {
 /// types it accepts. A drop is delivered through the target's own id as its
 /// route.
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_gui_node_drop_target(args: HostGlueNodeDropTargetArgs) -> u64 {
+pub extern "C" fn roc_gui_node_drop_target(args: HostNodeDropTargetArgs) -> u64 {
     let label = args.label.as_str().to_owned();
     let offered = args
         .types
@@ -1771,8 +1765,8 @@ pub extern "C" fn roc_gui_drop_event() -> roc_platform_abi::AnonStruct5456361a27
 /// Stage one controlled single-line editor and allocate its two event routes.
 #[unsafe(no_mangle)]
 pub extern "C" fn roc_gui_node_text_input(
-    args: HostGlueNodeTextInputArgs,
-) -> HostGlueNodeTextInputRetRecord {
+    args: HostNodeTextInputArgs,
+) -> HostNodeTextInputRetRecord {
     let label = args.label.as_str().to_owned();
     let value = args.value.as_str().to_owned();
     let placeholder = args.placeholder.as_str().to_owned();
@@ -1792,7 +1786,7 @@ pub extern "C" fn roc_gui_node_text_input(
         },
         vec![],
     );
-    HostGlueNodeTextInputRetRecord {
+    HostNodeTextInputRetRecord {
         change: id,
         id,
         submit: id | SUBMIT_EVENT_BIT,
@@ -1869,12 +1863,12 @@ pub extern "C" fn roc_gui_timer_cancel(handle: *mut u64) -> bool {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_http_send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {
+pub extern "C" fn roc_http_send(args: HostHttpSendArgs) -> HostHttpSendResult {
     http::send(args)
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_http_acquire() -> HostGlueHttpAcquireResult {
+pub extern "C" fn roc_http_acquire() -> HostHttpAcquireResult {
     http::acquire()
 }
 

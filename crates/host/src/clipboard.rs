@@ -89,8 +89,8 @@ pub fn counters() -> ([u64; 3], usize) {
     (operations, handles)
 }
 
-fn error(code: u8, message: &'static str) -> HostGlueClipboardAcquireErr {
-    HostGlueClipboardAcquireErr {
+fn error(code: u8, message: &'static str) -> HostClipboardAcquireErr {
+    HostClipboardAcquireErr {
         code,
         message: RocStr::from_str(message, roc_host()),
     }
@@ -147,29 +147,29 @@ pub fn route_dealloc(base: *mut std::ffi::c_void) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_clipboard_acquire() -> HostGlueClipboardAcquireResult {
+pub extern "C" fn roc_clipboard_acquire() -> HostClipboardAcquireResult {
     OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let mut guard = store().lock().unwrap();
     if guard.grant == Grant::Denied {
-        HostGlueClipboardAcquireResult {
-            payload: HostGlueClipboardAcquireResultPayload {
+        HostClipboardAcquireResult {
+            payload: HostClipboardAcquireResultPayload {
                 err: ManuallyDrop::new(error(0, "clipboard access was not granted")),
             },
-            tag: HostGlueClipboardAcquireResultTag::Err,
+            tag: HostClipboardAcquireResultTag::Err,
         }
     } else {
         let handle = allocate_handle(&mut guard);
-        HostGlueClipboardAcquireResult {
-            payload: HostGlueClipboardAcquireResultPayload {
+        HostClipboardAcquireResult {
+            payload: HostClipboardAcquireResultPayload {
                 ok: ManuallyDrop::new(handle),
             },
-            tag: HostGlueClipboardAcquireResultTag::Ok,
+            tag: HostClipboardAcquireResultTag::Ok,
         }
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_clipboard_read_text(handle: *mut u64) -> HostGlueClipboardReadTextResult {
+pub extern "C" fn roc_clipboard_read_text(handle: *mut u64) -> HostClipboardReadTextResult {
     OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let result = {
         let guard = store().lock().unwrap();
@@ -181,20 +181,20 @@ pub extern "C" fn roc_clipboard_read_text(handle: *mut u64) -> HostGlueClipboard
     };
     unsafe { decref_box(handle as RocBox, roc_host()) };
     match result {
-        Ok((sequence, text)) => HostGlueClipboardReadTextResult {
-            payload: HostGlueClipboardReadTextResultPayload {
-                ok: ManuallyDrop::new(HostGlueClipboardReadTextOk {
+        Ok((sequence, text)) => HostClipboardReadTextResult {
+            payload: HostClipboardReadTextResultPayload {
+                ok: ManuallyDrop::new(HostClipboardReadTextOk {
                     sequence,
                     text: RocStr::from_str(&text, roc_host()),
                 }),
             },
-            tag: HostGlueClipboardReadTextResultTag::Ok,
+            tag: HostClipboardReadTextResultTag::Ok,
         },
-        Err((code, message)) => HostGlueClipboardReadTextResult {
-            payload: HostGlueClipboardReadTextResultPayload {
+        Err((code, message)) => HostClipboardReadTextResult {
+            payload: HostClipboardReadTextResultPayload {
                 err: ManuallyDrop::new(error(code, message)),
             },
-            tag: HostGlueClipboardReadTextResultTag::Err,
+            tag: HostClipboardReadTextResultTag::Err,
         },
     }
 }
@@ -203,7 +203,7 @@ pub extern "C" fn roc_clipboard_read_text(handle: *mut u64) -> HostGlueClipboard
 pub extern "C" fn roc_clipboard_write_text(
     handle: *mut u64,
     text: RocStr,
-) -> HostGlueClipboardWriteTextResult {
+) -> HostClipboardWriteTextResult {
     OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
     let owned = text.as_str().to_owned();
     unsafe { text.decref(roc_host()) };
@@ -227,15 +227,15 @@ pub extern "C" fn roc_clipboard_write_text(
     };
     unsafe { decref_box(handle as RocBox, roc_host()) };
     match result {
-        Ok(()) => HostGlueClipboardWriteTextResult {
-            payload: HostGlueClipboardWriteTextResultPayload { ok: [] },
-            tag: HostGlueClipboardWriteTextResultTag::Ok,
+        Ok(()) => HostClipboardWriteTextResult {
+            payload: HostClipboardWriteTextResultPayload { ok: [] },
+            tag: HostClipboardWriteTextResultTag::Ok,
         },
-        Err((code, message)) => HostGlueClipboardWriteTextResult {
-            payload: HostGlueClipboardWriteTextResultPayload {
+        Err((code, message)) => HostClipboardWriteTextResult {
+            payload: HostClipboardWriteTextResultPayload {
                 err: ManuallyDrop::new(error(code, message)),
             },
-            tag: HostGlueClipboardWriteTextResultTag::Err,
+            tag: HostClipboardWriteTextResultTag::Err,
         },
     }
 }

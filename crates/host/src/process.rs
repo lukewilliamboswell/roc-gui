@@ -176,14 +176,14 @@ fn lookup(handle: *mut u64) -> Result<Arc<Pty>, Reason> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_process_acquire() -> HostGlueProcessAcquireResult {
+pub extern "C" fn roc_process_acquire() -> HostProcessAcquireResult {
     let mut guard = store().lock().expect("process store poisoned");
     let Some(profile) = guard.configured else {
-        return HostGlueProcessAcquireResult {
-            payload: HostGlueProcessAcquireResultPayload {
+        return HostProcessAcquireResult {
+            payload: HostProcessAcquireResultPayload {
                 err: ManuallyDrop::new(error(ErrorTag::AcquireProcessErr, Reason::AccessDenied)),
             },
-            tag: HostGlueProcessAcquireResultTag::Err,
+            tag: HostProcessAcquireResultTag::Err,
         };
     };
     let id = next_id(&mut guard);
@@ -203,11 +203,11 @@ pub extern "C" fn roc_process_acquire() -> HostGlueProcessAcquireResult {
         GRANT_ORIGIN,
         Lifetime::Session,
     );
-    HostGlueProcessAcquireResult {
-        payload: HostGlueProcessAcquireResultPayload {
+    HostProcessAcquireResult {
+        payload: HostProcessAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
         },
-        tag: HostGlueProcessAcquireResultTag::Ok,
+        tag: HostProcessAcquireResultTag::Ok,
     }
 }
 
@@ -215,7 +215,7 @@ pub extern "C" fn roc_process_acquire() -> HostGlueProcessAcquireResult {
 pub extern "C" fn roc_process_spawn(
     grant: *mut u64,
     config: AnonStruct93136bf334c2a2fc,
-) -> HostGlueProcessSpawnResult {
+) -> HostProcessSpawnResult {
     let accepted = grant_profile(grant);
     unsafe { decref_box(grant as RocBox, roc_host()) };
     let failure = if let Err(reason) = accepted {
@@ -242,11 +242,11 @@ pub extern "C" fn roc_process_spawn(
         .map_err(|_| Reason::Io)
     });
     match result {
-        Err(reason) => HostGlueProcessSpawnResult {
-            payload: HostGlueProcessSpawnResultPayload {
+        Err(reason) => HostProcessSpawnResult {
+            payload: HostProcessSpawnResultPayload {
                 err: ManuallyDrop::new(error(ErrorTag::SpawnProcessErr, reason)),
             },
-            tag: HostGlueProcessSpawnResultTag::Err,
+            tag: HostProcessSpawnResultTag::Err,
         },
         Ok(pty) => {
             let mut guard = store().lock().expect("process store poisoned");
@@ -264,17 +264,17 @@ pub extern "C" fn roc_process_spawn(
                 grant::record_descendant(grant::Kind::Process, id, PTY_RIGHTS, parent);
             }
             SPAWNED.fetch_add(1, Ordering::Relaxed);
-            HostGlueProcessSpawnResult {
-                payload: HostGlueProcessSpawnResultPayload {
+            HostProcessSpawnResult {
+                payload: HostProcessSpawnResultPayload {
                     ok: ManuallyDrop::new(handle),
                 },
-                tag: HostGlueProcessSpawnResultTag::Ok,
+                tag: HostProcessSpawnResultTag::Ok,
             }
         }
     }
 }
 
-fn data(collected: &[u8]) -> HostGlueProcessReadResult {
+fn data(collected: &[u8]) -> HostProcessReadResult {
     READ_BYTES.fetch_add(collected.len() as u64, Ordering::Relaxed);
     read_ok(CanceledOrDataOrEndOfFile {
         payload: CanceledOrDataOrEndOfFilePayload {
@@ -287,7 +287,7 @@ fn data(collected: &[u8]) -> HostGlueProcessReadResult {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostGlueProcessReadResult {
+pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostProcessReadResult {
     let pty = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let pty = match pty {
@@ -355,20 +355,20 @@ pub extern "C" fn roc_process_read(handle: *mut u64, max_bytes: u32) -> HostGlue
     }
 }
 
-fn read_err(reason: Reason) -> HostGlueProcessReadResult {
-    HostGlueProcessReadResult {
-        payload: HostGlueProcessReadResultPayload {
+fn read_err(reason: Reason) -> HostProcessReadResult {
+    HostProcessReadResult {
+        payload: HostProcessReadResultPayload {
             err: ManuallyDrop::new(error(ErrorTag::ReadProcessErr, reason)),
         },
-        tag: HostGlueProcessReadResultTag::Err,
+        tag: HostProcessReadResultTag::Err,
     }
 }
-fn read_ok(value: CanceledOrDataOrEndOfFile) -> HostGlueProcessReadResult {
-    HostGlueProcessReadResult {
-        payload: HostGlueProcessReadResultPayload {
+fn read_ok(value: CanceledOrDataOrEndOfFile) -> HostProcessReadResult {
+    HostProcessReadResult {
+        payload: HostProcessReadResultPayload {
             ok: ManuallyDrop::new(value),
         },
-        tag: HostGlueProcessReadResultTag::Ok,
+        tag: HostProcessReadResultTag::Ok,
     }
 }
 
@@ -376,7 +376,7 @@ fn read_ok(value: CanceledOrDataOrEndOfFile) -> HostGlueProcessReadResult {
 pub extern "C" fn roc_process_write(
     handle: *mut u64,
     bytes: RocListWith<u8, false>,
-) -> HostGlueProcessWriteResult {
+) -> HostProcessWriteResult {
     let owned = bytes.as_slice().to_vec();
     unsafe { bytes.decref(roc_host()) };
     let pty = lookup(handle);
@@ -396,18 +396,18 @@ pub extern "C" fn roc_process_write(
     match result {
         Ok(count) => {
             WRITTEN_BYTES.fetch_add(count as u64, Ordering::Relaxed);
-            HostGlueProcessWriteResult {
-                payload: HostGlueProcessWriteResultPayload {
+            HostProcessWriteResult {
+                payload: HostProcessWriteResultPayload {
                     ok: ManuallyDrop::new(count),
                 },
-                tag: HostGlueProcessWriteResultTag::Ok,
+                tag: HostProcessWriteResultTag::Ok,
             }
         }
-        Err(reason) => HostGlueProcessWriteResult {
-            payload: HostGlueProcessWriteResultPayload {
+        Err(reason) => HostProcessWriteResult {
+            payload: HostProcessWriteResultPayload {
                 err: ManuallyDrop::new(error(ErrorTag::WriteProcessErr, reason)),
             },
-            tag: HostGlueProcessWriteResultTag::Err,
+            tag: HostProcessWriteResultTag::Err,
         },
     }
 }
@@ -416,7 +416,7 @@ pub extern "C" fn roc_process_write(
 pub extern "C" fn roc_process_resize(
     handle: *mut u64,
     size: AnonStruct93136bf334c2a2fc,
-) -> HostGlueProcessResizeResult {
+) -> HostProcessResizeResult {
     let pty = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let result = match pty {
@@ -429,31 +429,31 @@ pub extern "C" fn roc_process_resize(
             .map_err(|_| Reason::Io),
     };
     match result {
-        Ok(()) => HostGlueProcessResizeResult {
-            payload: HostGlueProcessResizeResultPayload { ok: [] },
-            tag: HostGlueProcessResizeResultTag::Ok,
+        Ok(()) => HostProcessResizeResult {
+            payload: HostProcessResizeResultPayload { ok: [] },
+            tag: HostProcessResizeResultTag::Ok,
         },
-        Err(reason) => HostGlueProcessResizeResult {
-            payload: HostGlueProcessResizeResultPayload {
+        Err(reason) => HostProcessResizeResult {
+            payload: HostProcessResizeResultPayload {
                 err: ManuallyDrop::new(error(ErrorTag::ResizeProcessErr, reason)),
             },
-            tag: HostGlueProcessResizeResultTag::Err,
+            tag: HostProcessResizeResultTag::Err,
         },
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_process_cancel(handle: *mut u64) -> HostGlueProcessCancelResult {
+pub extern "C" fn roc_process_cancel(handle: *mut u64) -> HostProcessCancelResult {
     let pty = lookup(handle);
     unsafe { decref_box(handle as RocBox, roc_host()) };
     let pty = match pty {
         Ok(pty) => pty,
         Err(reason) => {
-            return HostGlueProcessCancelResult {
-                payload: HostGlueProcessCancelResultPayload {
+            return HostProcessCancelResult {
+                payload: HostProcessCancelResultPayload {
                     err: ManuallyDrop::new(error(ErrorTag::CancelProcessErr, reason)),
                 },
-                tag: HostGlueProcessCancelResultTag::Err,
+                tag: HostProcessCancelResultTag::Err,
             };
         }
     };
@@ -462,15 +462,15 @@ pub extern "C" fn roc_process_cancel(handle: *mut u64) -> HostGlueProcessCancelR
         pty.terminal.kill();
         CANCELED.fetch_add(1, Ordering::Relaxed);
     }
-    HostGlueProcessCancelResult {
-        payload: HostGlueProcessCancelResultPayload {
+    HostProcessCancelResult {
+        payload: HostProcessCancelResultPayload {
             ok: ManuallyDrop::new(if changed {
                 AlreadyStoppedOrCanceled::Canceled
             } else {
                 AlreadyStoppedOrCanceled::AlreadyStopped
             }),
         },
-        tag: HostGlueProcessCancelResultTag::Ok,
+        tag: HostProcessCancelResultTag::Ok,
     }
 }
 

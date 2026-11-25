@@ -173,17 +173,17 @@ fn io_failure(error: &std::io::Error) -> Failure {
     }
 }
 
-fn connect_err(error: Failure) -> HostGlueTcpConnectResult {
-    HostGlueTcpConnectResult {
-        payload: HostGlueTcpConnectResultPayload {
+fn connect_err(error: Failure) -> HostTcpConnectResult {
+    HostTcpConnectResult {
+        payload: HostTcpConnectResultPayload {
             err: ManuallyDrop::new(error as u8),
         },
-        tag: HostGlueTcpConnectResultTag::Err,
+        tag: HostTcpConnectResultTag::Err,
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_tcp_connect() -> HostGlueTcpConnectResult {
+pub extern "C" fn roc_tcp_connect() -> HostTcpConnectResult {
     OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let endpoint = store()
         .lock()
@@ -199,31 +199,28 @@ pub extern "C" fn roc_tcp_connect() -> HostGlueTcpConnectResult {
             {
                 return connect_err(Failure::ConnectionFailed);
             }
-            HostGlueTcpConnectResult {
-                payload: HostGlueTcpConnectResultPayload {
+            HostTcpConnectResult {
+                payload: HostTcpConnectResultPayload {
                     ok: ManuallyDrop::new(capability(stream)),
                 },
-                tag: HostGlueTcpConnectResultTag::Ok,
+                tag: HostTcpConnectResultTag::Ok,
             }
         }
         Err(error) => connect_err(io_failure(&error)),
     }
 }
 
-fn read_err(error: Failure) -> HostGlueTcpReadUpToResult {
-    HostGlueTcpReadUpToResult {
-        payload: HostGlueTcpReadUpToResultPayload {
+fn read_err(error: Failure) -> HostTcpReadUpToResult {
+    HostTcpReadUpToResult {
+        payload: HostTcpReadUpToResultPayload {
             err: ManuallyDrop::new(error as u8),
         },
-        tag: HostGlueTcpReadUpToResultTag::Err,
+        tag: HostTcpReadUpToResultTag::Err,
     }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_tcp_read_up_to(
-    handle: *mut u64,
-    max_bytes: u64,
-) -> HostGlueTcpReadUpToResult {
+pub extern "C" fn roc_tcp_read_up_to(handle: *mut u64, max_bytes: u64) -> HostTcpReadUpToResult {
     OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let shared = lookup(handle);
     unsafe {
@@ -244,32 +241,32 @@ pub extern "C" fn roc_tcp_read_up_to(
     match stream.read(&mut bytes) {
         Ok(length) => {
             bytes.truncate(length);
-            HostGlueTcpReadUpToResult {
-                payload: HostGlueTcpReadUpToResultPayload {
+            HostTcpReadUpToResult {
+                payload: HostTcpReadUpToResultPayload {
                     ok: ManuallyDrop::new(unsafe {
                         RocListWith::<u8, false>::from_slice(&bytes, roc_host())
                     }),
                 },
-                tag: HostGlueTcpReadUpToResultTag::Ok,
+                tag: HostTcpReadUpToResultTag::Ok,
             }
         }
         Err(error) => read_err(io_failure(&error)),
     }
 }
 
-fn unit_err(error: Failure) -> HostGlueTcpWriteAllResult {
-    HostGlueTcpWriteAllResult {
-        payload: HostGlueTcpWriteAllResultPayload {
+fn unit_err(error: Failure) -> HostTcpWriteAllResult {
+    HostTcpWriteAllResult {
+        payload: HostTcpWriteAllResultPayload {
             err: ManuallyDrop::new(error as u8),
         },
-        tag: HostGlueTcpWriteAllResultTag::Err,
+        tag: HostTcpWriteAllResultTag::Err,
     }
 }
 
-fn unit_ok() -> HostGlueTcpWriteAllResult {
-    HostGlueTcpWriteAllResult {
-        payload: HostGlueTcpWriteAllResultPayload { ok: [] },
-        tag: HostGlueTcpWriteAllResultTag::Ok,
+fn unit_ok() -> HostTcpWriteAllResult {
+    HostTcpWriteAllResult {
+        payload: HostTcpWriteAllResultPayload { ok: [] },
+        tag: HostTcpWriteAllResultTag::Ok,
     }
 }
 
@@ -277,7 +274,7 @@ fn unit_ok() -> HostGlueTcpWriteAllResult {
 pub extern "C" fn roc_tcp_write_all(
     handle: *mut u64,
     bytes: RocListWith<u8, false>,
-) -> HostGlueTcpWriteAllResult {
+) -> HostTcpWriteAllResult {
     OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
     let owned = bytes.as_slice().to_vec();
     unsafe {
@@ -305,7 +302,7 @@ pub extern "C" fn roc_tcp_write_all(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn roc_tcp_close(handle: *mut u64) -> HostGlueTcpWriteAllResult {
+pub extern "C" fn roc_tcp_close(handle: *mut u64) -> HostTcpWriteAllResult {
     OPERATIONS[3].fetch_add(1, Ordering::Relaxed);
     let shared = lookup(handle);
     unsafe {

@@ -83,27 +83,27 @@ pub fn counters() -> ([u64; 3], usize) {
         .len();
     (operations, live)
 }
-fn err(error: Error) -> HostGlueHttpSendResult {
+fn err(error: Error) -> HostHttpSendResult {
     if matches!(error, Error::AccessDenied) {
         OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
     }
-    HostGlueHttpSendResult {
-        payload: HostGlueHttpSendResultPayload {
+    HostHttpSendResult {
+        payload: HostHttpSendResultPayload {
             err: ManuallyDrop::new(error),
         },
-        tag: HostGlueHttpSendResultTag::Err,
+        tag: HostHttpSendResultTag::Err,
     }
 }
-pub fn acquire() -> HostGlueHttpAcquireResult {
+pub fn acquire() -> HostHttpAcquireResult {
     OPERATIONS[0].fetch_add(1, Ordering::Relaxed);
     let mut g = store().lock().unwrap();
     let Some(origin) = g.granted.clone() else {
         OPERATIONS[2].fetch_add(1, Ordering::Relaxed);
-        return HostGlueHttpAcquireResult {
-            payload: HostGlueHttpAcquireResultPayload {
+        return HostHttpAcquireResult {
+            payload: HostHttpAcquireResultPayload {
                 err: ManuallyDrop::new(Error::AccessDenied),
             },
-            tag: HostGlueHttpAcquireResultTag::Err,
+            tag: HostHttpAcquireResultTag::Err,
         };
     };
     let id = g.next;
@@ -121,11 +121,11 @@ pub fn acquire() -> HostGlueHttpAcquireResult {
         CLIENT_ORIGIN,
         Lifetime::Session,
     );
-    HostGlueHttpAcquireResult {
-        payload: HostGlueHttpAcquireResultPayload {
+    HostHttpAcquireResult {
+        payload: HostHttpAcquireResultPayload {
             ok: ManuallyDrop::new(handle),
         },
-        tag: HostGlueHttpAcquireResultTag::Ok,
+        tag: HostHttpAcquireResultTag::Ok,
     }
 }
 fn unsafe_indirect_destination(ip: IpAddr) -> bool {
@@ -206,7 +206,7 @@ pub fn route_dealloc(base: *mut std::ffi::c_void) {
         grant::release(grant::Kind::Http, id);
     }
 }
-pub fn send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {
+pub fn send(args: HostHttpSendArgs) -> HostHttpSendResult {
     OPERATIONS[1].fetch_add(1, Ordering::Relaxed);
     let origin = lookup(args.client);
     let url = args.url.as_str().to_owned();
@@ -344,15 +344,15 @@ pub fn send(args: HostGlueHttpSendArgs) -> HostGlueHttpSendResult {
     if bytes.len() as u64 > limit {
         return err(Error::BodyTooLarge);
     }
-    HostGlueHttpSendResult {
-        payload: HostGlueHttpSendResultPayload {
+    HostHttpSendResult {
+        payload: HostHttpSendResultPayload {
             ok: ManuallyDrop::new(AnonStructBe6bcbc15f8a1360 {
                 body: unsafe { RocListWith::<u8, false>::from_slice(&bytes, roc_host()) },
                 headers: unsafe { RocList::from_slice(&hs, roc_host()) },
                 status,
             }),
         },
-        tag: HostGlueHttpSendResultTag::Ok,
+        tag: HostHttpSendResultTag::Ok,
     }
 }
 
